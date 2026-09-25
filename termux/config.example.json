@@ -1,0 +1,10 @@
+{
+  "solv": {
+    "web_app_url": "PEGA_AQUI_LA_URL_EXEC_DE_SOLV",
+    "shared_secret": "PEGA_AQUI_EL_SHARED_SECRET_DE_SOLV"
+  },
+  "xrp": {
+    "web_app_url": "PEGA_AQUI_LA_URL_EXEC_DE_XRP",
+    "shared_secret": "PEGA_AQUI_EL_SHARED_SECRET_DE_XRP"
+  }
+}
