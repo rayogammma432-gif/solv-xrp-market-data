@@ -1,51 +1,46 @@
-# Recolector Termux — SOLV/XRP/BTC
+# Recolector Termux incremental — SOLV/XRP/BTC
 
-Replica la lógica actual del bridge de Windows y escribe en los mismos Apps Script.
+Versión 2: actualización cada minuto con escritura incremental.
+
+## Comportamiento
+- Al arrancar: bootstrap de 500 velas cerradas para 1m/15m/1h/4h.
+- Cada minuto: solo nueva vela 1m + MARKET + OI actual + LIVE_STATE.
+- En cierres 15m: añade nueva 15m y actualiza OI_HISTORY.
+- En cierres 1H: añade nueva 1H.
+- En cierres 4H: añade nueva 4H.
+- OI_1M es muestreo local del endpoint de OI actual; no es histórico oficial de Binance a 1m.
 
 ## Seguridad
-`config.json` contiene los dos Web App URLs y Shared Secrets. Está ignorado por Git y NO debe subirse al repositorio.
+`config.json` contiene URLs /exec y Shared Secrets. Nunca se sube a GitHub.
 
-## Instalación resumida
+## Actualizar una instalación existente
 ```sh
-pkg update -y
-pkg install python git nano -y
-cd ~
-git clone https://github.com/rayogammma432-gif/solv-xrp-market-data.git
-cd ~/solv-xrp-market-data/termux
+cd ~/solv-xrp-market-data
+git pull
+cd termux
 python -m pip install -r requirements-termux.txt
-cp config.example.json config.json
-nano config.json
-chmod +x start_collector.sh stop_collector.sh status_collector.sh
 ```
 
-En `config.json`, copiar los valores actuales desde `config.ps1` (SOLV) y `config_xrp.ps1` (XRP). No compartirlos en chats ni subirlos a GitHub.
+Antes de arrancar la versión 2, despliega primero los nuevos receptores Apps Script incluidos en `apps-script/`.
 
-## Pruebas
-Sin escribir en Sheets:
+## Prueba manual
 ```sh
 python market_collector.py --dry-run
 ```
 
-Prueba real única:
-```sh
-python market_collector.py
-```
+La ejecución real de `python market_collector.py` hace un bootstrap completo.
 
-## Ejecución 24/7
+## Servicio 24/7
 ```sh
+./stop_collector.sh
 ./start_collector.sh
 ./status_collector.sh
-./stop_collector.sh
 ```
 
-El scheduler hace una ejecución inmediata al arrancar y luego opera aproximadamente en :01, :16, :31 y :46, un minuto después de cada cierre de vela 15m.
+El scheduler corre alrededor del segundo 10 de cada minuto UTC.
 
-## Inicio automático con Termux:Boot
-Instalar Termux:Boot desde la misma fuente que Termux, abrir la app una vez y luego:
-```sh
-mkdir -p ~/.termux/boot
-cp boot-start-market-data.sh ~/.termux/boot/start-market-data.sh
-chmod +x ~/.termux/boot/start-market-data.sh
+## Inicio automático
+Termux:Boot continúa usando:
 ```
-
-Desactivar optimización de batería para Termux y Termux:Boot.
+~/.termux/boot/start-market-data.sh
+```
