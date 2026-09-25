@@ -1,5 +1,6 @@
 config.json
 collector.pid
 logs/
+oi_samples.json
 __pycache__/
 *.pyc
