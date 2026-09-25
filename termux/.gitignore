@@ -1,0 +1,5 @@
+config.json
+collector.pid
+logs/
+__pycache__/
+*.pyc
