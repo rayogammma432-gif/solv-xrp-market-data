@@ -2,28 +2,32 @@
 import time
 from datetime import datetime, timezone
 
-from market_collector import run_once, DEFAULT_CONFIG, logger
+from market_collector import Collector, DEFAULT_CONFIG, logger
 
-OFFSET_SECONDS = 60
-INTERVAL_SECONDS = 15 * 60
+OFFSET_SECONDS = 10
+INTERVAL_SECONDS = 60
 
 def next_slot_epoch(now=None):
     now = time.time() if now is None else now
     return ((int(now) - OFFSET_SECONDS) // INTERVAL_SECONDS + 1) * INTERVAL_SECONDS + OFFSET_SECONDS
 
 def main():
-    logger.info("Scheduler iniciado. Primera actualización inmediata.")
+    collector = Collector(DEFAULT_CONFIG)
+
     while True:
         try:
-            code = run_once(DEFAULT_CONFIG, dry_run=False)
-            logger.info("Ciclo terminado con código %s", code)
+            if not collector.bootstrapped:
+                logger.info("Scheduler 1m iniciado: ejecutando bootstrap completo.")
+                collector.bootstrap(dry_run=False)
+            else:
+                collector.incremental_cycle(dry_run=False)
         except Exception as exc:
-            logger.exception("Error no controlado del scheduler: %s", exc)
+            logger.exception("Error del ciclo: %s", exc)
 
         target = next_slot_epoch()
-        wait = max(5, target - time.time())
+        wait = max(2, target - time.time())
         dt = datetime.fromtimestamp(target, tz=timezone.utc).isoformat(timespec="seconds")
-        logger.info("Próxima ejecución programada para %s (en %.0f s)", dt, wait)
+        logger.info("Próximo ciclo: %s (en %.0f s)", dt, wait)
         time.sleep(wait)
 
 if __name__ == "__main__":
