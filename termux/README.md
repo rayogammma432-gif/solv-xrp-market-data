@@ -44,3 +44,34 @@ Termux:Boot continúa usando:
 ```
 ~/.termux/boot/start-market-data.sh
 ```
+
+
+## Alertas Telegram 24/7
+El Motorola puede detectar candidatos preliminares sin consumir ejecuciones de ChatGPT:
+
+- Cierre 1H: si aparece candidato PRIMARY, envía `VIGILAR`.
+- Cierre 15m: si el PRIMARY vigilado obtiene trigger, envía alerta para abrir el agente.
+- Cierre 15m: también arma un candidato SCALP cuando el contexto preliminar lo permite.
+- Cierre 1m: si el scalp vigilado obtiene trigger microestructural, envía alerta.
+- El detector es determinista y preliminar; ChatGPT sigue haciendo la validación final de estructura, stop y R:R.
+
+### Configurar Telegram
+No pegues el token del bot en GitHub.
+
+Después de `git pull`, dentro de `termux/` ejecuta:
+
+```sh
+python configure_telegram.py
+```
+
+El script pide el token de forma oculta, identifica tu chat después de que envíes `/start`, guarda `bot_token` y `chat_id` únicamente en `config.json` local y manda un mensaje de prueba.
+
+Después reinicia:
+
+```sh
+bash stop_collector.sh
+bash start_collector.sh
+bash status_collector.sh
+```
+
+Estado local de deduplicación: `alert_state.json` (ignorado por Git).
