@@ -72,6 +72,7 @@ def main():
 
     cfg["telegram"] = {
         "enabled": True,
+        "assets": ["solv"],
         "bot_token": token,
         "chat_id": str(chat_id),
     }
