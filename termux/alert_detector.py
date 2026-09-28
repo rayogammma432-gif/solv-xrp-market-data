@@ -82,6 +82,8 @@ class AlertDetector:
 
     def __init__(self, config, session):
         self.notifier = TelegramNotifier(config, session)
+        tcfg = config.get("telegram") or {}
+        self.assets = {str(x).lower() for x in tcfg.get("assets", ["solv"])}
         self.state = _load_state()
 
     @property
@@ -259,7 +261,7 @@ class AlertDetector:
         return False
 
     def evaluate(self, key, asset_rows, live_rows, new_flags):
-        if not self.enabled:
+        if not self.enabled or key.lower() not in self.assets:
             return
 
         live = self._live_map(live_rows)
