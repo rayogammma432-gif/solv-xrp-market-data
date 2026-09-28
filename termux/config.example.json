@@ -6,5 +6,10 @@
   "xrp": {
     "web_app_url": "PEGA_AQUI_LA_URL_EXEC_DE_XRP",
     "shared_secret": "PEGA_AQUI_EL_SHARED_SECRET_DE_XRP"
+  },
+  "telegram": {
+    "enabled": false,
+    "bot_token": "SE_CONFIGURA_LOCALMENTE_CON_configure_telegram.py",
+    "chat_id": "SE_CONFIGURA_LOCALMENTE_CON_configure_telegram.py"
   }
 }
