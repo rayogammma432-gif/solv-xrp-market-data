@@ -47,7 +47,7 @@ Termux:Boot continúa usando:
 
 
 ## Alertas Telegram 24/7
-El Motorola puede detectar candidatos preliminares sin consumir ejecuciones de ChatGPT:
+El Motorola puede detectar candidatos preliminares sin consumir ejecuciones de ChatGPT. La configuración inicial activa solo SOLV; XRP se añade después de optimizar su agente:
 
 - Cierre 1H: si aparece candidato PRIMARY, envía `VIGILAR`.
 - Cierre 15m: si el PRIMARY vigilado obtiene trigger, envía alerta para abrir el agente.
