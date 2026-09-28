@@ -11,6 +11,8 @@ from statistics import mean
 
 import requests
 
+from alert_detector import AlertDetector
+
 BASE_URL = "https://fapi.binance.com"
 HERE = Path(__file__).resolve().parent
 DEFAULT_CONFIG = HERE / "config.json"
@@ -312,6 +314,7 @@ class Collector:
             "XRPUSDT": {tf: [] for tf in TFS},
         }
         self.oi_samples = load_oi_samples()
+        self.alerts = AlertDetector(self.cfg, self.session)
         self.bootstrapped = False
 
     def _asset_spec(self, key):
@@ -482,13 +485,14 @@ class Collector:
                     if rows:
                         sheets[name] = rows
 
+                live_state = self._build_live_state(key, market, changed, generated)
                 payload = {
                     "secret": self.cfg[key]["shared_secret"],
                     "mode": "incremental",
                     "generatedAtUtc": generated,
                     "market": market,
                     "oi1m": [oi_row],
-                    "liveState": self._build_live_state(key, market, changed, generated),
+                    "liveState": live_state,
                     "sheets": sheets,
                 }
                 if "15m" in due:
@@ -505,6 +509,15 @@ class Collector:
                         "%s DELTA OK: sheets=%s response=%s",
                         symbol, {k: len(v) for k, v in sheets.items()}, response
                     )
+                    try:
+                        asset_flags = {
+                            tf: bool(new_by_symbol[symbol][tf]) for tf in TFS
+                        }
+                        self.alerts.evaluate(
+                            key, self.caches[symbol], live_state, asset_flags
+                        )
+                    except Exception as alert_exc:
+                        logger.exception("%s ALERTAS FALLARON: %s", symbol, alert_exc)
             except Exception as exc:
                 failures.append((symbol, str(exc)))
                 logger.exception("%s DELTA FALLÓ: %s", symbol, exc)
