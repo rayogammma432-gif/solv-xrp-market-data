@@ -16,7 +16,7 @@ J Risk % numérico (0.0025=0.25%)
 K Confluences X/8
 L State=OPEN
 V Time Stop Status=OK
-Dejar M:U y W vacíos. El Motorola es dueño de M:W mientras State=OPEN.
+Dejar M:U y W:AL vacíos. El Motorola es dueño de M:U y W:AL mientras State=OPEN.
 
 TIME STOP:
 SCALP: a 2 velas 15m, si MFE<0.3R => REVIEW. A 4 velas, si MFE<0.5R => salida temporal. Máximo 6 velas sin TP1.
@@ -25,3 +25,7 @@ PRIMARY: a 3 velas 1H, si MFE<0.3R => REVIEW. A 6 velas, si MFE<0.5R => salida t
 Si SIGNALS muestra REVIEW, reevaluar continuidad y protección en el siguiente ANALIZA.
 TIME_STOP no sustituye SL estructural y nunca autoriza ejecutar/cerrar órdenes automáticamente.
 El tracker usa 1m cerrado para TP/SL/MFE/MAE. Si TP y SL/BE ocurren en la misma vela 1m sin orden demostrable => AMBIGUOUS.
+
+
+TELEMETRÍA PASIVA:
+Para SCALP, X:AL son snapshots 1m a 5/10/15 min (MFE, MAE, RSI14, lado EMA20 y microestructura). El agente no escribe ni usa esos campos como gate o salida hasta que el performance demuestre ventaja.
