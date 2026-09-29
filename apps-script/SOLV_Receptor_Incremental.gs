@@ -1,4 +1,5 @@
 // Receptor incremental 1m/15m/1H/4H para SOLVUSDT
+// + puente SIGNALS/PERFORMANCE para forward tracking.
 // El secreto NO se guarda en el código.
 // Apps Script > Project Settings > Script properties:
 // SHARED_SECRET = el mismo secreto que ya usa config.json en el Motorola.
@@ -6,6 +7,7 @@
 const SPREADSHEET_ID = '1H6oLPDHQKX3zpKVvWS_FhE3lUNnNtE0uEwLSIFZYPY8';
 const ASSET_SYMBOL = 'SOLVUSDT';
 const ASSET_PREFIX = 'SOLV';
+const SIGNAL_COLS = 23; // A:W
 
 const MAX_ROWS = {
   '1M': 500,
@@ -115,6 +117,105 @@ function replaceLiveState_(ss, rows) {
   }
 }
 
+function getOpenSignals_(ss) {
+  const sh = sheet_(ss, 'SIGNALS');
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return [];
+
+  const rows = sh.getRange(2, 1, lastRow - 1, SIGNAL_COLS).getValues();
+  const out = [];
+
+  rows.forEach(function(r, i) {
+    if (String(r[11] || '').toUpperCase() !== 'OPEN') return;
+    if (!String(r[0] || '')) return;
+
+    out.push({
+      row: i + 2,
+      id: String(r[0] || ''),
+      signalUtc: String(r[1] || ''),
+      motor: String(r[2] || ''),
+      direction: String(r[3] || ''),
+      setup: String(r[4] || ''),
+      entry: r[5] === '' ? null : Number(r[5]),
+      stop: r[6] === '' ? null : Number(r[6]),
+      tp1: r[7] === '' ? null : Number(r[7]),
+      tp2: r[8] === '' ? null : Number(r[8]),
+      riskPct: r[9] === '' ? null : Number(r[9]),
+      confluences: String(r[10] || ''),
+      state: String(r[11] || ''),
+      result: String(r[12] || ''),
+      resultR: r[13] === '' ? null : Number(r[13]),
+      mfeR: r[14] === '' ? null : Number(r[14]),
+      maeR: r[15] === '' ? null : Number(r[15]),
+      barsElapsed: r[16] === '' ? 0 : Number(r[16]),
+      tp1HitUtc: String(r[17] || ''),
+      closeUtc: String(r[18] || ''),
+      exitPrice: r[19] === '' ? null : Number(r[19]),
+      exitReason: String(r[20] || ''),
+      timeStopStatus: String(r[21] || ''),
+      notes: String(r[22] || '')
+    });
+  });
+
+  return out;
+}
+
+function applySignalUpdates_(ss, updates) {
+  if (!Array.isArray(updates) || !updates.length) return 0;
+
+  const sh = sheet_(ss, 'SIGNALS');
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return 0;
+
+  const ids = sh.getRange(2, 1, lastRow - 1, 1).getValues();
+  const rowById = {};
+  ids.forEach(function(r, i) {
+    const id = String(r[0] || '');
+    if (id) rowById[id] = i + 2;
+  });
+
+  let changed = 0;
+
+  updates.forEach(function(u) {
+    const id = String((u && u.id) || '');
+    const row = rowById[id];
+    if (!row) return;
+
+    const range = sh.getRange(row, 12, 1, 12); // L:W
+    const cur = range.getValues()[0];
+
+    function put(idx, key, numeric) {
+      if (!Object.prototype.hasOwnProperty.call(u, key)) return;
+      const v = u[key];
+      if (v === null || typeof v === 'undefined') {
+        cur[idx] = '';
+      } else if (numeric) {
+        cur[idx] = Number(v);
+      } else {
+        cur[idx] = String(v);
+      }
+    }
+
+    put(0, 'state', false);
+    put(1, 'result', false);
+    put(2, 'resultR', true);
+    put(3, 'mfeR', true);
+    put(4, 'maeR', true);
+    put(5, 'barsElapsed', true);
+    put(6, 'tp1HitUtc', false);
+    put(7, 'closeUtc', false);
+    put(8, 'exitPrice', true);
+    put(9, 'exitReason', false);
+    put(10, 'timeStopStatus', false);
+    put(11, 'notes', false);
+
+    range.setValues([cur]);
+    changed++;
+  });
+
+  return changed;
+}
+
 function doPost(e) {
   try {
     const secretExpected = PropertiesService.getScriptProperties().getProperty('SHARED_SECRET');
@@ -182,6 +283,10 @@ function doPost(e) {
       counts.LIVE_STATE = payload.liveState.length;
     }
 
+    if (Array.isArray(payload.signalUpdates)) {
+      counts.SIGNAL_UPDATES = applySignalUpdates_(ss, payload.signalUpdates);
+    }
+
     if (!payload.market) throw new Error('Falta market');
     updateMarket_(ss, payload.market, payload.generatedAtUtc, 'OK');
 
@@ -192,7 +297,8 @@ function doPost(e) {
       status: 'OK',
       mode: mode,
       updatedAtUtc: payload.generatedAtUtc || new Date().toISOString(),
-      rows: counts
+      rows: counts,
+      openSignals: getOpenSignals_(ss)
     });
 
   } catch (err) {
