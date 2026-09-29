@@ -7,7 +7,7 @@
 const SPREADSHEET_ID = '1H6oLPDHQKX3zpKVvWS_FhE3lUNnNtE0uEwLSIFZYPY8';
 const ASSET_SYMBOL = 'SOLVUSDT';
 const ASSET_PREFIX = 'SOLV';
-const SIGNAL_COLS = 23; // A:W
+const SIGNAL_COLS = 38; // A:AL
 
 const MAX_ROWS = {
   '1M': 500,
@@ -153,7 +153,22 @@ function getOpenSignals_(ss) {
       exitPrice: r[19] === '' ? null : Number(r[19]),
       exitReason: String(r[20] || ''),
       timeStopStatus: String(r[21] || ''),
-      notes: String(r[22] || '')
+      notes: String(r[22] || ''),
+      mfe5mR: r[23] === '' ? null : Number(r[23]),
+      mae5mR: r[24] === '' ? null : Number(r[24]),
+      rsi5m: r[25] === '' ? null : Number(r[25]),
+      ema20Side5m: String(r[26] || ''),
+      micro5m: String(r[27] || ''),
+      mfe10mR: r[28] === '' ? null : Number(r[28]),
+      mae10mR: r[29] === '' ? null : Number(r[29]),
+      rsi10m: r[30] === '' ? null : Number(r[30]),
+      ema20Side10m: String(r[31] || ''),
+      micro10m: String(r[32] || ''),
+      mfe15mR: r[33] === '' ? null : Number(r[33]),
+      mae15mR: r[34] === '' ? null : Number(r[34]),
+      rsi15m: r[35] === '' ? null : Number(r[35]),
+      ema20Side15m: String(r[36] || ''),
+      micro15m: String(r[37] || '')
     });
   });
 
@@ -181,7 +196,7 @@ function applySignalUpdates_(ss, updates) {
     const row = rowById[id];
     if (!row) return;
 
-    const range = sh.getRange(row, 12, 1, 12); // L:W
+    const range = sh.getRange(row, 12, 1, 27); // L:AL
     const cur = range.getValues()[0];
 
     function put(idx, key, numeric) {
@@ -208,6 +223,25 @@ function applySignalUpdates_(ss, updates) {
     put(9, 'exitReason', false);
     put(10, 'timeStopStatus', false);
     put(11, 'notes', false);
+
+    // Telemetría pasiva 1m para SCALP. No modifica TIME STOP.
+    put(12, 'mfe5mR', true);
+    put(13, 'mae5mR', true);
+    put(14, 'rsi5m', true);
+    put(15, 'ema20Side5m', false);
+    put(16, 'micro5m', false);
+
+    put(17, 'mfe10mR', true);
+    put(18, 'mae10mR', true);
+    put(19, 'rsi10m', true);
+    put(20, 'ema20Side10m', false);
+    put(21, 'micro10m', false);
+
+    put(22, 'mfe15mR', true);
+    put(23, 'mae15mR', true);
+    put(24, 'rsi15m', true);
+    put(25, 'ema20Side15m', false);
+    put(26, 'micro15m', false);
 
     range.setValues([cur]);
     changed++;
