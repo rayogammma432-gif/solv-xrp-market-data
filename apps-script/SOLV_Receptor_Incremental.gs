@@ -5,6 +5,7 @@
 // SHARED_SECRET = el mismo secreto que ya usa config.json en el Motorola.
 
 const SPREADSHEET_ID = '1H6oLPDHQKX3zpKVvWS_FhE3lUNnNtE0uEwLSIFZYPY8';
+const ARCHIVE_SPREADSHEET_ID = '1_GlUrC_n1-q0juk0-28dQ6ZdIdGFTutbrglYhKlpIIk';
 const ASSET_SYMBOL = 'SOLVUSDT';
 const ASSET_PREFIX = 'SOLV';
 const SIGNAL_COLS = 38; // A:AL
@@ -81,6 +82,54 @@ function appendNew_(sh, rows, cols, maxDataRows) {
     sh.insertRowsAfter(sh.getMaxRows(), excess);
   }
   return toAppend.length;
+}
+
+function appendArchiveNew_(sh, rows, cols) {
+  if (!Array.isArray(rows) || !rows.length) return 0;
+
+  rows = rows.slice().sort(function(a, b) {
+    return String(a[0]).localeCompare(String(b[0]));
+  });
+
+  let lastRow = sh.getLastRow();
+  let lastTs = lastRow >= 2 ? String(sh.getRange(lastRow, 1).getValue()) : '';
+  const toAppend = [];
+
+  rows.forEach(function(row) {
+    const ts = String(row[0]);
+    if (!lastTs || ts > lastTs) {
+      toAppend.push(row.slice(0, cols));
+      lastTs = ts;
+    }
+  });
+
+  if (!toAppend.length) return 0;
+
+  const startRow = sh.getLastRow() + 1;
+  ensureRows_(sh, startRow + toAppend.length - 1);
+  sh.getRange(startRow, 1, toAppend.length, cols).setValues(toAppend);
+  return toAppend.length;
+}
+
+function archiveResearch_(incomingSheets, oi1m) {
+  const archive = SpreadsheetApp.openById(ARCHIVE_SPREADSHEET_ID);
+  return {
+    SOLV_1M: appendArchiveNew_(
+      sheet_(archive, 'SOLV_1M_ARCHIVE'),
+      incomingSheets['SOLV_1M'] || [],
+      11
+    ),
+    BTC_1M: appendArchiveNew_(
+      sheet_(archive, 'BTC_1M_ARCHIVE'),
+      incomingSheets['BTC_1M'] || [],
+      11
+    ),
+    OI_1M: appendArchiveNew_(
+      sheet_(archive, 'OI_1M_ARCHIVE'),
+      Array.isArray(oi1m) ? oi1m : [],
+      9
+    )
+  };
 }
 
 function maxForSheet_(name) {
@@ -461,6 +510,19 @@ function doPost(e) {
       counts.ALERT_EVENTS = appendAlertEvents_(ss, payload.alertEvents);
     }
 
+    // Archivo de investigación separado: append-only y best-effort.
+    // Un fallo del archivo NO debe interrumpir la alimentación operativa.
+    let archiveCounts = {};
+    let archiveError = '';
+    try {
+      archiveCounts = archiveResearch_(incomingSheets, payload.oi1m);
+    } catch (archiveErr) {
+      archiveError = String(
+        archiveErr && archiveErr.message ? archiveErr.message : archiveErr
+      );
+      console.error('ARCHIVE falló: ' + archiveError);
+    }
+
     if (!payload.market) throw new Error('Falta market');
     updateMarket_(ss, payload.market, payload.generatedAtUtc, 'OK');
 
@@ -472,6 +534,8 @@ function doPost(e) {
       mode: mode,
       updatedAtUtc: payload.generatedAtUtc || new Date().toISOString(),
       rows: counts,
+      archiveRows: archiveCounts,
+      archiveError: archiveError,
       openSignals: getOpenSignals_(ss),
       pendingAnalyses: getPendingAnalyses_(ss)
     });
