@@ -206,7 +206,7 @@ class AlertDetector:
             return "SHORT", ss, sn
         return None, max(ls, ss), max(ln, sn)
 
-    def _trigger_15m(self, rows, live, direction):
+    def _trigger_15m_legacy(self, rows, live, direction):
         if len(rows) < 5:
             return None
         last = rows[-1]
@@ -242,7 +242,7 @@ class AlertDetector:
                 return "break + continuación 15m"
         return None
 
-    def _trigger_1m(self, rows, live, direction):
+    def _trigger_1m_legacy(self, rows, live, direction):
         if len(rows) < 4:
             return None
         last = rows[-1]
@@ -265,6 +265,144 @@ class AlertDetector:
             if ema20 is not None and prev_close >= ema20 > close:
                 return "lose EMA20 1m"
         return None
+
+    def _trigger_15m_solv(self, rows, live, direction):
+        """
+        SOLV: reclaims/sweeps pueden confirmar de inmediato.
+        Una ruptura directa solo crea PRE-TRIGGER; requiere otra vela cerrada
+        sosteniendo/retesteando el nivel antes de alertar como trigger.
+        """
+        if len(rows) < 5:
+            return None
+        last = rows[-1]
+        prev = rows[-2]
+        close = float(last[4])
+        high = float(last[2])
+        low = float(last[3])
+        prev_close = float(prev[4])
+        prev_high = float(prev[2])
+        prev_low = float(prev[3])
+        ema20 = _num(live.get("15m.ema20"))
+
+        prior3_high = max(float(r[2]) for r in rows[-4:-1])
+        prior3_low = min(float(r[3]) for r in rows[-4:-1])
+
+        if direction == "LONG":
+            # Triggers de aceptación/reclaim conservan alerta inmediata.
+            if ema20 is not None and prev_close <= ema20 < close:
+                return {"status": "TRIGGER", "reason": "reclaim EMA20 15m"}
+            if low < prior3_low and close > prev_close and close > prev_low:
+                return {"status": "TRIGGER", "reason": "sweep/reclaim 15m"}
+
+            # Rupturas directas: PRE-TRIGGER hasta otra vela cerrada.
+            if close > prior3_high:
+                return {
+                    "status": "PRE",
+                    "reason": "break de micro-swing 15m",
+                    "level": prior3_high,
+                }
+            if close > prev_high and close > prev_close:
+                return {
+                    "status": "PRE",
+                    "reason": "break + continuación 15m",
+                    "level": prev_high,
+                }
+        else:
+            if ema20 is not None and prev_close >= ema20 > close:
+                return {"status": "TRIGGER", "reason": "lose EMA20 15m"}
+            if high > prior3_high and close < prev_close and close < prev_high:
+                return {"status": "TRIGGER", "reason": "sweep/lose 15m"}
+
+            if close < prior3_low:
+                return {
+                    "status": "PRE",
+                    "reason": "break de micro-swing 15m",
+                    "level": prior3_low,
+                }
+            if close < prev_low and close < prev_close:
+                return {
+                    "status": "PRE",
+                    "reason": "break + continuación 15m",
+                    "level": prev_low,
+                }
+        return None
+
+    def _trigger_1m_solv(self, rows, live, direction):
+        """
+        SOLV: reclaim/lose EMA20 puede confirmar de inmediato.
+        Ruptura micro-swing 1m = PRE-TRIGGER hasta el siguiente cierre.
+        """
+        if len(rows) < 4:
+            return None
+        last = rows[-1]
+        prev = rows[-2]
+        close = float(last[4])
+        prev_close = float(prev[4])
+        prev_high = float(prev[2])
+        prev_low = float(prev[3])
+        ema20 = _num(live.get("1m.ema20"))
+        rsi = _num(live.get("1m.rsi14"))
+
+        if direction == "LONG":
+            if ema20 is not None and prev_close <= ema20 < close:
+                return {"status": "TRIGGER", "reason": "reclaim EMA20 1m"}
+            if close > prev_high and (rsi is None or rsi >= 50):
+                return {
+                    "status": "PRE",
+                    "reason": "ruptura micro-swing 1m",
+                    "level": prev_high,
+                }
+        else:
+            if ema20 is not None and prev_close >= ema20 > close:
+                return {"status": "TRIGGER", "reason": "lose EMA20 1m"}
+            if close < prev_low and (rsi is None or rsi <= 50):
+                return {
+                    "status": "PRE",
+                    "reason": "ruptura micro-swing 1m",
+                    "level": prev_low,
+                }
+        return None
+
+    def _confirm_pretrigger(self, rows, watch, direction):
+        """
+        Confirma solo en una vela posterior a la ruptura.
+        LONG: cierre posterior >= nivel roto.
+        SHORT: cierre posterior <= nivel roto.
+        Si cierra al otro lado, el PRE-TRIGGER queda invalidado.
+        """
+        if not watch or not rows:
+            return None
+        last = rows[-1]
+        close_ts = str(last[6])
+        if close_ts == str(watch.get("source_close", "")):
+            return None
+
+        level = _num(watch.get("level"))
+        if level is None:
+            return {"status": "INVALID"}
+
+        close = float(last[4])
+        low = float(last[3])
+        high = float(last[2])
+
+        if direction == "LONG":
+            if close >= level:
+                mode = "retest defendido" if low <= level else "hold/aceptación"
+                return {
+                    "status": "TRIGGER",
+                    "reason": f"{watch.get('reason', 'break')} + {mode}",
+                    "level": level,
+                }
+            return {"status": "INVALID"}
+
+        if close <= level:
+            mode = "retest defendido" if high >= level else "hold/aceptación"
+            return {
+                "status": "TRIGGER",
+                "reason": f"{watch.get('reason', 'break')} + {mode}",
+                "level": level,
+            }
+        return {"status": "INVALID"}
 
     def _send_once(self, key, kind, signature, text):
         st = self.state.setdefault(key, {})
@@ -313,7 +451,7 @@ class AlertDetector:
         now = time.time()
 
         # Limpiar watches vencidos.
-        for watch_name in ("primary_watch", "scalp_watch"):
+        for watch_name in ("primary_watch", "scalp_watch", "primary_pretrigger", "scalp_pretrigger"):
             w = st.get(watch_name)
             if w and float(w.get("expires", 0)) < now:
                 st.pop(watch_name, None)
@@ -349,7 +487,39 @@ class AlertDetector:
             pw = st.get("primary_watch")
             if pw:
                 direction = pw.get("direction")
-                trigger = self._trigger_15m(asset_rows["15m"], live, direction)
+                trigger = None
+
+                if key.lower() == "solv":
+                    pre = st.get("primary_pretrigger")
+                    if pre and pre.get("direction") != direction:
+                        st.pop("primary_pretrigger", None)
+                        pre = None
+
+                    if pre:
+                        confirmed = self._confirm_pretrigger(asset_rows["15m"], pre, direction)
+                        if confirmed and confirmed.get("status") == "TRIGGER":
+                            trigger = confirmed.get("reason")
+                            st.pop("primary_pretrigger", None)
+                        elif confirmed and confirmed.get("status") == "INVALID":
+                            st.pop("primary_pretrigger", None)
+
+                    if not trigger:
+                        candidate = self._trigger_15m_solv(asset_rows["15m"], live, direction)
+                        if candidate and candidate.get("status") == "TRIGGER":
+                            trigger = candidate.get("reason")
+                            st.pop("primary_pretrigger", None)
+                        elif candidate and candidate.get("status") == "PRE":
+                            st["primary_pretrigger"] = {
+                                "direction": direction,
+                                "reason": candidate.get("reason"),
+                                "level": candidate.get("level"),
+                                "source_close": close15,
+                                "expires": now + 45 * 60,
+                            }
+                else:
+                    # XRP queda exactamente con el comportamiento anterior.
+                    trigger = self._trigger_15m_legacy(asset_rows["15m"], live, direction)
+
                 if trigger:
                     msg = (
                         f"⚡ {symbol} — TRIGGER 15M CANDIDATO\n"
@@ -365,6 +535,9 @@ class AlertDetector:
 
             direction, score, total = self._choose_direction(self._score_scalp, live, minimum=5)
             if direction:
+                existing_pre = st.get("scalp_pretrigger")
+                if existing_pre and existing_pre.get("direction") != direction:
+                    st.pop("scalp_pretrigger", None)
                 st["scalp_watch"] = {
                     "direction": direction,
                     "expires": now + 45 * 60,
@@ -376,9 +549,41 @@ class AlertDetector:
             sw = st.get("scalp_watch")
             if sw:
                 direction = sw.get("direction")
-                trigger = self._trigger_1m(asset_rows["1m"], live, direction)
+                close1 = str(live.get("data.last_close_1m", ""))
+                trigger = None
+
+                if key.lower() == "solv":
+                    pre = st.get("scalp_pretrigger")
+                    if pre and pre.get("direction") != direction:
+                        st.pop("scalp_pretrigger", None)
+                        pre = None
+
+                    if pre:
+                        confirmed = self._confirm_pretrigger(asset_rows["1m"], pre, direction)
+                        if confirmed and confirmed.get("status") == "TRIGGER":
+                            trigger = confirmed.get("reason")
+                            st.pop("scalp_pretrigger", None)
+                        elif confirmed and confirmed.get("status") == "INVALID":
+                            st.pop("scalp_pretrigger", None)
+
+                    if not trigger:
+                        candidate = self._trigger_1m_solv(asset_rows["1m"], live, direction)
+                        if candidate and candidate.get("status") == "TRIGGER":
+                            trigger = candidate.get("reason")
+                            st.pop("scalp_pretrigger", None)
+                        elif candidate and candidate.get("status") == "PRE":
+                            st["scalp_pretrigger"] = {
+                                "direction": direction,
+                                "reason": candidate.get("reason"),
+                                "level": candidate.get("level"),
+                                "source_close": close1,
+                                "expires": now + 5 * 60,
+                            }
+                else:
+                    # XRP queda exactamente con el comportamiento anterior.
+                    trigger = self._trigger_1m_legacy(asset_rows["1m"], live, direction)
+
                 if trigger:
-                    close1 = str(live.get("data.last_close_1m", ""))
                     msg = (
                         f"🚨 {symbol} — TIMING SCALP 1M CANDIDATO\n"
                         f"Dirección preliminar: {direction}\n"
@@ -392,5 +597,6 @@ class AlertDetector:
                     )
                     if self._send_once(key, "scalp_trigger", f"{direction}:{close1}", msg):
                         st.pop("scalp_watch", None)
+                        st.pop("scalp_pretrigger", None)
 
         _save_state(self.state)
