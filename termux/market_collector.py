@@ -12,6 +12,7 @@ from statistics import mean
 import requests
 
 from alert_detector import AlertDetector
+from signal_tracker import SignalTracker
 
 BASE_URL = "https://fapi.binance.com"
 HERE = Path(__file__).resolve().parent
@@ -315,6 +316,8 @@ class Collector:
         }
         self.oi_samples = load_oi_samples()
         self.alerts = AlertDetector(self.cfg, self.session)
+        self.signal_tracker = SignalTracker(self.alerts)
+        self.open_signals = {"solv": [], "xrp": []}
         self.bootstrapped = False
 
     def _asset_spec(self, key):
@@ -419,6 +422,8 @@ class Collector:
                     logger.info("%s BOOTSTRAP DRY-RUN OK.", symbol)
                 else:
                     response = post_json(self.session, self.cfg[key]["web_app_url"], payload)
+                    if key == "solv":
+                        self.open_signals[key] = list(response.get("openSignals", []))
                     logger.info("%s BOOTSTRAP OK: %s", symbol, response)
             except Exception as exc:
                 failures.append((symbol, str(exc)))
@@ -486,6 +491,13 @@ class Collector:
                         sheets[name] = rows
 
                 live_state = self._build_live_state(key, market, changed, generated)
+
+                signal_updates = []
+                if key == "solv" and not dry_run:
+                    signal_updates = self.signal_tracker.evaluate(
+                        key, self.open_signals.get(key, []), self.caches[symbol]
+                    )
+
                 payload = {
                     "secret": self.cfg[key]["shared_secret"],
                     "mode": "incremental",
@@ -497,6 +509,8 @@ class Collector:
                 }
                 if "15m" in due:
                     payload["oiHistory"] = get_oi_history(self.session, symbol)
+                if signal_updates:
+                    payload["signalUpdates"] = signal_updates
 
                 if dry_run:
                     logger.info(
@@ -505,6 +519,8 @@ class Collector:
                     )
                 else:
                     response = post_json(self.session, self.cfg[key]["web_app_url"], payload)
+                    if key == "solv":
+                        self.open_signals[key] = list(response.get("openSignals", []))
                     logger.info(
                         "%s DELTA OK: sheets=%s response=%s",
                         symbol, {k: len(v) for k, v in sheets.items()}, response
