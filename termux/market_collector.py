@@ -461,9 +461,8 @@ class Collector:
                     logger.info("%s BOOTSTRAP DRY-RUN OK.", symbol)
                 else:
                     response = post_json(self.session, self.cfg[key]["web_app_url"], payload)
-                    if key == "solv":
-                        self.open_signals[key] = list(response.get("openSignals", []))
-                        self.pending_analyses[key] = list(response.get("pendingAnalyses", []))
+                    self.open_signals[key] = list(response.get("openSignals", []))
+                    self.pending_analyses[key] = list(response.get("pendingAnalyses", []))
                     logger.info("%s BOOTSTRAP OK: %s", symbol, response)
             except Exception as exc:
                 failures.append((symbol, str(exc)))
