@@ -29,3 +29,35 @@ El tracker usa 1m cerrado para TP/SL/MFE/MAE. Si TP y SL/BE ocurren en la misma 
 
 TELEMETRÍA PASIVA:
 Para SCALP, X:AL son snapshots 1m a 5/10/15 min (MFE, MAE, RSI14, lado EMA20 y microestructura). El agente no escribe ni usa esos campos como gate o salida hasta que el performance demuestre ventaja.
+
+
+REGISTRO DE CADA ANALIZA:
+En cada ANALIZA, sin excepción, añadir una fila nueva en ANALYSES.
+A Analysis ID único SOLV-UTC-AN
+B Analysis UTC
+C Origin: MANUAL_ANALIZA o TELEGRAM_FOLLOWUP si el usuario llegó por una alerta
+D Overall State: NO_OPERAR / CONDICIONAL / ACTIVE_LONG / ACTIVE_SHORT / DATA_INSUFFICIENT
+E Primary Bias LONG/SHORT/NEUTRAL
+F Primary Score X/8
+G Trigger 15m YES/NO/PENDING
+H Scalp Bias LONG/SHORT/NEUTRAL
+I Scalp Score X/8
+J Trigger 1m YES/NO/PENDING
+K:O resumen 4H, 1H, 15m, 1m y BTC
+P OI 15m %
+Q OI 1H %
+R Mark Price actual
+S nivel relevante
+T:W Entry/Stop/TP1/TP2 candidato si existe, si no vacío
+X Gross RR si existe
+Y razón principal
+Z trigger/nivel para reconsiderar o invalidación
+AA:AD últimos close timestamps 1m/15m/1H/4H
+AE Linked Signal ID solo si también se creó SIGNALS
+AQ PENDING
+Dejar AF:AP y AR al Motorola.
+
+IMPORTANTE:
+ANALYSES es investigación, no performance de trades.
+SIGNALS continúa solo para ACTIVE_LONG/ACTIVE_SHORT.
+Nunca convertir automáticamente un NO_OPERAR o CONDICIONAL en trade retrospectivo.
