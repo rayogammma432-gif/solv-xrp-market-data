@@ -234,6 +234,7 @@ class SignalTracker:
         tf = "15m" if motor.startswith("SCALP") else "1h"
         tp1_hit_utc = str(sig.get("tp1HitUtc") or "")
         tp1_already = bool(tp1_hit_utc)
+        known_tp1_dt = _dt(tp1_hit_utc) if tp1_already else None
         r1 = self._r_at(direction, entry, risk, tp1)
         r2 = self._r_at(direction, entry, risk, tp2)
         telemetry = {}
@@ -267,6 +268,11 @@ class SignalTracker:
                 rows_by_tf.get(tf, []), signal_dt, close_dt or signal_dt
             )
 
+            # Si TP1 ya venía registrado de un ciclo anterior, no tratamos
+            # velas anteriores al hit como si el stop ya estuviera en BE.
+            if known_tp1_dt is not None and close_dt is not None and close_dt <= known_tp1_dt:
+                continue
+
             if not tp1_already:
                 if direction == "LONG":
                     sl_hit = low <= stop
@@ -296,6 +302,7 @@ class SignalTracker:
                 if t1_hit:
                     tp1_already = True
                     tp1_hit_utc = close_utc
+                    known_tp1_dt = close_dt
 
                     if be_same and not t2_hit:
                         return self._close_update(
