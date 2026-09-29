@@ -1,0 +1,27 @@
+SOLV — ADDON TIME STOP + PERFORMANCE
+
+Solo registrar en SIGNALS una señal cuando el estado final sea LONG o SHORT ACTIVO. Nunca registrar CONDICIONAL/NO OPERAR.
+
+Al activar señal, añadir una fila:
+A ID único SOLV-UTC-MOTOR-DIR
+B Signal UTC
+C Motor: PRIMARY_1H o SCALP_15M_1M
+D Direction
+E Setup
+F Entry
+G Stop
+H TP1
+I TP2
+J Risk % numérico (0.0025=0.25%)
+K Confluences X/8
+L State=OPEN
+V Time Stop Status=OK
+Dejar M:U y W vacíos. El Motorola es dueño de M:W mientras State=OPEN.
+
+TIME STOP:
+SCALP: a 2 velas 15m, si MFE<0.3R => REVIEW. A 4 velas, si MFE<0.5R => salida temporal. Máximo 6 velas sin TP1.
+PRIMARY: a 3 velas 1H, si MFE<0.3R => REVIEW. A 6 velas, si MFE<0.5R => salida temporal. Máximo 8 velas sin TP1.
+
+Si SIGNALS muestra REVIEW, reevaluar continuidad y protección en el siguiente ANALIZA.
+TIME_STOP no sustituye SL estructural y nunca autoriza ejecutar/cerrar órdenes automáticamente.
+El tracker usa 1m cerrado para TP/SL/MFE/MAE. Si TP y SL/BE ocurren en la misma vela 1m sin orden demostrable => AMBIGUOUS.
