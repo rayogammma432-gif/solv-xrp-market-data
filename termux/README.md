@@ -75,3 +75,57 @@ bash status_collector.sh
 ```
 
 Estado local de deduplicación: `alert_state.json` (ignorado por Git).
+
+
+## SIGNALS / PERFORMANCE — SOLV
+
+XRP queda pendiente. Esta fase se activa solo para SOLV.
+
+Google Sheet incluye:
+- `SIGNALS`: una fila por señal ACTIVA emitida por el agente.
+- `PERFORMANCE`: KPIs, R acumulado, drawdown, desglose por motor/dirección y gráfico.
+
+El agente debe registrar solo LONG/SHORT ACTIVOS, nunca CONDICIONAL o NO OPERAR.
+
+Columnas SIGNALS A:W:
+`Signal ID, Signal UTC, Motor, Direction, Setup, Entry, Stop, TP1, TP2, Risk %, Confluences, State, Result, Result R, MFE R, MAE R, Bars elapsed, TP1 hit UTC, Close UTC, Exit Price, Exit Reason, Time Stop Status, Notes`.
+
+Al crear la señal:
+- `State=OPEN`
+- `Time Stop Status=OK`
+- resultados y métricas de salida vacíos.
+
+El receptor SOLV devuelve las señales OPEN al Motorola. El Motorola calcula sobre velas cerradas 1m:
+- TP/SL,
+- MFE/MAE en R,
+- bars elapsed,
+- TP1 -> 50% realizado y stop del 50% restante a BE,
+- TP2,
+- ambigüedad si TP y stop/BE aparecen en la misma vela 1m sin poder demostrar el orden.
+
+### TIME STOP
+
+SCALP_15M_1M:
+- 2 velas 15m y MFE < 0.3R -> REVIEW + Telegram.
+- 4 velas 15m y MFE < 0.5R -> TIME_STOP.
+- 6 velas 15m sin TP1 -> TIME_STOP máximo.
+
+PRIMARY_1H:
+- 3 velas 1H y MFE < 0.3R -> REVIEW + Telegram.
+- 6 velas 1H y MFE < 0.5R -> TIME_STOP.
+- 8 velas 1H sin TP1 -> TIME_STOP máximo.
+
+TIME_STOP es tracking/gestión analítica: el Motorola NO ejecuta ni cierra órdenes reales.
+
+### Activación
+
+Después de actualizar y desplegar el receptor SOLV nuevo:
+
+```sh
+cd ~/solv-xrp-market-data
+git pull
+cd termux
+bash stop_collector.sh
+bash start_collector.sh
+bash status_collector.sh
+```
