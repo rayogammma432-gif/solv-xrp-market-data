@@ -3,9 +3,11 @@ import json
 import logging
 import time
 from pathlib import Path
+from datetime import datetime, timezone
 
 HERE = Path(__file__).resolve().parent
 STATE_PATH = HERE / "alert_state.json"
+EVENTS_PATH = HERE / "alert_events.json"
 logger = logging.getLogger("market_collector")
 
 
@@ -32,6 +34,21 @@ def _save_state(state):
     tmp = STATE_PATH.with_suffix(".tmp")
     tmp.write_text(json.dumps(state, separators=(",", ":")), encoding="utf-8")
     tmp.replace(STATE_PATH)
+
+
+def _load_events():
+    if not EVENTS_PATH.exists():
+        return []
+    try:
+        return list(json.loads(EVENTS_PATH.read_text(encoding="utf-8")))[-500:]
+    except Exception:
+        return []
+
+
+def _save_events(events):
+    tmp = EVENTS_PATH.with_suffix(".tmp")
+    tmp.write_text(json.dumps(events[-500:], ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    tmp.replace(EVENTS_PATH)
 
 
 class TelegramNotifier:
@@ -257,8 +274,34 @@ class AlertDetector:
         if self.notifier.send(text):
             sent[kind] = signature
             _save_state(self.state)
+
+            events = _load_events()
+            event_id = f"{key}:{kind}:{signature}"
+            if not any(str(x.get("id")) == event_id for x in events):
+                direction = str(signature).split(":", 1)[0] if ":" in str(signature) else ""
+                events.append({
+                    "id": event_id,
+                    "utc": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+                    "asset": key.upper(),
+                    "type": kind.upper(),
+                    "signature": str(signature),
+                    "telegramSent": True,
+                    "message": text,
+                    "direction": direction,
+                })
+                _save_events(events)
             return True
         return False
+
+    def pending_events(self):
+        return _load_events()
+
+    def ack_events(self, ids):
+        ids = {str(x) for x in (ids or [])}
+        if not ids:
+            return
+        events = [e for e in _load_events() if str(e.get("id")) not in ids]
+        _save_events(events)
 
     def evaluate(self, key, asset_rows, live_rows, new_flags):
         if not self.enabled or key.lower() not in self.assets:
