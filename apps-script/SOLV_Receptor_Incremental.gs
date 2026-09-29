@@ -8,6 +8,8 @@ const SPREADSHEET_ID = '1H6oLPDHQKX3zpKVvWS_FhE3lUNnNtE0uEwLSIFZYPY8';
 const ASSET_SYMBOL = 'SOLVUSDT';
 const ASSET_PREFIX = 'SOLV';
 const SIGNAL_COLS = 38; // A:AL
+const ANALYSIS_COLS = 44; // A:AR
+const MAX_RESEARCH_ROWS = 3000;
 
 const MAX_ROWS = {
   '1M': 500,
@@ -250,6 +252,136 @@ function applySignalUpdates_(ss, updates) {
   return changed;
 }
 
+
+function getPendingAnalyses_(ss) {
+  const sh = sheet_(ss, 'ANALYSES');
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return [];
+
+  const rows = sh.getRange(2, 1, lastRow - 1, ANALYSIS_COLS).getValues();
+  const out = [];
+
+  rows.forEach(function(r, i) {
+    const id = String(r[0] || '');
+    if (!id) return;
+    const status = String(r[42] || 'PENDING').toUpperCase();
+    if (status === 'COMPLETE') return;
+
+    out.push({
+      row: i + 2,
+      analysisId: id,
+      analysisUtc: String(r[1] || ''),
+      overallState: String(r[3] || ''),
+      markPrice: r[17] === '' ? null : Number(r[17]),
+      outcomeStatus: status || 'PENDING'
+    });
+  });
+
+  return out.slice(-500);
+}
+
+function applyAnalysisUpdates_(ss, updates) {
+  if (!Array.isArray(updates) || !updates.length) return 0;
+
+  const sh = sheet_(ss, 'ANALYSES');
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return 0;
+
+  const ids = sh.getRange(2, 1, lastRow - 1, 1).getValues();
+  const rowById = {};
+  ids.forEach(function(r, i) {
+    const id = String(r[0] || '');
+    if (id) rowById[id] = i + 2;
+  });
+
+  let changed = 0;
+
+  updates.forEach(function(u) {
+    const id = String((u && u.analysisId) || '');
+    const row = rowById[id];
+    if (!row) return;
+
+    const range = sh.getRange(row, 32, 1, 13); // AF:AR
+    const cur = range.getValues()[0];
+
+    function put(idx, key, numeric) {
+      if (!Object.prototype.hasOwnProperty.call(u, key)) return;
+      const v = u[key];
+      if (v === null || typeof v === 'undefined') {
+        cur[idx] = '';
+      } else if (numeric) {
+        cur[idx] = Number(v);
+      } else {
+        cur[idx] = String(v);
+      }
+    }
+
+    put(0, 'fwd5mPct', true);
+    put(1, 'fwd15mPct', true);
+    put(2, 'fwd30mPct', true);
+    put(3, 'fwd60mPct', true);
+    put(4, 'fwd240mPct', true);
+    put(5, 'mfe15mPct', true);
+    put(6, 'mae15mPct', true);
+    put(7, 'mfe60mPct', true);
+    put(8, 'mae60mPct', true);
+    put(9, 'mfe240mPct', true);
+    put(10, 'mae240mPct', true);
+    put(11, 'outcomeStatus', false);
+    put(12, 'notes', false);
+
+    range.setValues([cur]);
+    changed++;
+  });
+
+  return changed;
+}
+
+function appendAlertEvents_(ss, events) {
+  if (!Array.isArray(events) || !events.length) return 0;
+
+  const sh = sheet_(ss, 'ALERTS');
+  const lastRow = sh.getLastRow();
+  const existing = new Set();
+
+  if (lastRow >= 2) {
+    sh.getRange(2, 1, lastRow - 1, 1).getValues().forEach(function(r) {
+      const id = String(r[0] || '');
+      if (id) existing.add(id);
+    });
+  }
+
+  const rows = [];
+  events.forEach(function(e) {
+    const id = String((e && e.id) || '');
+    if (!id || existing.has(id)) return;
+    rows.push([
+      id,
+      String(e.utc || ''),
+      String(e.asset || ''),
+      String(e.type || ''),
+      String(e.signature || ''),
+      e.telegramSent ? 'SI' : 'NO',
+      String(e.message || '')
+    ]);
+    existing.add(id);
+  });
+
+  if (!rows.length) return 0;
+
+  const startRow = sh.getLastRow() + 1;
+  ensureRows_(sh, startRow + rows.length - 1);
+  sh.getRange(startRow, 1, rows.length, 7).setValues(rows);
+
+  const dataRows = sh.getLastRow() - 1;
+  if (dataRows > MAX_RESEARCH_ROWS) {
+    const excess = dataRows - MAX_RESEARCH_ROWS;
+    sh.deleteRows(2, excess);
+    sh.insertRowsAfter(sh.getMaxRows(), excess);
+  }
+  return rows.length;
+}
+
 function doPost(e) {
   try {
     const secretExpected = PropertiesService.getScriptProperties().getProperty('SHARED_SECRET');
@@ -321,6 +453,14 @@ function doPost(e) {
       counts.SIGNAL_UPDATES = applySignalUpdates_(ss, payload.signalUpdates);
     }
 
+    if (Array.isArray(payload.analysisUpdates)) {
+      counts.ANALYSIS_UPDATES = applyAnalysisUpdates_(ss, payload.analysisUpdates);
+    }
+
+    if (Array.isArray(payload.alertEvents)) {
+      counts.ALERT_EVENTS = appendAlertEvents_(ss, payload.alertEvents);
+    }
+
     if (!payload.market) throw new Error('Falta market');
     updateMarket_(ss, payload.market, payload.generatedAtUtc, 'OK');
 
@@ -332,7 +472,8 @@ function doPost(e) {
       mode: mode,
       updatedAtUtc: payload.generatedAtUtc || new Date().toISOString(),
       rows: counts,
-      openSignals: getOpenSignals_(ss)
+      openSignals: getOpenSignals_(ss),
+      pendingAnalyses: getPendingAnalyses_(ss)
     });
 
   } catch (err) {
