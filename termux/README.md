@@ -148,3 +148,21 @@ MFE 10m R, MAE 10m R, RSI1m 10m, EMA20 Side 10m, Micro 10m,
 MFE 15m R, MAE 15m R, RSI1m 15m, EMA20 Side 15m, Micro 15m.
 
 Estos campos son observacionales. No disparan MICRO_REVIEW ni cierran señales. Se usarán después para comparar contrafactualmente si una regla 1m habría mejorado el Result R.
+
+
+## ANALYSES + ALERTS — RESEARCH
+
+Para no limitar el aprendizaje solo a señales activas:
+
+- `ANALYSES`: registra CADA ejecución de `ANALIZA SOLV AHORA`, incluyendo NO_OPERAR, CONDICIONAL, ACTIVE_LONG, ACTIVE_SHORT y DATA_INSUFFICIENT.
+- `ALERTS`: registra automáticamente cada alerta Telegram enviada por el Motorola.
+- `SIGNALS`: sigue reservado solo para señales ACTIVAS. No mezclar estas bases.
+
+El Motorola hace shadow tracking de cada fila de ANALYSES desde el Mark Price del análisis y completa:
+- retorno forward a 5m, 15m, 30m, 60m y 240m
+- MFE/MAE porcentual a 15m, 60m y 240m
+- Outcome Status PENDING/PARTIAL/COMPLETE
+
+Estos resultados NO son trades ni performance real. Sirven para investigación de reglas, falsos negativos, filtros demasiado estrictos y patrones posteriores a alertas.
+
+El receptor SOLV devuelve al Motorola hasta 500 análisis no completos para seguimiento. Las alertas Telegram se ponen en cola local y se escriben en ALERTS en el siguiente POST exitoso.
