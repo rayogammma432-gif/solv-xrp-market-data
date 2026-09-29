@@ -35,18 +35,12 @@ SINCRONIZACION OBLIGATORIA + CAPA 5M:
 
 En CADA ANALIZA, leer LIVE_STATE antes de validar estructura o triggers.
 
-Para SOLV y BTC comprobar:
-- data.sync_1m / 5m / 15m / 1h / 4h = OK
-- data.last_close_* debe ser igual o posterior a data.expected_last_close_*.
-- btc.data.sync_1m / 5m / 15m / 1h / 4h = OK.
-
-data.changed_* NO sustituye esta comprobacion; solo describe el ultimo ciclo del collector.
-
-Si una temporalidad requerida aparece LAGGING:
-1) releer LIVE_STATE una vez;
-2) si sigue LAGGING, no activar PRIMARY ni SCALP;
-3) devolver DATA_INSUFFICIENT indicando exactamente que temporalidad falta.
-No usar una vela vieja solo porque todavia cumple un limite general de minutos.
+Para SOLV y BTC comprobar sync y expected_last_close.
+SYNC DURO requerido para activar señales: 1m / 15m / 1h / 4h = OK y last_close_* >= expected_last_close_*.
+5m también se comprueba, pero es OBSERVACIONAL: si SOLO 5m está LAGGING, releer LIVE_STATE una vez; si persiste, continuar sin usar 5m, dejar AT/AS:BE sin snapshot no disponible y anotar 5M DATA MISSING. 5m solo nunca causa DATA_INSUFFICIENT ni bloquea una señal.
+Si 1m/15m/1h/4h requerido sigue LAGGING tras una relectura => DATA_INSUFFICIENT indicando la TF exacta.
+data.changed_* NO demuestra frescura.
+No usar una vela vieja solo porque todavía cumple un límite general de minutos.
 
 CAPA 5M — SOLO OBSERVACIONAL POR AHORA:
 - 4H = contexto.
@@ -59,6 +53,14 @@ Leer en 5m: estructura reciente, close vs EMA20/EMA50, RSI14, ATR14, volumen rel
 El 5m NO suma ni resta confluencias, NO cambia el minimo 6/8, NO es gate obligatorio, NO cambia TIME_STOP y NO invalida por si solo una señal.
 Usarlo para describir si la ejecucion esta FAVORABLE / NEUTRAL / CONTRARIA y acumular evidencia para optimizacion posterior.
 El 3m no se usa como gate; si se estudia, se reconstruye despues desde velas 1m.
+
+TRIGGERS DIRECTOS:
+15m: ruptura directa de microestructura = PRE-TRIGGER, no confirmación automática. Exigir una vela cerrada posterior que sostenga el nivel, haga retest defendido o confirme aceptación. Reclaim/lose válido y sweep/reclaim pueden confirmar sin ese paso adicional.
+1m: ruptura directa de micro-swing = PRE-TRIGGER. Para convertirla en trigger SCALP exigir una vela 1m cerrada posterior con hold/aceptación o retest defendido del nivel roto. Reclaim/lose EMA20 válido puede confirmar inmediatamente.
+
+POSICIONES ABIERTAS:
+Antes de crear SIGNALS leer SIGNALS con State=OPEN y USER_TRADES con State=OPEN. No duplicar una señal equivalente del mismo motor/dirección/setup. Si existe una posición abierta contraria, no crear una nueva señal opuesta simultánea; reportar gestión/revaluación hasta que la posición previa figure CLOSED/CANCELLED.
+
 
 
 REGISTRO DE CADA ANALIZA:
@@ -101,6 +103,7 @@ BB BTC 5m Close
 BC BTC 5m EMA50
 BD BTC 5m EMA200
 BE BTC 5m RSI14
+BF Rule Version = SOLV_V3.2
 Usar los valores del LIVE_STATE leído para ese ANALIZA. AT es observacional y NO cambia score, gate ni TIME_STOP.
 
 IMPORTANTE:
