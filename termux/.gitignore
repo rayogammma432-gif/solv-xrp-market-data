@@ -5,3 +5,4 @@ oi_samples.json
 __pycache__/
 *.pyc
 alert_state.json
+alert_events.json
