@@ -129,3 +129,22 @@ bash stop_collector.sh
 bash start_collector.sh
 bash status_collector.sh
 ```
+
+
+### TELEMETRÍA PASIVA 1M — SCALP
+
+Sin cambiar el TIME STOP activo, el tracker guarda snapshots de cada SCALP en la pestaña SIGNALS a los 5, 10 y 15 minutos completos posteriores a la señal.
+
+Por cada snapshot registra:
+- MFE en R
+- MAE en R
+- RSI14 de 1m
+- lado del cierre frente a EMA20 1m: ABOVE / BELOW / AT
+- microestructura 1m simplificada: BULL / BEAR / NEUTRAL
+
+Columnas X:AL:
+MFE 5m R, MAE 5m R, RSI1m 5m, EMA20 Side 5m, Micro 5m,
+MFE 10m R, MAE 10m R, RSI1m 10m, EMA20 Side 10m, Micro 10m,
+MFE 15m R, MAE 15m R, RSI1m 15m, EMA20 Side 15m, Micro 15m.
+
+Estos campos son observacionales. No disparan MICRO_REVIEW ni cierran señales. Se usarán después para comparar contrafactualmente si una regla 1m habría mejorado el Result R.
