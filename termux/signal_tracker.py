@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from datetime import datetime, timezone, timedelta
+from statistics import mean
 
 
 def _dt(value):
@@ -27,18 +28,79 @@ def _ceil_minute(dt):
     return (dt + timedelta(minutes=1)).replace(second=0, microsecond=0)
 
 
+def _ema(values, period):
+    if len(values) < period:
+        return None
+    alpha = 2.0 / (period + 1.0)
+    value = mean(values[:period])
+    for x in values[period:]:
+        value = alpha * x + (1.0 - alpha) * value
+    return value
+
+
+def _rma(values, period):
+    if len(values) < period:
+        return None
+    value = mean(values[:period])
+    for x in values[period:]:
+        value = (value * (period - 1) + x) / period
+    return value
+
+
+def _rsi(rows, period=14):
+    closes = [float(r[4]) for r in rows]
+    if len(closes) < period + 1:
+        return None
+    changes = [closes[i] - closes[i - 1] for i in range(1, len(closes))]
+    gains = [max(x, 0.0) for x in changes]
+    losses = [max(-x, 0.0) for x in changes]
+    avg_gain = _rma(gains, period)
+    avg_loss = _rma(losses, period)
+    if avg_gain is None or avg_loss is None:
+        return None
+    if avg_loss == 0:
+        return 100.0
+    rs = avg_gain / avg_loss
+    return 100.0 - (100.0 / (1.0 + rs))
+
+
+def _micro_state(rows):
+    if len(rows) < 3:
+        return "NEUTRAL"
+    a, b = rows[-2], rows[-1]
+    ah, al, ac = float(a[2]), float(a[3]), float(a[4])
+    bh, bl, bc = float(b[2]), float(b[3]), float(b[4])
+    if bh > ah and bl >= al and bc > ac:
+        return "BULL"
+    if bh <= ah and bl < al and bc < ac:
+        return "BEAR"
+    return "NEUTRAL"
+
+
+def _bars_until(rows, signal_dt, until_dt):
+    return sum(
+        1
+        for r in rows
+        if (_dt(r[6]) is not None and _dt(r[6]) > signal_dt and _dt(r[6]) <= until_dt)
+    )
+
+
 class SignalTracker:
     """
     Forward tracker determinista de señales SOLV.
 
-    - Solo rastrea señales ACTIVE/OPEN registradas en SIGNALS.
+    - Rastrea señales OPEN registradas en SIGNALS.
     - Usa velas cerradas 1m para TP/SL/MFE/MAE.
+    - SCALP: guarda telemetría PASIVA a 5/10/15 velas 1m completas.
+    - La telemetría 1m NO modifica la lógica activa de TIME STOP.
     - Usa 15m para Bars elapsed de SCALP y 1H para PRIMARY.
-    - 50% TP1 + 50% TP2; tras TP1, stop de la mitad restante a BE.
-    - Si TP y stop/BE ocurren en la misma vela 1m y el orden no se puede
-      determinar, cierra como AMBIGUOUS y no asigna Result R.
-    - TIME STOP es una regla de evaluación/performance; nunca ejecuta órdenes.
+    - 50% TP1 + 50% TP2; tras TP1, stop del 50% restante a BE.
+    - Si TP y stop/BE ocurren en la misma vela 1m y no puede conocerse
+      el orden, cierra como AMBIGUOUS y no inventa Result R.
+    - TIME STOP es tracking/gestión analítica; nunca ejecuta órdenes.
     """
+
+    SNAP_MINUTES = (5, 10, 15)
 
     def __init__(self, alerts=None):
         self.alerts = alerts
@@ -61,11 +123,64 @@ class SignalTracker:
             return (price - entry) / risk
         return (entry - price) / risk
 
+    def _snapshot(self, sig, direction, entry, risk, one_min_prefix, all_1m):
+        n = len(one_min_prefix)
+        if n not in self.SNAP_MINUTES:
+            return {}
+
+        suffix = f"{n}m"
+        existing_key = f"mfe{n}mR"
+        if sig.get(existing_key) not in ("", None):
+            return {}
+
+        snap_row = one_min_prefix[-1]
+        snap_open = str(snap_row[0])
+        idx = None
+        for i, r in enumerate(all_1m):
+            if str(r[0]) == snap_open:
+                idx = i
+                break
+        if idx is None:
+            return {}
+
+        prefix = all_1m[: idx + 1]
+        highs = [float(r[2]) for r in one_min_prefix]
+        lows = [float(r[3]) for r in one_min_prefix]
+
+        if direction == "LONG":
+            mfe = (max(highs) - entry) / risk
+            mae = (entry - min(lows)) / risk
+        else:
+            mfe = (entry - min(lows)) / risk
+            mae = (max(highs) - entry) / risk
+
+        closes = [float(r[4]) for r in prefix]
+        ema20 = _ema(closes, 20)
+        close = float(snap_row[4])
+        if ema20 is None:
+            ema_side = ""
+        elif close > ema20:
+            ema_side = "ABOVE"
+        elif close < ema20:
+            ema_side = "BELOW"
+        else:
+            ema_side = "AT"
+
+        rsi14 = _rsi(prefix, 14)
+        return {
+            f"mfe{n}mR": round(max(0.0, mfe), 4),
+            f"mae{n}mR": round(max(0.0, mae), 4),
+            f"rsi{n}m": None if rsi14 is None else round(rsi14, 2),
+            f"ema20Side{n}m": ema_side,
+            f"micro{n}m": _micro_state(prefix),
+        }
+
     def _close_update(
         self, sig, result, result_r, mfe, mae, bars, close_utc,
-        exit_price, exit_reason, tp1_hit_utc="", time_status="OK"
+        exit_price, exit_reason, tp1_hit_utc="", time_status="OK",
+        telemetry=None
     ):
-        return {
+        out = {
             "id": sig["id"],
             "state": "CLOSED",
             "result": result,
@@ -79,6 +194,9 @@ class SignalTracker:
             "exitReason": exit_reason,
             "timeStopStatus": time_status,
         }
+        if telemetry:
+            out.update(telemetry)
+        return out
 
     def _evaluate_one(self, key, sig, rows_by_tf):
         direction = str(sig.get("direction", "")).upper()
@@ -103,42 +221,51 @@ class SignalTracker:
         if direction == "SHORT" and not (stop > entry > tp1 >= tp2):
             return None
 
+        all_1m = rows_by_tf.get("1m", [])
         start_dt = _ceil_minute(signal_dt)
         one_min = []
-        for row in rows_by_tf.get("1m", []):
+        for row in all_1m:
             open_dt = _dt(row[0])
             if open_dt and open_dt >= start_dt:
                 one_min.append(row)
         if not one_min:
             return None
 
-        # Los máximos/mínimos se calculan desde la primera vela 1m completa
-        # posterior a la señal para no mezclar recorrido previo a la señal.
-        highs = [float(r[2]) for r in one_min]
-        lows = [float(r[3]) for r in one_min]
-        if direction == "LONG":
-            mfe = (max(highs) - entry) / risk
-            mae = (entry - min(lows)) / risk
-        else:
-            mfe = (entry - min(lows)) / risk
-            mae = (max(highs) - entry) / risk
-
         tf = "15m" if motor.startswith("SCALP") else "1h"
-        bars = sum(
-            1 for r in rows_by_tf.get(tf, [])
-            if (_dt(r[6]) is not None and _dt(r[6]) > signal_dt)
-        )
-
         tp1_hit_utc = str(sig.get("tp1HitUtc") or "")
         tp1_already = bool(tp1_hit_utc)
         r1 = self._r_at(direction, entry, risk, tp1)
         r2 = self._r_at(direction, entry, risk, tp2)
+        telemetry = {}
 
-        for row in one_min:
+        running_high = None
+        running_low = None
+
+        for i, row in enumerate(one_min, 1):
             high = float(row[2])
             low = float(row[3])
             close_utc = str(row[6])
             close_price = float(row[4])
+            close_dt = _dt(close_utc)
+
+            running_high = high if running_high is None else max(running_high, high)
+            running_low = low if running_low is None else min(running_low, low)
+
+            if direction == "LONG":
+                mfe = (running_high - entry) / risk
+                mae = (entry - running_low) / risk
+            else:
+                mfe = (entry - running_low) / risk
+                mae = (running_high - entry) / risk
+
+            if motor.startswith("SCALP") and i in self.SNAP_MINUTES:
+                telemetry.update(
+                    self._snapshot(sig, direction, entry, risk, one_min[:i], all_1m)
+                )
+
+            bars_at_row = _bars_until(
+                rows_by_tf.get(tf, []), signal_dt, close_dt or signal_dt
+            )
 
             if not tp1_already:
                 if direction == "LONG":
@@ -154,37 +281,37 @@ class SignalTracker:
 
                 if sl_hit and t1_hit:
                     return self._close_update(
-                        sig, "AMBIGUOUS", None, mfe, mae, bars,
+                        sig, "AMBIGUOUS", None, mfe, mae, bars_at_row,
                         close_utc, close_price, "AMBIGUOUS",
-                        tp1_hit_utc="", time_status="OK"
+                        tp1_hit_utc="", time_status="OK", telemetry=telemetry
                     )
 
                 if sl_hit:
                     return self._close_update(
-                        sig, "LOSS", -1.0, mfe, mae, bars,
+                        sig, "LOSS", -1.0, mfe, mae, bars_at_row,
                         close_utc, stop, "SL",
-                        tp1_hit_utc="", time_status="OK"
+                        tp1_hit_utc="", time_status="OK", telemetry=telemetry
                     )
 
                 if t1_hit:
                     tp1_already = True
                     tp1_hit_utc = close_utc
 
-                    # Si en la misma vela se alcanza TP1 y también vuelve a BE,
-                    # el orden intravela no es demostrable con datos de 1m.
                     if be_same and not t2_hit:
                         return self._close_update(
-                            sig, "AMBIGUOUS", None, mfe, mae, bars,
+                            sig, "AMBIGUOUS", None, mfe, mae, bars_at_row,
                             close_utc, close_price, "AMBIGUOUS",
-                            tp1_hit_utc=tp1_hit_utc, time_status="OK"
+                            tp1_hit_utc=tp1_hit_utc, time_status="OK",
+                            telemetry=telemetry
                         )
 
                     if t2_hit:
                         result_r = 0.5 * r1 + 0.5 * r2
                         return self._close_update(
-                            sig, "WIN", result_r, mfe, mae, bars,
+                            sig, "WIN", result_r, mfe, mae, bars_at_row,
                             close_utc, tp2, "TP2",
-                            tp1_hit_utc=tp1_hit_utc, time_status="OK"
+                            tp1_hit_utc=tp1_hit_utc, time_status="OK",
+                            telemetry=telemetry
                         )
                     continue
 
@@ -198,33 +325,46 @@ class SignalTracker:
 
                 if be_hit and t2_hit:
                     return self._close_update(
-                        sig, "AMBIGUOUS", None, mfe, mae, bars,
+                        sig, "AMBIGUOUS", None, mfe, mae, bars_at_row,
                         close_utc, close_price, "AMBIGUOUS",
-                        tp1_hit_utc=tp1_hit_utc, time_status="OK"
+                        tp1_hit_utc=tp1_hit_utc, time_status="OK",
+                        telemetry=telemetry
                     )
 
                 if t2_hit:
                     result_r = 0.5 * r1 + 0.5 * r2
                     return self._close_update(
-                        sig, "WIN", result_r, mfe, mae, bars,
+                        sig, "WIN", result_r, mfe, mae, bars_at_row,
                         close_utc, tp2, "TP2",
-                        tp1_hit_utc=tp1_hit_utc, time_status="OK"
+                        tp1_hit_utc=tp1_hit_utc, time_status="OK",
+                        telemetry=telemetry
                     )
 
                 if be_hit:
                     result_r = 0.5 * r1
                     return self._close_update(
                         sig, "WIN" if result_r > 0 else "BE",
-                        result_r, mfe, mae, bars,
+                        result_r, mfe, mae, bars_at_row,
                         close_utc, entry, "TP1_BE",
-                        tp1_hit_utc=tp1_hit_utc, time_status="OK"
+                        tp1_hit_utc=tp1_hit_utc, time_status="OK",
+                        telemetry=telemetry
                     )
 
         latest = one_min[-1]
         latest_close = float(latest[4])
         latest_utc = str(latest[6])
+        latest_dt = _dt(latest_utc) or signal_dt
 
-        # El time stop solo se aplica antes de TP1. Tras TP1 manda TP2/BE.
+        if direction == "LONG":
+            mfe = (running_high - entry) / risk
+            mae = (entry - running_low) / risk
+        else:
+            mfe = (entry - running_low) / risk
+            mae = (running_high - entry) / risk
+
+        bars = _bars_until(rows_by_tf.get(tf, []), signal_dt, latest_dt)
+
+        # TIME STOP ACTIVO: no cambia con la telemetría 1m.
         current_time_status = str(sig.get("timeStopStatus") or "OK").upper()
         if not tp1_already:
             if motor.startswith("SCALP"):
@@ -237,11 +377,11 @@ class SignalTracker:
 
             if should_soft_stop or should_hard_stop:
                 result_r = self._r_at(direction, entry, risk, latest_close)
-                reason = "TIME_STOP"
                 update = self._close_update(
                     sig, "TIME_STOP", result_r, mfe, mae, bars,
-                    latest_utc, latest_close, reason,
-                    tp1_hit_utc="", time_status="TIME_STOP"
+                    latest_utc, latest_close, "TIME_STOP",
+                    tp1_hit_utc="", time_status="TIME_STOP",
+                    telemetry=telemetry
                 )
                 self._notify(
                     key,
@@ -268,8 +408,7 @@ class SignalTracker:
         else:
             time_status = "OK"
 
-        # Actualización incremental de métricas aunque la señal siga abierta.
-        return {
+        out = {
             "id": sig["id"],
             "mfeR": round(max(0.0, mfe), 4),
             "maeR": round(max(0.0, mae), 4),
@@ -277,6 +416,8 @@ class SignalTracker:
             "tp1HitUtc": tp1_hit_utc,
             "timeStopStatus": time_status or "OK",
         }
+        out.update(telemetry)
+        return out
 
     def evaluate(self, key, open_signals, rows_by_tf):
         if key.lower() != "solv":
