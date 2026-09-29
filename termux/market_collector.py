@@ -24,7 +24,8 @@ LOG_DIR.mkdir(exist_ok=True)
 
 CACHE_LIMIT = 500
 OI_SAMPLE_LIMIT = 1440
-TFS = ("1m", "15m", "1h", "4h")
+BASE_TFS = ("1m", "15m", "1h", "4h")
+SOLV_TFS = ("1m", "5m", "15m", "1h", "4h")
 
 logger = logging.getLogger("market_collector")
 logger.setLevel(logging.INFO)
@@ -310,10 +311,11 @@ class Collector:
         self.cfg = load_config(config_path)
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "solv-xrp-termux-collector/2.0"})
+        # 5m se activa solo para SOLV + BTC. XRP permanece sin cambios.
         self.caches = {
-            "BTCUSDT": {tf: [] for tf in TFS},
-            "SOLVUSDT": {tf: [] for tf in TFS},
-            "XRPUSDT": {tf: [] for tf in TFS},
+            "BTCUSDT": {tf: [] for tf in SOLV_TFS},
+            "SOLVUSDT": {tf: [] for tf in SOLV_TFS},
+            "XRPUSDT": {tf: [] for tf in BASE_TFS},
         }
         self.oi_samples = load_oi_samples()
         self.alerts = AlertDetector(self.cfg, self.session)
@@ -346,11 +348,13 @@ class Collector:
         add("market.next_funding_utc", market["nextFundingTimeUtc"], "MARKET")
         add("market.open_interest", market["openInterest"], "MARKET")
 
-        for tf in TFS:
+        active_tfs = SOLV_TFS if key == "solv" else BASE_TFS
+
+        for tf in active_tfs:
             add(f"data.last_close_{tf}", a[tf][-1][6] if a[tf] else "", tf.upper())
             add(f"data.changed_{tf}", bool(changed.get(tf)), tf.upper())
 
-        for tf in TFS:
+        for tf in active_tfs:
             metrics = calc_tf(a[tf], tf)
             add(f"{tf}.close", metrics.get("close"), tf.upper())
             if "ema20" in metrics:
@@ -364,7 +368,7 @@ class Collector:
 
         add("vwap.daily_utc", avwap, "15M", "VWAP diario UTC calculado desde velas 15m")
 
-        for tf in TFS:
+        for tf in active_tfs:
             metrics = calc_tf(b[tf], tf)
             add(f"btc.{tf}.close", metrics.get("close"), f"BTC {tf.upper()}")
             add(f"btc.{tf}.ema50", metrics.get("ema50"), f"BTC {tf.upper()}")
@@ -382,7 +386,7 @@ class Collector:
     def bootstrap(self, dry_run=False):
         logger.info("BOOTSTRAP: cargando %d velas cerradas por temporalidad.", CACHE_LIMIT)
         for symbol in self.caches:
-            for tf in TFS:
+            for tf in self.caches[symbol]:
                 self.caches[symbol][tf] = get_closed_klines(
                     self.session, symbol, tf, limit=CACHE_LIMIT + 1, keep=CACHE_LIMIT
                 )
@@ -397,7 +401,8 @@ class Collector:
                 self.oi_samples[key].append(sample)
                 self.oi_samples[key] = self.oi_samples[key][-OI_SAMPLE_LIMIT:]
                 generated = utc_iso_now()
-                changed = {tf: True for tf in TFS}
+                active_tfs = SOLV_TFS if key == "solv" else BASE_TFS
+                changed = {tf: True for tf in active_tfs}
                 payload = {
                     "secret": self.cfg[key]["shared_secret"],
                     "mode": "bootstrap",
@@ -410,16 +415,31 @@ class Collector:
                         "MUESTREO_LOCAL_OI_ACTUAL"
                     ] for x in self.oi_samples[key]],
                     "liveState": self._build_live_state(key, market, changed, generated),
-                    "sheets": {
-                        f"{prefix}_1M": self.caches[symbol]["1m"],
-                        f"{prefix}_15M": self.caches[symbol]["15m"],
-                        f"{prefix}_1H": self.caches[symbol]["1h"],
-                        f"{prefix}_4H": self.caches[symbol]["4h"],
-                        "BTC_1M": self.caches["BTCUSDT"]["1m"],
-                        "BTC_15M": self.caches["BTCUSDT"]["15m"],
-                        "BTC_1H": self.caches["BTCUSDT"]["1h"],
-                        "BTC_4H": self.caches["BTCUSDT"]["4h"],
-                    },
+                    "sheets": (
+                        {
+                            f"{prefix}_1M": self.caches[symbol]["1m"],
+                            f"{prefix}_5M": self.caches[symbol]["5m"],
+                            f"{prefix}_15M": self.caches[symbol]["15m"],
+                            f"{prefix}_1H": self.caches[symbol]["1h"],
+                            f"{prefix}_4H": self.caches[symbol]["4h"],
+                            "BTC_1M": self.caches["BTCUSDT"]["1m"],
+                            "BTC_5M": self.caches["BTCUSDT"]["5m"],
+                            "BTC_15M": self.caches["BTCUSDT"]["15m"],
+                            "BTC_1H": self.caches["BTCUSDT"]["1h"],
+                            "BTC_4H": self.caches["BTCUSDT"]["4h"],
+                        }
+                        if key == "solv"
+                        else {
+                            f"{prefix}_1M": self.caches[symbol]["1m"],
+                            f"{prefix}_15M": self.caches[symbol]["15m"],
+                            f"{prefix}_1H": self.caches[symbol]["1h"],
+                            f"{prefix}_4H": self.caches[symbol]["4h"],
+                            "BTC_1M": self.caches["BTCUSDT"]["1m"],
+                            "BTC_15M": self.caches["BTCUSDT"]["15m"],
+                            "BTC_1H": self.caches["BTCUSDT"]["1h"],
+                            "BTC_4H": self.caches["BTCUSDT"]["4h"],
+                        }
+                    ),
                 }
                 if dry_run:
                     logger.info("%s BOOTSTRAP DRY-RUN OK.", symbol)
@@ -445,8 +465,11 @@ class Collector:
             return
 
         now = utc_now()
-        changed = {tf: False for tf in TFS}
-        new_by_symbol = {s: {tf: [] for tf in TFS} for s in self.caches}
+        changed = {tf: False for tf in SOLV_TFS}
+        new_by_symbol = {
+            symbol: {tf: [] for tf in self.caches[symbol]}
+            for symbol in self.caches
+        }
 
         # 1m: siempre se consulta; solo se envían velas nuevas.
         for symbol in self.caches:
@@ -455,7 +478,10 @@ class Collector:
             changed["1m"] = changed["1m"] or bool(new_by_symbol[symbol]["1m"])
 
         # Temporalidades mayores: solo en sus cierres UTC.
+        # 5m se recolecta para SOLV + BTC; XRP queda pendiente.
         due = []
+        if now.minute % 5 == 0:
+            due.append("5m")
         if now.minute % 15 == 0:
             due.append("15m")
         if now.minute == 0:
@@ -465,6 +491,8 @@ class Collector:
 
         for tf in due:
             for symbol in self.caches:
+                if tf not in self.caches[symbol]:
+                    continue
                 recent = get_recent_closed(self.session, symbol, tf, limit=5)
                 new_by_symbol[symbol][tf] = update_cache(self.caches[symbol][tf], recent)
                 changed[tf] = changed[tf] or bool(new_by_symbol[symbol][tf])
@@ -480,16 +508,30 @@ class Collector:
                 generated = utc_iso_now()
 
                 sheets = {}
-                mapping = {
-                    f"{prefix}_1M": new_by_symbol[symbol]["1m"],
-                    "BTC_1M": new_by_symbol["BTCUSDT"]["1m"],
-                    f"{prefix}_15M": new_by_symbol[symbol]["15m"],
-                    "BTC_15M": new_by_symbol["BTCUSDT"]["15m"],
-                    f"{prefix}_1H": new_by_symbol[symbol]["1h"],
-                    "BTC_1H": new_by_symbol["BTCUSDT"]["1h"],
-                    f"{prefix}_4H": new_by_symbol[symbol]["4h"],
-                    "BTC_4H": new_by_symbol["BTCUSDT"]["4h"],
-                }
+                if key == "solv":
+                    mapping = {
+                        f"{prefix}_1M": new_by_symbol[symbol]["1m"],
+                        "BTC_1M": new_by_symbol["BTCUSDT"]["1m"],
+                        f"{prefix}_5M": new_by_symbol[symbol]["5m"],
+                        "BTC_5M": new_by_symbol["BTCUSDT"]["5m"],
+                        f"{prefix}_15M": new_by_symbol[symbol]["15m"],
+                        "BTC_15M": new_by_symbol["BTCUSDT"]["15m"],
+                        f"{prefix}_1H": new_by_symbol[symbol]["1h"],
+                        "BTC_1H": new_by_symbol["BTCUSDT"]["1h"],
+                        f"{prefix}_4H": new_by_symbol[symbol]["4h"],
+                        "BTC_4H": new_by_symbol["BTCUSDT"]["4h"],
+                    }
+                else:
+                    mapping = {
+                        f"{prefix}_1M": new_by_symbol[symbol]["1m"],
+                        "BTC_1M": new_by_symbol["BTCUSDT"]["1m"],
+                        f"{prefix}_15M": new_by_symbol[symbol]["15m"],
+                        "BTC_15M": new_by_symbol["BTCUSDT"]["15m"],
+                        f"{prefix}_1H": new_by_symbol[symbol]["1h"],
+                        "BTC_1H": new_by_symbol["BTCUSDT"]["1h"],
+                        f"{prefix}_4H": new_by_symbol[symbol]["4h"],
+                        "BTC_4H": new_by_symbol["BTCUSDT"]["4h"],
+                    }
                 for name, rows in mapping.items():
                     if rows:
                         sheets[name] = rows
@@ -546,7 +588,8 @@ class Collector:
                     )
                     try:
                         asset_flags = {
-                            tf: bool(new_by_symbol[symbol][tf]) for tf in TFS
+                            tf: bool(new_by_symbol[symbol].get(tf, []))
+                            for tf in new_by_symbol[symbol]
                         }
                         self.alerts.evaluate(
                             key, self.caches[symbol], live_state, asset_flags
