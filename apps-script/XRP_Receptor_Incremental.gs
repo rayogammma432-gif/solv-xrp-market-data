@@ -114,9 +114,9 @@ function appendArchiveNew_(sh, rows, cols) {
 function archiveResearch_(incomingSheets, oi1m) {
   const archive = SpreadsheetApp.openById(ARCHIVE_SPREADSHEET_ID);
   return {
-    SOLV_1M: appendArchiveNew_(
+    XRP_1M: appendArchiveNew_(
       sheet_(archive, 'XRP_1M_ARCHIVE'),
-      incomingSheets['SOLV_1M'] || [],
+      incomingSheets['XRP_1M'] || [],
       11
     ),
     BTC_1M: appendArchiveNew_(
