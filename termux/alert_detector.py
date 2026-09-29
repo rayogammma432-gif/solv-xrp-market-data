@@ -404,6 +404,39 @@ class AlertDetector:
             }
         return {"status": "INVALID"}
 
+    def _research_snapshot(self, live):
+        return (
+            f"mark={live.get('market.mark_price', '')};"
+            f"5m_close={live.get('5m.close', '')};"
+            f"5m_ema20={live.get('5m.ema20', '')};"
+            f"5m_ema50={live.get('5m.ema50', '')};"
+            f"5m_rsi={live.get('5m.rsi14', '')};"
+            f"5m_atr={live.get('5m.atr14', '')};"
+            f"5m_volrel={live.get('5m.volume_rel20', '')};"
+            f"btc5m_close={live.get('btc.5m.close', '')};"
+            f"btc5m_ema50={live.get('btc.5m.ema50', '')};"
+            f"btc5m_rsi={live.get('btc.5m.rsi14', '')}"
+        )
+
+    def _record_event(self, key, kind, signature, message, telegram_sent=False):
+        events = _load_events()
+        event_id = f"{key}:{kind}:{signature}"
+        if any(str(x.get("id")) == event_id for x in events):
+            return False
+        direction = str(signature).split(":", 1)[0] if ":" in str(signature) else ""
+        events.append({
+            "id": event_id,
+            "utc": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+            "asset": key.upper(),
+            "type": kind.upper(),
+            "signature": str(signature),
+            "telegramSent": bool(telegram_sent),
+            "message": str(message),
+            "direction": direction,
+        })
+        _save_events(events)
+        return True
+
     def _send_once(self, key, kind, signature, text):
         st = self.state.setdefault(key, {})
         sent = st.setdefault("last_sent", {})
@@ -412,22 +445,7 @@ class AlertDetector:
         if self.notifier.send(text):
             sent[kind] = signature
             _save_state(self.state)
-
-            events = _load_events()
-            event_id = f"{key}:{kind}:{signature}"
-            if not any(str(x.get("id")) == event_id for x in events):
-                direction = str(signature).split(":", 1)[0] if ":" in str(signature) else ""
-                events.append({
-                    "id": event_id,
-                    "utc": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
-                    "asset": key.upper(),
-                    "type": kind.upper(),
-                    "signature": str(signature),
-                    "telegramSent": True,
-                    "message": text,
-                    "direction": direction,
-                })
-                _save_events(events)
+            self._record_event(key, kind, signature, text, telegram_sent=True)
             return True
         return False
 
@@ -499,8 +517,34 @@ class AlertDetector:
                         confirmed = self._confirm_pretrigger(asset_rows["15m"], pre, direction)
                         if confirmed and confirmed.get("status") == "TRIGGER":
                             trigger = confirmed.get("reason")
+                            level = pre.get("level")
+                            source_close = str(pre.get("source_close", ""))
+                            self._record_event(
+                                key,
+                                "primary_pretrigger_confirmed",
+                                f"{direction}:{source_close}:{close15}:{level}",
+                                (
+                                    f"stage=CONFIRMED;tf=15m;reason={trigger};"
+                                    f"level={level};source_close={source_close};confirm_close={close15};"
+                                    + self._research_snapshot(live)
+                                ),
+                                telegram_sent=False,
+                            )
                             st.pop("primary_pretrigger", None)
                         elif confirmed and confirmed.get("status") == "INVALID":
+                            level = pre.get("level")
+                            source_close = str(pre.get("source_close", ""))
+                            self._record_event(
+                                key,
+                                "primary_pretrigger_invalid",
+                                f"{direction}:{source_close}:{close15}:{level}",
+                                (
+                                    f"stage=INVALID;tf=15m;reason={pre.get('reason', '')};"
+                                    f"level={level};source_close={source_close};invalid_close={close15};"
+                                    + self._research_snapshot(live)
+                                ),
+                                telegram_sent=False,
+                            )
                             st.pop("primary_pretrigger", None)
 
                     if not trigger:
@@ -509,13 +553,26 @@ class AlertDetector:
                             trigger = candidate.get("reason")
                             st.pop("primary_pretrigger", None)
                         elif candidate and candidate.get("status") == "PRE":
+                            level = candidate.get("level")
+                            reason = candidate.get("reason")
                             st["primary_pretrigger"] = {
                                 "direction": direction,
-                                "reason": candidate.get("reason"),
-                                "level": candidate.get("level"),
+                                "reason": reason,
+                                "level": level,
                                 "source_close": close15,
                                 "expires": now + 45 * 60,
                             }
+                            self._record_event(
+                                key,
+                                "primary_pretrigger",
+                                f"{direction}:{close15}:{level}",
+                                (
+                                    f"stage=PRE;tf=15m;reason={reason};level={level};"
+                                    f"source_close={close15};"
+                                    + self._research_snapshot(live)
+                                ),
+                                telegram_sent=False,
+                            )
                 else:
                     # XRP queda exactamente con el comportamiento anterior.
                     trigger = self._trigger_15m_legacy(asset_rows["15m"], live, direction)
@@ -562,8 +619,34 @@ class AlertDetector:
                         confirmed = self._confirm_pretrigger(asset_rows["1m"], pre, direction)
                         if confirmed and confirmed.get("status") == "TRIGGER":
                             trigger = confirmed.get("reason")
+                            level = pre.get("level")
+                            source_close = str(pre.get("source_close", ""))
+                            self._record_event(
+                                key,
+                                "scalp_pretrigger_confirmed",
+                                f"{direction}:{source_close}:{close1}:{level}",
+                                (
+                                    f"stage=CONFIRMED;tf=1m;reason={trigger};"
+                                    f"level={level};source_close={source_close};confirm_close={close1};"
+                                    + self._research_snapshot(live)
+                                ),
+                                telegram_sent=False,
+                            )
                             st.pop("scalp_pretrigger", None)
                         elif confirmed and confirmed.get("status") == "INVALID":
+                            level = pre.get("level")
+                            source_close = str(pre.get("source_close", ""))
+                            self._record_event(
+                                key,
+                                "scalp_pretrigger_invalid",
+                                f"{direction}:{source_close}:{close1}:{level}",
+                                (
+                                    f"stage=INVALID;tf=1m;reason={pre.get('reason', '')};"
+                                    f"level={level};source_close={source_close};invalid_close={close1};"
+                                    + self._research_snapshot(live)
+                                ),
+                                telegram_sent=False,
+                            )
                             st.pop("scalp_pretrigger", None)
 
                     if not trigger:
@@ -572,13 +655,26 @@ class AlertDetector:
                             trigger = candidate.get("reason")
                             st.pop("scalp_pretrigger", None)
                         elif candidate and candidate.get("status") == "PRE":
+                            level = candidate.get("level")
+                            reason = candidate.get("reason")
                             st["scalp_pretrigger"] = {
                                 "direction": direction,
-                                "reason": candidate.get("reason"),
-                                "level": candidate.get("level"),
+                                "reason": reason,
+                                "level": level,
                                 "source_close": close1,
                                 "expires": now + 5 * 60,
                             }
+                            self._record_event(
+                                key,
+                                "scalp_pretrigger",
+                                f"{direction}:{close1}:{level}",
+                                (
+                                    f"stage=PRE;tf=1m;reason={reason};level={level};"
+                                    f"source_close={close1};"
+                                    + self._research_snapshot(live)
+                                ),
+                                telegram_sent=False,
+                            )
                 else:
                     # XRP queda exactamente con el comportamiento anterior.
                     trigger = self._trigger_1m_legacy(asset_rows["1m"], live, direction)
