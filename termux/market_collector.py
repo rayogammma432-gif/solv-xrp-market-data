@@ -26,6 +26,7 @@ CACHE_LIMIT = 500
 OI_SAMPLE_LIMIT = 1440
 BASE_TFS = ("1m", "15m", "1h", "4h")
 SOLV_TFS = ("1m", "5m", "15m", "1h", "4h")
+TF_MS = {"1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000}
 
 logger = logging.getLogger("market_collector")
 logger.setLevel(logging.INFO)
@@ -48,6 +49,25 @@ def utc_iso_ms(ms):
     return datetime.fromtimestamp(int(ms) / 1000, tz=timezone.utc).isoformat(
         timespec="milliseconds"
     ).replace("+00:00", "Z")
+
+
+def expected_last_close_utc(tf, now=None):
+    """Último cierre que ya debería existir en UTC para una temporalidad."""
+    if tf not in TF_MS:
+        raise ValueError(f"Temporalidad no soportada: {tf}")
+    now = utc_now() if now is None else now
+    now_ms = int(now.timestamp() * 1000)
+    interval_ms = TF_MS[tf]
+    close_ms = (now_ms // interval_ms) * interval_ms - 1
+    return utc_iso_ms(close_ms)
+
+
+def cache_is_behind(cache, tf, now=None):
+    if not cache:
+        return True
+    actual = str(cache[-1][6])
+    expected = expected_last_close_utc(tf, now=now)
+    return actual < expected
 
 def load_config(path):
     p = Path(path).expanduser().resolve()
@@ -350,8 +370,13 @@ class Collector:
 
         active_tfs = SOLV_TFS if key == "solv" else BASE_TFS
 
+        sync_now = utc_now()
         for tf in active_tfs:
-            add(f"data.last_close_{tf}", a[tf][-1][6] if a[tf] else "", tf.upper())
+            actual = a[tf][-1][6] if a[tf] else ""
+            expected = expected_last_close_utc(tf, now=sync_now)
+            add(f"data.last_close_{tf}", actual, tf.upper())
+            add(f"data.expected_last_close_{tf}", expected, tf.upper(), "Cierre que ya debería existir según UTC")
+            add(f"data.sync_{tf}", "OK" if actual and str(actual) >= expected else "LAGGING", tf.upper())
             add(f"data.changed_{tf}", bool(changed.get(tf)), tf.upper())
 
         for tf in active_tfs:
@@ -370,6 +395,10 @@ class Collector:
 
         for tf in active_tfs:
             metrics = calc_tf(b[tf], tf)
+            btc_actual = b[tf][-1][6] if b[tf] else ""
+            expected = expected_last_close_utc(tf, now=sync_now)
+            add(f"btc.data.last_close_{tf}", btc_actual, f"BTC {tf.upper()}")
+            add(f"btc.data.sync_{tf}", "OK" if btc_actual and str(btc_actual) >= expected else "LAGGING", f"BTC {tf.upper()}")
             add(f"btc.{tf}.close", metrics.get("close"), f"BTC {tf.upper()}")
             add(f"btc.{tf}.ema50", metrics.get("ema50"), f"BTC {tf.upper()}")
             add(f"btc.{tf}.ema200", metrics.get("ema200"), f"BTC {tf.upper()}")
@@ -477,25 +506,29 @@ class Collector:
             new_by_symbol[symbol]["1m"] = update_cache(self.caches[symbol]["1m"], recent)
             changed["1m"] = changed["1m"] or bool(new_by_symbol[symbol]["1m"])
 
-        # Temporalidades mayores: solo en sus cierres UTC.
-        # 5m se recolecta para SOLV + BTC; XRP queda pendiente.
-        due = []
-        if now.minute % 5 == 0:
-            due.append("5m")
-        if now.minute % 15 == 0:
-            due.append("15m")
-        if now.minute == 0:
-            due.append("1h")
-        if now.minute == 0 and now.hour % 4 == 0:
-            due.append("4h")
+        # SOLV + BTC: sincronización por estado, no por "caer en el minuto exacto".
+        # Si una vela que ya debería existir falta, se vuelve a consultar en cada ciclo
+        # hasta alcanzarla. Esto evita saltos por red/retrasos de procesamiento.
+        for tf in ("5m", "15m", "1h", "4h"):
+            for symbol in ("SOLVUSDT", "BTCUSDT"):
+                if cache_is_behind(self.caches[symbol][tf], tf, now=now):
+                    recent = get_recent_closed(self.session, symbol, tf, limit=12)
+                    new_by_symbol[symbol][tf] = update_cache(self.caches[symbol][tf], recent)
+                    changed[tf] = changed[tf] or bool(new_by_symbol[symbol][tf])
 
-        for tf in due:
-            for symbol in self.caches:
-                if tf not in self.caches[symbol]:
-                    continue
-                recent = get_recent_closed(self.session, symbol, tf, limit=5)
-                new_by_symbol[symbol][tf] = update_cache(self.caches[symbol][tf], recent)
-                changed[tf] = changed[tf] or bool(new_by_symbol[symbol][tf])
+        # XRP permanece con el comportamiento anterior hasta su fase de optimización.
+        xrp_due = []
+        if now.minute % 15 == 0:
+            xrp_due.append("15m")
+        if now.minute == 0:
+            xrp_due.append("1h")
+        if now.minute == 0 and now.hour % 4 == 0:
+            xrp_due.append("4h")
+
+        for tf in xrp_due:
+            recent = get_recent_closed(self.session, "XRPUSDT", tf, limit=5)
+            new_by_symbol["XRPUSDT"][tf] = update_cache(self.caches["XRPUSDT"][tf], recent)
+            changed[tf] = changed[tf] or bool(new_by_symbol["XRPUSDT"][tf])
 
         failures = []
         for key in ("solv", "xrp"):
@@ -561,7 +594,10 @@ class Collector:
                     "liveState": live_state,
                     "sheets": sheets,
                 }
-                if "15m" in due:
+                if (
+                    (key == "solv" and bool(new_by_symbol["SOLVUSDT"]["15m"]))
+                    or (key == "xrp" and "15m" in xrp_due)
+                ):
                     payload["oiHistory"] = get_oi_history(self.session, symbol)
                 if signal_updates:
                     payload["signalUpdates"] = signal_updates
