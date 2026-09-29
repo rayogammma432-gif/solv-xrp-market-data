@@ -13,6 +13,7 @@ import requests
 
 from alert_detector import AlertDetector
 from signal_tracker import SignalTracker
+from analysis_tracker import AnalysisTracker
 
 BASE_URL = "https://fapi.binance.com"
 HERE = Path(__file__).resolve().parent
@@ -317,7 +318,9 @@ class Collector:
         self.oi_samples = load_oi_samples()
         self.alerts = AlertDetector(self.cfg, self.session)
         self.signal_tracker = SignalTracker(self.alerts)
+        self.analysis_tracker = AnalysisTracker()
         self.open_signals = {"solv": [], "xrp": []}
+        self.pending_analyses = {"solv": [], "xrp": []}
         self.bootstrapped = False
 
     def _asset_spec(self, key):
@@ -424,6 +427,7 @@ class Collector:
                     response = post_json(self.session, self.cfg[key]["web_app_url"], payload)
                     if key == "solv":
                         self.open_signals[key] = list(response.get("openSignals", []))
+                        self.pending_analyses[key] = list(response.get("pendingAnalyses", []))
                     logger.info("%s BOOTSTRAP OK: %s", symbol, response)
             except Exception as exc:
                 failures.append((symbol, str(exc)))
@@ -493,10 +497,18 @@ class Collector:
                 live_state = self._build_live_state(key, market, changed, generated)
 
                 signal_updates = []
+                analysis_updates = []
+                alert_events = []
                 if key == "solv" and not dry_run:
                     signal_updates = self.signal_tracker.evaluate(
                         key, self.open_signals.get(key, []), self.caches[symbol]
                     )
+                    analysis_updates = self.analysis_tracker.evaluate(
+                        key,
+                        self.pending_analyses.get(key, []),
+                        self.caches[symbol]["1m"],
+                    )
+                    alert_events = self.alerts.pending_events()
 
                 payload = {
                     "secret": self.cfg[key]["shared_secret"],
@@ -511,6 +523,10 @@ class Collector:
                     payload["oiHistory"] = get_oi_history(self.session, symbol)
                 if signal_updates:
                     payload["signalUpdates"] = signal_updates
+                if analysis_updates:
+                    payload["analysisUpdates"] = analysis_updates
+                if alert_events:
+                    payload["alertEvents"] = alert_events
 
                 if dry_run:
                     logger.info(
@@ -521,6 +537,9 @@ class Collector:
                     response = post_json(self.session, self.cfg[key]["web_app_url"], payload)
                     if key == "solv":
                         self.open_signals[key] = list(response.get("openSignals", []))
+                        self.pending_analyses[key] = list(response.get("pendingAnalyses", []))
+                        if alert_events:
+                            self.alerts.ack_events([x.get("id") for x in alert_events])
                     logger.info(
                         "%s DELTA OK: sheets=%s response=%s",
                         symbol, {k: len(v) for k, v in sheets.items()}, response
