@@ -31,7 +31,7 @@ def _pct(base, value):
 
 class AnalysisTracker:
     """
-    Shadow tracker de TODOS los ANALIZA de SOLV.
+    Shadow tracker de TODOS los ANALIZA de SOLV/XRP.
 
     No convierte análisis en trades y no modifica SIGNALS.
     Solo rellena resultados forward desde Mark Price usando velas 1m cerradas:
@@ -40,7 +40,7 @@ class AnalysisTracker:
     """
 
     def evaluate(self, key, pending_analyses, rows_1m):
-        if key.lower() != "solv":
+        if key.lower() not in ("solv", "xrp"):
             return []
         updates = []
         for item in pending_analyses or []:
