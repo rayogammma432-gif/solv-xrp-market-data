@@ -31,6 +31,36 @@ TELEMETRÍA PASIVA:
 Para SCALP, X:AL son snapshots 1m a 5/10/15 min (MFE, MAE, RSI14, lado EMA20 y microestructura). El agente no escribe ni usa esos campos como gate o salida hasta que el performance demuestre ventaja.
 
 
+SINCRONIZACION OBLIGATORIA + CAPA 5M:
+
+En CADA ANALIZA, leer LIVE_STATE antes de validar estructura o triggers.
+
+Para SOLV y BTC comprobar:
+- data.sync_1m / 5m / 15m / 1h / 4h = OK
+- data.last_close_* debe ser igual o posterior a data.expected_last_close_*.
+- btc.data.sync_1m / 5m / 15m / 1h / 4h = OK.
+
+data.changed_* NO sustituye esta comprobacion; solo describe el ultimo ciclo del collector.
+
+Si una temporalidad requerida aparece LAGGING:
+1) releer LIVE_STATE una vez;
+2) si sigue LAGGING, no activar PRIMARY ni SCALP;
+3) devolver DATA_INSUFFICIENT indicando exactamente que temporalidad falta.
+No usar una vela vieja solo porque todavia cumple un limite general de minutos.
+
+CAPA 5M — SOLO OBSERVACIONAL POR AHORA:
+- 4H = contexto.
+- 1H = sesgo principal.
+- 15m = setup / estructura.
+- 5m = calidad de ejecucion / transicion.
+- 1m = timing final.
+
+Leer en 5m: estructura reciente, close vs EMA20/EMA50, RSI14, ATR14, volumen relativo y BTC 5m.
+El 5m NO suma ni resta confluencias, NO cambia el minimo 6/8, NO es gate obligatorio, NO cambia TIME_STOP y NO invalida por si solo una señal.
+Usarlo para describir si la ejecucion esta FAVORABLE / NEUTRAL / CONTRARIA y acumular evidencia para optimizacion posterior.
+El 3m no se usa como gate; si se estudia, se reconstruye despues desde velas 1m.
+
+
 REGISTRO DE CADA ANALIZA:
 En cada ANALIZA, sin excepción, añadir una fila nueva en ANALYSES.
 A Analysis ID único SOLV-UTC-AN
