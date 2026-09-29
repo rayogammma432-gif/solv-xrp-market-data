@@ -87,7 +87,7 @@ def _bars_until(rows, signal_dt, until_dt):
 
 class SignalTracker:
     """
-    Forward tracker determinista de señales SOLV.
+    Forward tracker determinista de señales SOLV/XRP.
 
     - Rastrea señales OPEN registradas en SIGNALS.
     - Usa velas cerradas 1m para TP/SL/MFE/MAE.
@@ -427,7 +427,7 @@ class SignalTracker:
         return out
 
     def evaluate(self, key, open_signals, rows_by_tf):
-        if key.lower() != "solv":
+        if key.lower() not in ("solv", "xrp"):
             return []
         updates = []
         for sig in open_signals or []:
