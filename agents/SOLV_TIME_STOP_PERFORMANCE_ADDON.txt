@@ -87,6 +87,22 @@ AE Linked Signal ID solo si también se creó SIGNALS
 AQ PENDING
 Dejar AF:AP y AR al Motorola.
 
+SNAPSHOT 5M ESTRUCTURADO — escribir también en cada ANALIZA:
+AS Last 5m Close = data.last_close_5m
+AT 5m Execution = FAVORABLE / NEUTRAL / CONTRARIA
+AU 5m Close
+AV 5m EMA20
+AW 5m EMA50
+AX 5m EMA200
+AY 5m RSI14
+AZ 5m ATR14
+BA 5m Volume Rel20
+BB BTC 5m Close
+BC BTC 5m EMA50
+BD BTC 5m EMA200
+BE BTC 5m RSI14
+Usar los valores del LIVE_STATE leído para ese ANALIZA. AT es observacional y NO cambia score, gate ni TIME_STOP.
+
 IMPORTANTE:
 ANALYSES es investigación, no performance de trades.
 SIGNALS continúa solo para ACTIVE_LONG/ACTIVE_SHORT.
