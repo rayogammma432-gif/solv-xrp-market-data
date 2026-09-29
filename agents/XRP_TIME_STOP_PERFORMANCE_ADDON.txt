@@ -1,0 +1,112 @@
+XRP — ADDON TIME STOP + PERFORMANCE
+
+Solo registrar en SIGNALS una señal cuando el estado final sea LONG o SHORT ACTIVO. Nunca registrar CONDICIONAL/NO OPERAR.
+
+Al activar señal, añadir una fila:
+A ID único XRP-UTC-MOTOR-DIR
+B Signal UTC
+C Motor: PRIMARY_1H o SCALP_15M_1M
+D Direction
+E Setup
+F Entry
+G Stop
+H TP1
+I TP2
+J Risk % numérico (0.0025=0.25%)
+K Confluences X/8
+L State=OPEN
+V Time Stop Status=OK
+Dejar M:U y W:AL vacíos. El Motorola es dueño de M:U y W:AL mientras State=OPEN.
+
+TIME STOP:
+SCALP: a 2 velas 15m, si MFE<0.3R => REVIEW. A 4 velas, si MFE<0.5R => salida temporal. Máximo 6 velas sin TP1.
+PRIMARY: a 3 velas 1H, si MFE<0.3R => REVIEW. A 6 velas, si MFE<0.5R => salida temporal. Máximo 8 velas sin TP1.
+
+Si SIGNALS muestra REVIEW, reevaluar continuidad y protección en el siguiente ANALIZA.
+TIME_STOP no sustituye SL estructural y nunca autoriza ejecutar/cerrar órdenes automáticamente.
+El tracker usa 1m cerrado para TP/SL/MFE/MAE. Si TP y SL/BE ocurren en la misma vela 1m sin orden demostrable => AMBIGUOUS.
+
+
+TELEMETRÍA PASIVA:
+Para SCALP, X:AL son snapshots 1m a 5/10/15 min (MFE, MAE, RSI14, lado EMA20 y microestructura). El agente no escribe ni usa esos campos como gate o salida hasta que el performance demuestre ventaja.
+
+
+SINCRONIZACION OBLIGATORIA + CAPA 5M:
+
+En CADA ANALIZA, leer LIVE_STATE antes de validar estructura o triggers.
+
+Para XRP y BTC comprobar sync y expected_last_close.
+SYNC DURO requerido para activar señales: 1m / 15m / 1h / 4h = OK y last_close_* >= expected_last_close_*.
+5m también se comprueba, pero es OBSERVACIONAL: si SOLO 5m está LAGGING, releer LIVE_STATE una vez; si persiste, continuar sin usar 5m, dejar AT/AS:BE sin snapshot no disponible y anotar 5M DATA MISSING. 5m solo nunca causa DATA_INSUFFICIENT ni bloquea una señal.
+Si 1m/15m/1h/4h requerido sigue LAGGING tras una relectura => DATA_INSUFFICIENT indicando la TF exacta.
+data.changed_* NO demuestra frescura.
+No usar una vela vieja solo porque todavía cumple un límite general de minutos.
+
+CAPA 5M — SOLO OBSERVACIONAL POR AHORA:
+- 4H = contexto.
+- 1H = sesgo principal.
+- 15m = setup / estructura.
+- 5m = calidad de ejecucion / transicion.
+- 1m = timing final.
+
+Leer en 5m: estructura reciente, close vs EMA20/EMA50, RSI14, ATR14, volumen relativo y BTC 5m.
+El 5m NO suma ni resta confluencias, NO cambia el minimo 6/8, NO es gate obligatorio, NO cambia TIME_STOP y NO invalida por si solo una señal.
+Usarlo para describir si la ejecucion esta FAVORABLE / NEUTRAL / CONTRARIA y acumular evidencia para optimizacion posterior.
+El 3m no se usa como gate; si se estudia, se reconstruye despues desde velas 1m.
+
+TRIGGERS DIRECTOS:
+15m: ruptura directa de microestructura = PRE-TRIGGER, no confirmación automática. Exigir una vela cerrada posterior que sostenga el nivel, haga retest defendido o confirme aceptación. Reclaim/lose válido y sweep/reclaim pueden confirmar sin ese paso adicional.
+1m: ruptura directa de micro-swing = PRE-TRIGGER. Para convertirla en trigger SCALP exigir una vela 1m cerrada posterior con hold/aceptación o retest defendido del nivel roto. Reclaim/lose EMA20 válido puede confirmar inmediatamente.
+
+POSICIONES ABIERTAS:
+Antes de crear SIGNALS leer SIGNALS con State=OPEN y USER_TRADES con State=OPEN. No duplicar una señal equivalente del mismo motor/dirección/setup. Si existe una posición abierta contraria, no crear una nueva señal opuesta simultánea; reportar gestión/revaluación hasta que la posición previa figure CLOSED/CANCELLED.
+
+
+
+REGISTRO DE CADA ANALIZA:
+En cada ANALIZA, sin excepción, añadir una fila nueva en ANALYSES.
+A Analysis ID único XRP-UTC-AN
+B Analysis UTC
+C Origin: MANUAL_ANALIZA o TELEGRAM_FOLLOWUP si el usuario llegó por una alerta
+D Overall State: NO_OPERAR / CONDICIONAL / ACTIVE_LONG / ACTIVE_SHORT / DATA_INSUFFICIENT
+E Primary Bias LONG/SHORT/NEUTRAL
+F Primary Score X/8
+G Trigger 15m YES/NO/PENDING
+H Scalp Bias LONG/SHORT/NEUTRAL
+I Scalp Score X/8
+J Trigger 1m YES/NO/PENDING
+K:O resumen 4H, 1H, 15m, 1m y BTC
+P OI 15m %
+Q OI 1H %
+R Mark Price actual
+S nivel relevante
+T:W Entry/Stop/TP1/TP2 candidato si existe, si no vacío
+X Gross RR si existe
+Y razón principal
+Z trigger/nivel para reconsiderar o invalidación
+AA:AD últimos close timestamps 1m/15m/1H/4H
+AE Linked Signal ID solo si también se creó SIGNALS
+AQ PENDING
+Dejar AF:AP y AR al Motorola.
+
+SNAPSHOT 5M ESTRUCTURADO — escribir también en cada ANALIZA:
+AS Last 5m Close = data.last_close_5m
+AT 5m Execution = FAVORABLE / NEUTRAL / CONTRARIA
+AU 5m Close
+AV 5m EMA20
+AW 5m EMA50
+AX 5m EMA200
+AY 5m RSI14
+AZ 5m ATR14
+BA 5m Volume Rel20
+BB BTC 5m Close
+BC BTC 5m EMA50
+BD BTC 5m EMA200
+BE BTC 5m RSI14
+BF Rule Version = XRP_V3.2
+Usar los valores del LIVE_STATE leído para ese ANALIZA. AT es observacional y NO cambia score, gate ni TIME_STOP.
+
+IMPORTANTE:
+ANALYSES es investigación, no performance de trades.
+SIGNALS continúa solo para ACTIVE_LONG/ACTIVE_SHORT.
+Nunca convertir automáticamente un NO_OPERAR o CONDICIONAL en trade retrospectivo.
