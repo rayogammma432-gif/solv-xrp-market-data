@@ -3,8 +3,9 @@
 Versión 2: actualización cada minuto con escritura incremental.
 
 ## Comportamiento
-- Al arrancar: bootstrap de 500 velas cerradas para 1m/15m/1h/4h.
-- Cada minuto: solo nueva vela 1m + MARKET + OI actual + LIVE_STATE.
+- Al arrancar: bootstrap de 500 velas cerradas para SOLV/BTC en 1m/5m/15m/1h/4h; XRP conserva 1m/15m/1h/4h.
+- Cada minuto: nueva vela 1m + MARKET + OI actual + LIVE_STATE.
+- En cierres 5m: añade SOLV_5M y BTC_5M. Esta capa es inicialmente telemetría/calidad de ejecución, no gate obligatorio.
 - En cierres 15m: añade nueva 15m y actualiza OI_HISTORY.
 - En cierres 1H: añade nueva 1H.
 - En cierres 4H: añade nueva 4H.
