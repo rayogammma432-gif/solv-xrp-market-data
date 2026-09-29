@@ -268,7 +268,7 @@ class AlertDetector:
 
     def _trigger_15m_solv(self, rows, live, direction):
         """
-        SOLV: reclaims/sweeps pueden confirmar de inmediato.
+        SOLV/XRP: reclaims/sweeps pueden confirmar de inmediato.
         Una ruptura directa solo crea PRE-TRIGGER; requiere otra vela cerrada
         sosteniendo/retesteando el nivel antes de alertar como trigger.
         """
@@ -329,7 +329,7 @@ class AlertDetector:
 
     def _trigger_1m_solv(self, rows, live, direction):
         """
-        SOLV: reclaim/lose EMA20 puede confirmar de inmediato.
+        SOLV/XRP: reclaim/lose EMA20 puede confirmar de inmediato.
         Ruptura micro-swing 1m = PRE-TRIGGER hasta el siguiente cierre.
         """
         if len(rows) < 4:
@@ -449,8 +449,12 @@ class AlertDetector:
             return True
         return False
 
-    def pending_events(self):
-        return _load_events()
+    def pending_events(self, key=None):
+        events = _load_events()
+        if key is None:
+            return events
+        asset = str(key).upper()
+        return [e for e in events if str(e.get("asset", "")).upper() == asset]
 
     def ack_events(self, ids):
         ids = {str(x) for x in (ids or [])}
@@ -507,7 +511,7 @@ class AlertDetector:
                 direction = pw.get("direction")
                 trigger = None
 
-                if key.lower() == "solv":
+                if key.lower() in ("solv", "xrp"):
                     pre = st.get("primary_pretrigger")
                     if pre and pre.get("direction") != direction:
                         st.pop("primary_pretrigger", None)
@@ -574,7 +578,7 @@ class AlertDetector:
                                 telegram_sent=False,
                             )
                 else:
-                    # XRP queda exactamente con el comportamiento anterior.
+                    # Ruta legacy solo para activos futuros que no usen PRE-TRIGGER.
                     trigger = self._trigger_15m_legacy(asset_rows["15m"], live, direction)
 
                 if trigger:
@@ -609,7 +613,7 @@ class AlertDetector:
                 close1 = str(live.get("data.last_close_1m", ""))
                 trigger = None
 
-                if key.lower() == "solv":
+                if key.lower() in ("solv", "xrp"):
                     pre = st.get("scalp_pretrigger")
                     if pre and pre.get("direction") != direction:
                         st.pop("scalp_pretrigger", None)
@@ -676,7 +680,7 @@ class AlertDetector:
                                 telegram_sent=False,
                             )
                 else:
-                    # XRP queda exactamente con el comportamiento anterior.
+                    # Ruta legacy solo para activos futuros que no usen PRE-TRIGGER.
                     trigger = self._trigger_1m_legacy(asset_rows["1m"], live, direction)
 
                 if trigger:
