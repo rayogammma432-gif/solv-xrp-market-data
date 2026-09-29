@@ -25,7 +25,7 @@ LOG_DIR.mkdir(exist_ok=True)
 CACHE_LIMIT = 500
 OI_SAMPLE_LIMIT = 1440
 BASE_TFS = ("1m", "15m", "1h", "4h")
-SOLV_TFS = ("1m", "5m", "15m", "1h", "4h")
+SOLV_TFS = ("1m", "5m", "15m", "1h", "4h")  # temporalidades completas para SOLV y XRP
 TF_MS = {"1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000}
 
 logger = logging.getLogger("market_collector")
@@ -331,11 +331,11 @@ class Collector:
         self.cfg = load_config(config_path)
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "solv-xrp-termux-collector/2.0"})
-        # 5m se activa solo para SOLV + BTC. XRP permanece sin cambios.
+        # SOLV, XRP y BTC usan 1m/5m/15m/1h/4h para análisis y sincronización.
         self.caches = {
             "BTCUSDT": {tf: [] for tf in SOLV_TFS},
             "SOLVUSDT": {tf: [] for tf in SOLV_TFS},
-            "XRPUSDT": {tf: [] for tf in BASE_TFS},
+            "XRPUSDT": {tf: [] for tf in SOLV_TFS},
         }
         self.oi_samples = load_oi_samples()
         self.alerts = AlertDetector(self.cfg, self.session)
@@ -368,7 +368,7 @@ class Collector:
         add("market.next_funding_utc", market["nextFundingTimeUtc"], "MARKET")
         add("market.open_interest", market["openInterest"], "MARKET")
 
-        active_tfs = SOLV_TFS if key == "solv" else BASE_TFS
+        active_tfs = SOLV_TFS
 
         sync_now = utc_now()
         for tf in active_tfs:
@@ -430,7 +430,7 @@ class Collector:
                 self.oi_samples[key].append(sample)
                 self.oi_samples[key] = self.oi_samples[key][-OI_SAMPLE_LIMIT:]
                 generated = utc_iso_now()
-                active_tfs = SOLV_TFS if key == "solv" else BASE_TFS
+                active_tfs = SOLV_TFS
                 changed = {tf: True for tf in active_tfs}
                 payload = {
                     "secret": self.cfg[key]["shared_secret"],
@@ -444,31 +444,18 @@ class Collector:
                         "MUESTREO_LOCAL_OI_ACTUAL"
                     ] for x in self.oi_samples[key]],
                     "liveState": self._build_live_state(key, market, changed, generated),
-                    "sheets": (
-                        {
-                            f"{prefix}_1M": self.caches[symbol]["1m"],
-                            f"{prefix}_5M": self.caches[symbol]["5m"],
-                            f"{prefix}_15M": self.caches[symbol]["15m"],
-                            f"{prefix}_1H": self.caches[symbol]["1h"],
-                            f"{prefix}_4H": self.caches[symbol]["4h"],
-                            "BTC_1M": self.caches["BTCUSDT"]["1m"],
-                            "BTC_5M": self.caches["BTCUSDT"]["5m"],
-                            "BTC_15M": self.caches["BTCUSDT"]["15m"],
-                            "BTC_1H": self.caches["BTCUSDT"]["1h"],
-                            "BTC_4H": self.caches["BTCUSDT"]["4h"],
-                        }
-                        if key == "solv"
-                        else {
-                            f"{prefix}_1M": self.caches[symbol]["1m"],
-                            f"{prefix}_15M": self.caches[symbol]["15m"],
-                            f"{prefix}_1H": self.caches[symbol]["1h"],
-                            f"{prefix}_4H": self.caches[symbol]["4h"],
-                            "BTC_1M": self.caches["BTCUSDT"]["1m"],
-                            "BTC_15M": self.caches["BTCUSDT"]["15m"],
-                            "BTC_1H": self.caches["BTCUSDT"]["1h"],
-                            "BTC_4H": self.caches["BTCUSDT"]["4h"],
-                        }
-                    ),
+                    "sheets": {
+                        f"{prefix}_1M": self.caches[symbol]["1m"],
+                        f"{prefix}_5M": self.caches[symbol]["5m"],
+                        f"{prefix}_15M": self.caches[symbol]["15m"],
+                        f"{prefix}_1H": self.caches[symbol]["1h"],
+                        f"{prefix}_4H": self.caches[symbol]["4h"],
+                        "BTC_1M": self.caches["BTCUSDT"]["1m"],
+                        "BTC_5M": self.caches["BTCUSDT"]["5m"],
+                        "BTC_15M": self.caches["BTCUSDT"]["15m"],
+                        "BTC_1H": self.caches["BTCUSDT"]["1h"],
+                        "BTC_4H": self.caches["BTCUSDT"]["4h"],
+                    },
                 }
                 if dry_run:
                     logger.info("%s BOOTSTRAP DRY-RUN OK.", symbol)
@@ -506,29 +493,15 @@ class Collector:
             new_by_symbol[symbol]["1m"] = update_cache(self.caches[symbol]["1m"], recent)
             changed["1m"] = changed["1m"] or bool(new_by_symbol[symbol]["1m"])
 
-        # SOLV + BTC: sincronización por estado, no por "caer en el minuto exacto".
+        # SOLV + XRP + BTC: sincronización por estado, no por "caer en el minuto exacto".
         # Si una vela que ya debería existir falta, se vuelve a consultar en cada ciclo
         # hasta alcanzarla. Esto evita saltos por red/retrasos de procesamiento.
         for tf in ("5m", "15m", "1h", "4h"):
-            for symbol in ("SOLVUSDT", "BTCUSDT"):
+            for symbol in ("SOLVUSDT", "XRPUSDT", "BTCUSDT"):
                 if cache_is_behind(self.caches[symbol][tf], tf, now=now):
                     recent = get_recent_closed(self.session, symbol, tf, limit=12)
                     new_by_symbol[symbol][tf] = update_cache(self.caches[symbol][tf], recent)
                     changed[tf] = changed[tf] or bool(new_by_symbol[symbol][tf])
-
-        # XRP permanece con el comportamiento anterior hasta su fase de optimización.
-        xrp_due = []
-        if now.minute % 15 == 0:
-            xrp_due.append("15m")
-        if now.minute == 0:
-            xrp_due.append("1h")
-        if now.minute == 0 and now.hour % 4 == 0:
-            xrp_due.append("4h")
-
-        for tf in xrp_due:
-            recent = get_recent_closed(self.session, "XRPUSDT", tf, limit=5)
-            new_by_symbol["XRPUSDT"][tf] = update_cache(self.caches["XRPUSDT"][tf], recent)
-            changed[tf] = changed[tf] or bool(new_by_symbol["XRPUSDT"][tf])
 
         failures = []
         for key in ("solv", "xrp"):
@@ -541,30 +514,18 @@ class Collector:
                 generated = utc_iso_now()
 
                 sheets = {}
-                if key == "solv":
-                    mapping = {
-                        f"{prefix}_1M": new_by_symbol[symbol]["1m"],
-                        "BTC_1M": new_by_symbol["BTCUSDT"]["1m"],
-                        f"{prefix}_5M": new_by_symbol[symbol]["5m"],
-                        "BTC_5M": new_by_symbol["BTCUSDT"]["5m"],
-                        f"{prefix}_15M": new_by_symbol[symbol]["15m"],
-                        "BTC_15M": new_by_symbol["BTCUSDT"]["15m"],
-                        f"{prefix}_1H": new_by_symbol[symbol]["1h"],
-                        "BTC_1H": new_by_symbol["BTCUSDT"]["1h"],
-                        f"{prefix}_4H": new_by_symbol[symbol]["4h"],
-                        "BTC_4H": new_by_symbol["BTCUSDT"]["4h"],
-                    }
-                else:
-                    mapping = {
-                        f"{prefix}_1M": new_by_symbol[symbol]["1m"],
-                        "BTC_1M": new_by_symbol["BTCUSDT"]["1m"],
-                        f"{prefix}_15M": new_by_symbol[symbol]["15m"],
-                        "BTC_15M": new_by_symbol["BTCUSDT"]["15m"],
-                        f"{prefix}_1H": new_by_symbol[symbol]["1h"],
-                        "BTC_1H": new_by_symbol["BTCUSDT"]["1h"],
-                        f"{prefix}_4H": new_by_symbol[symbol]["4h"],
-                        "BTC_4H": new_by_symbol["BTCUSDT"]["4h"],
-                    }
+                mapping = {
+                    f"{prefix}_1M": new_by_symbol[symbol]["1m"],
+                    "BTC_1M": new_by_symbol["BTCUSDT"]["1m"],
+                    f"{prefix}_5M": new_by_symbol[symbol]["5m"],
+                    "BTC_5M": new_by_symbol["BTCUSDT"]["5m"],
+                    f"{prefix}_15M": new_by_symbol[symbol]["15m"],
+                    "BTC_15M": new_by_symbol["BTCUSDT"]["15m"],
+                    f"{prefix}_1H": new_by_symbol[symbol]["1h"],
+                    "BTC_1H": new_by_symbol["BTCUSDT"]["1h"],
+                    f"{prefix}_4H": new_by_symbol[symbol]["4h"],
+                    "BTC_4H": new_by_symbol["BTCUSDT"]["4h"],
+                }
                 for name, rows in mapping.items():
                     if rows:
                         sheets[name] = rows
@@ -574,7 +535,7 @@ class Collector:
                 signal_updates = []
                 analysis_updates = []
                 alert_events = []
-                if key == "solv" and not dry_run:
+                if not dry_run:
                     signal_updates = self.signal_tracker.evaluate(
                         key, self.open_signals.get(key, []), self.caches[symbol]
                     )
@@ -583,7 +544,7 @@ class Collector:
                         self.pending_analyses.get(key, []),
                         self.caches[symbol]["1m"],
                     )
-                    alert_events = self.alerts.pending_events()
+                    alert_events = self.alerts.pending_events(key)
 
                 payload = {
                     "secret": self.cfg[key]["shared_secret"],
@@ -594,10 +555,7 @@ class Collector:
                     "liveState": live_state,
                     "sheets": sheets,
                 }
-                if (
-                    (key == "solv" and bool(new_by_symbol["SOLVUSDT"]["15m"]))
-                    or (key == "xrp" and "15m" in xrp_due)
-                ):
+                if bool(new_by_symbol[symbol]["15m"]):
                     payload["oiHistory"] = get_oi_history(self.session, symbol)
                 if signal_updates:
                     payload["signalUpdates"] = signal_updates
@@ -613,11 +571,10 @@ class Collector:
                     )
                 else:
                     response = post_json(self.session, self.cfg[key]["web_app_url"], payload)
-                    if key == "solv":
-                        self.open_signals[key] = list(response.get("openSignals", []))
-                        self.pending_analyses[key] = list(response.get("pendingAnalyses", []))
-                        if alert_events:
-                            self.alerts.ack_events([x.get("id") for x in alert_events])
+                    self.open_signals[key] = list(response.get("openSignals", []))
+                    self.pending_analyses[key] = list(response.get("pendingAnalyses", []))
+                    if alert_events:
+                        self.alerts.ack_events([x.get("id") for x in alert_events])
                     logger.info(
                         "%s DELTA OK: sheets=%s response=%s",
                         symbol, {k: len(v) for k, v in sheets.items()}, response
