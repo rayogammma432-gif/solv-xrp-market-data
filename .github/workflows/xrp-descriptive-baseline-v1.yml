@@ -1,0 +1,58 @@
+name: XRP Descriptive Baseline V1
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/xrp-descriptive-baseline-v1.yml"
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Normalize full discovery period with warmup
+        run: |
+          python research/historical_period_normalizer_v1.py             --start 2020-01 --end 2023-12 --outdir baseline-work
+
+      - name: Build FEATURES_V1 for full period
+        run: |
+          DB=$(find baseline-work -name '*.sqlite' -type f | head -1)
+          test -n "$DB"
+          python research/historical_feature_builder_v1.py             --db "$DB" --outdir feature-full
+
+      - name: Build descriptive baseline pass A
+        run: |
+          python research/historical_descriptive_baseline_v1.py             --features feature-full/XRP_FEATURES_V1.csv --outdir baseline-a
+
+      - name: Build descriptive baseline pass B
+        run: |
+          python research/historical_descriptive_baseline_v1.py             --features feature-full/XRP_FEATURES_V1.csv --outdir baseline-b
+
+      - name: Determinism check
+        run: |
+          cmp baseline-a/XRP_DESCRIPTIVE_BASELINE_V1.json baseline-b/XRP_DESCRIPTIVE_BASELINE_V1.json
+          SHA_A=$(sha256sum baseline-a/XRP_DESCRIPTIVE_BASELINE_V1.json | awk '{print $1}')
+          SHA_B=$(sha256sum baseline-b/XRP_DESCRIPTIVE_BASELINE_V1.json | awk '{print $1}')
+          echo "baseline_sha_a=$SHA_A"
+          echo "baseline_sha_b=$SHA_B"
+          test "$SHA_A" = "$SHA_B"
+
+      - name: Remove large intermediate feature CSV
+        if: always()
+        run: rm -f feature-full/XRP_FEATURES_V1.csv baseline-work/*.sqlite baseline-work/*.sqlite-wal baseline-work/*.sqlite-shm
+
+      - name: Upload baseline reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrp-descriptive-baseline-v1
+          path: |
+            baseline-a/
+            baseline-work/PERIOD_NORMALIZATION_QC.json
+            feature-full/XRP_FEATURES_V1_QC.json
+            feature-full/XRP_FEATURES_V1_QC.md
+          if-no-files-found: warn
