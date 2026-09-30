@@ -1,0 +1,57 @@
+name: XRP Feature Engineering Smoke V1
+
+on:
+  workflow_dispatch:
+    inputs:
+      month:
+        description: "Normalized month used for feature QA"
+        required: false
+        default: "2023-01"
+  push:
+    paths:
+      - ".github/workflows/xrp-feature-engineering-smoke-v1.yml"
+
+jobs:
+  features:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build HIST_NORM_V1 input
+        run: |
+          MONTH="${{ github.event.inputs.month || '2023-01' }}"
+          python research/historical_normalizer_v1.py --month "$MONTH" --outdir norm-output
+
+      - name: Build FEATURES_V1 pass A
+        run: |
+          DB=$(find norm-output -name '*.sqlite' -type f | head -1)
+          test -n "$DB"
+          python research/historical_feature_builder_v1.py --db "$DB" --outdir feature-a
+
+      - name: Build FEATURES_V1 pass B
+        run: |
+          DB=$(find norm-output -name '*.sqlite' -type f | head -1)
+          python research/historical_feature_builder_v1.py --db "$DB" --outdir feature-b
+
+      - name: Determinism check
+        run: |
+          SHA_A=$(sha256sum feature-a/XRP_FEATURES_V1.csv | awk '{print $1}')
+          SHA_B=$(sha256sum feature-b/XRP_FEATURES_V1.csv | awk '{print $1}')
+          echo "file_sha_a=$SHA_A"
+          echo "file_sha_b=$SHA_B"
+          test "$SHA_A" = "$SHA_B"
+          cmp feature-a/XRP_FEATURES_V1.csv feature-b/XRP_FEATURES_V1.csv
+          printf '%s\n' "$SHA_A" > feature-a/XRP_FEATURES_V1_FILE_SHA256.txt
+
+      - name: Upload approved feature smoke output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrp-feature-engineering-smoke-v1
+          path: |
+            feature-a/
+            norm-output/*QC*.json
+            norm-output/*QC*.md
+          if-no-files-found: warn
