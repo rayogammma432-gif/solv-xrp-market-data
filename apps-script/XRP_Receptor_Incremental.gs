@@ -1,5 +1,6 @@
 // Receptor incremental 1m/5m/15m/1H/4H/1D para XRPUSDT
 // + puente SIGNALS/PERFORMANCE para forward tracking.
+// + XRP_FORWARD_V3 shadow append-only events/outcomes.
 // El secreto NO se guarda en el código.
 // Apps Script > Project Settings > Script properties:
 // SHARED_SECRET = el mismo secreto que ya usa config.json en el Motorola.
@@ -10,6 +11,8 @@ const ASSET_SYMBOL = 'XRPUSDT';
 const ASSET_PREFIX = 'XRP';
 const SIGNAL_COLS = 38; // A:AL
 const ANALYSIS_COLS = 44; // A:AR
+const FORWARD_V3_EVENT_COLS = 25; // A:Y
+const FORWARD_V3_OUTCOME_COLS = 17; // A:Q
 const MAX_RESEARCH_ROWS = 3000;
 
 const MAX_ROWS = {
@@ -433,6 +436,56 @@ function appendAlertEvents_(ss, events) {
   return rows.length;
 }
 
+function appendUniqueRowsById_(sh, rows, cols) {
+  if (!Array.isArray(rows) || !rows.length) return 0;
+
+  const lastRow = sh.getLastRow();
+  const existing = new Set();
+  if (lastRow >= 2) {
+    sh.getRange(2, 1, lastRow - 1, 1).getValues().forEach(function(r) {
+      const id = String(r[0] || '');
+      if (id) existing.add(id);
+    });
+  }
+
+  const toAppend = [];
+  rows.forEach(function(row) {
+    if (!Array.isArray(row) || row.length !== cols) {
+      throw new Error(
+        'Fila append-only con ancho inválido en ' + sh.getName() +
+        ': esperado=' + cols + ' recibido=' + (Array.isArray(row) ? row.length : 'NO_ARRAY')
+      );
+    }
+    const id = String(row[0] || '');
+    if (!id || existing.has(id)) return;
+    toAppend.push(row);
+    existing.add(id);
+  });
+
+  if (!toAppend.length) return 0;
+
+  const startRow = sh.getLastRow() + 1;
+  ensureRows_(sh, startRow + toAppend.length - 1);
+  sh.getRange(startRow, 1, toAppend.length, cols).setValues(toAppend);
+  return toAppend.length;
+}
+
+function appendForwardV3Events_(ss, rows) {
+  return appendUniqueRowsById_(
+    sheet_(ss, 'FORWARD_V3_EVENTS'),
+    rows,
+    FORWARD_V3_EVENT_COLS
+  );
+}
+
+function appendForwardV3Outcomes_(ss, rows) {
+  return appendUniqueRowsById_(
+    sheet_(ss, 'FORWARD_V3_OUTCOMES'),
+    rows,
+    FORWARD_V3_OUTCOME_COLS
+  );
+}
+
 function doPost(e) {
   try {
     const secretExpected = PropertiesService.getScriptProperties().getProperty('SHARED_SECRET');
@@ -510,6 +563,16 @@ function doPost(e) {
 
     if (Array.isArray(payload.alertEvents)) {
       counts.ALERT_EVENTS = appendAlertEvents_(ss, payload.alertEvents);
+    }
+
+    // Forward V3 shadow research: append-only + deterministic ID dedupe.
+    // Never touches SIGNALS, ANALYSES, USER_TRADES or operational state.
+    if (Array.isArray(payload.forwardV3Events)) {
+      counts.FORWARD_V3_EVENTS = appendForwardV3Events_(ss, payload.forwardV3Events);
+    }
+
+    if (Array.isArray(payload.forwardV3Outcomes)) {
+      counts.FORWARD_V3_OUTCOMES = appendForwardV3Outcomes_(ss, payload.forwardV3Outcomes);
     }
 
     // Archivo de investigación separado: append-only y best-effort.
