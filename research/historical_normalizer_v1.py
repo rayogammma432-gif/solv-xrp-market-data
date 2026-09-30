@@ -195,7 +195,7 @@ def load_aux(db,symbol,month,family):
     blob,sh,line=fetch_verified(url); _,raw=unzip_csv(blob); rows=kline_rows(raw)
     record_source(db,url,family,symbol,"monthly",sh,line,len(raw))
     for r in rows:
-        db.execute("""INSERT INTO aux_kline_1m VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        db.execute("""INSERT INTO aux_kline_1m VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                    (symbol,family,r["open_time"],r["close_time"],r["open_time"],r["close_time"]+1,
                     r["open"],r["high"],r["low"],r["close"],url,sh,NORM))
     return len(rows)
