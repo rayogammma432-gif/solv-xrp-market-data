@@ -1,0 +1,127 @@
+name: XRP Validation Evaluation V2
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/xrp-validation-evaluation-v2.yml"
+
+jobs:
+  partial:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - part: "2024"
+            norm_start: "2023-12"
+            norm_end: "2025-01"
+            target_start: "2024-01-01T00:00:00Z"
+            target_end: "2025-01-01T00:00:00Z"
+          - part: "2025"
+            norm_start: "2024-12"
+            norm_end: "2025-12"
+            target_start: "2025-01-01T00:00:00Z"
+            target_end: "2025-12-31T20:00:00Z"
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Syntax gate
+        run: |
+          python -m py_compile \
+            research/historical_normalizer_window_v1.py \
+            research/historical_feature_builder_v1.py \
+            research/historical_outcome_engine_v1.py \
+            research/xrp_validation_partial_v2.py \
+            research/xrp_validation_aggregate_v2.py
+
+      - name: Normalize validation window
+        run: |
+          python research/historical_normalizer_window_v1.py \
+            --start-month "${{ matrix.norm_start }}" \
+            --end-month "${{ matrix.norm_end }}" \
+            --outdir norm-output
+
+      - name: Build frozen FEATURES_V1
+        run: |
+          DB=$(find norm-output -name '*.sqlite' -type f | head -1)
+          test -n "$DB"
+          python research/historical_feature_builder_v1.py \
+            --db "$DB" \
+            --outdir feature-output
+
+      - name: Build OUTCOMES_V1 for validation partition
+        run: |
+          DB=$(find norm-output -name '*.sqlite' -type f | head -1)
+          python research/historical_outcome_engine_v1.py \
+            --db "$DB" \
+            --features feature-output/XRP_FEATURES_V1.csv \
+            --target-start "${{ matrix.target_start }}" \
+            --target-end "${{ matrix.target_end }}" \
+            --outdir outcome-output
+
+      - name: Evaluate fixed V2 hypotheses into daily blocks
+        run: |
+          python research/xrp_validation_partial_v2.py \
+            --features feature-output/XRP_FEATURES_V1.csv \
+            --outcomes outcome-output/XRP_OUTCOMES_V1.csv \
+            --target-start "${{ matrix.target_start }}" \
+            --target-end "${{ matrix.target_end }}" \
+            --outdir validation-part
+
+      - name: Remove large intermediate data
+        if: always()
+        run: |
+          rm -f norm-output/*.sqlite norm-output/*.sqlite-wal norm-output/*.sqlite-shm
+          rm -f feature-output/XRP_FEATURES_V1.csv
+          rm -f outcome-output/XRP_OUTCOMES_V1.csv
+
+      - name: Upload validation partial
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrp-validation-part-${{ matrix.part }}
+          path: |
+            validation-part/
+            norm-output/WINDOW_NORMALIZATION_QC.json
+            feature-output/XRP_FEATURES_V1_QC.json
+            outcome-output/XRP_OUTCOME_ENGINE_V1_QC.json
+          if-no-files-found: warn
+
+  aggregate:
+    needs: partial
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download validation parts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: xrp-validation-part-*
+          path: parts
+
+      - name: Aggregate validation pass A
+        run: |
+          python research/xrp_validation_aggregate_v2.py --root parts --outdir validation-a
+
+      - name: Aggregate validation pass B
+        run: |
+          python research/xrp_validation_aggregate_v2.py --root parts --outdir validation-b
+
+      - name: Determinism gate
+        run: |
+          cmp validation-a/XRP_VALIDATION_RESULTS_V2.json validation-b/XRP_VALIDATION_RESULTS_V2.json
+          cmp validation-a/XRP_VALIDATION_RESULTS_V2.md validation-b/XRP_VALIDATION_RESULTS_V2.md
+          SHA_A=$(sha256sum validation-a/XRP_VALIDATION_RESULTS_V2.json | awk '{print $1}')
+          SHA_B=$(sha256sum validation-b/XRP_VALIDATION_RESULTS_V2.json | awk '{print $1}')
+          echo "validation_sha_a=$SHA_A"
+          echo "validation_sha_b=$SHA_B"
+          test "$SHA_A" = "$SHA_B"
+
+      - name: Upload final validation result
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrp-validation-results-v2
+          path: validation-a/
