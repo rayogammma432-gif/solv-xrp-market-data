@@ -26,6 +26,10 @@ LOG_DIR.mkdir(exist_ok=True)
 
 CACHE_LIMIT = 500
 OI_SAMPLE_LIMIT = 1440
+TV_SHADOW_VERSION = "TV_SHADOW_V1"
+SUPER_TREND_ATR_PERIOD = 10
+SUPER_TREND_MULTIPLIER = 3.0
+DONCHIAN_RIBBON_PERIOD = 20
 BASE_TFS = ("1m", "15m", "1h", "4h", "1d")
 SOLV_TFS = ("1m", "5m", "15m", "1h", "4h", "1d")  # incluye 1D como referencia macro para SOLV/XRP/BTC
 TF_MS = {"1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000}
@@ -225,6 +229,161 @@ def volume_rel(rows, period=20):
     prior = [float(r[5]) for r in rows[-period-1:-1]]
     avg = mean(prior) if prior else 0.0
     return float(rows[-1][5]) / avg if avg else None
+
+
+def _pine_rma_series(values, period):
+    """TradingView-style RMA series: SMA seed, then Wilder recursion."""
+    out = [None] * len(values)
+    if period <= 0 or len(values) < period:
+        return out
+    seed = sum(values[:period]) / period
+    out[period - 1] = seed
+    prev = seed
+    for i in range(period, len(values)):
+        prev = ((prev * (period - 1)) + values[i]) / period
+        out[i] = prev
+    return out
+
+
+def supertrend_tv(rows, period=SUPER_TREND_ATR_PERIOD, multiplier=SUPER_TREND_MULTIPLIER):
+    """
+    Replica funcional del SuperTrend STRATEGY configurado por el usuario:
+    ATR=RMA, source=hl2, period=10, multiplier=3.
+    Investigación shadow; no genera órdenes ni señales operativas.
+    """
+    if not rows:
+        return {}
+    highs = [float(r[2]) for r in rows]
+    lows = [float(r[3]) for r in rows]
+    closes = [float(r[4]) for r in rows]
+    trs = []
+    for i in range(len(rows)):
+        if i == 0:
+            trs.append(highs[i] - lows[i])
+        else:
+            pc = closes[i - 1]
+            trs.append(max(highs[i] - lows[i], abs(highs[i] - pc), abs(lows[i] - pc)))
+    atrs = _pine_rma_series(trs, period)
+
+    ups = [None] * len(rows)
+    dns = [None] * len(rows)
+    trends = [1] * len(rows)
+    flips = ["NONE"] * len(rows)
+    ages = [None] * len(rows)
+    last_flip = None
+
+    for i in range(len(rows)):
+        av = atrs[i]
+        prev_trend = trends[i - 1] if i else 1
+        trends[i] = prev_trend
+        if av is None:
+            continue
+
+        src = (highs[i] + lows[i]) / 2.0
+        raw_up = src - multiplier * av
+        raw_dn = src + multiplier * av
+        prev_up = ups[i - 1] if i and ups[i - 1] is not None else raw_up
+        prev_dn = dns[i - 1] if i and dns[i - 1] is not None else raw_dn
+
+        if i and closes[i - 1] > prev_up:
+            ups[i] = max(raw_up, prev_up)
+        else:
+            ups[i] = raw_up
+        if i and closes[i - 1] < prev_dn:
+            dns[i] = min(raw_dn, prev_dn)
+        else:
+            dns[i] = raw_dn
+
+        cur = prev_trend
+        if prev_trend == -1 and closes[i] > prev_dn:
+            cur = 1
+        elif prev_trend == 1 and closes[i] < prev_up:
+            cur = -1
+        trends[i] = cur
+
+        if i and cur != prev_trend:
+            flips[i] = "BUY" if cur == 1 else "SELL"
+            last_flip = i
+        if last_flip is not None:
+            ages[i] = i - last_flip
+
+    i = len(rows) - 1
+    av = atrs[i]
+    trend = trends[i]
+    line = ups[i] if trend == 1 else dns[i]
+    close = closes[i]
+    dist_pct = ((close - line) / close) * 100.0 if line not in (None, 0) and close else None
+    dist_atr = abs(close - line) / av if line is not None and av not in (None, 0) else None
+    return {
+        "direction": "LONG" if trend == 1 else "SHORT",
+        "line": line,
+        "flip": flips[i],
+        "age": ages[i],
+        "distance_pct": dist_pct,
+        "distance_atr": dist_atr,
+        "atr": av,
+    }
+
+
+def _donchian_trend_series(rows, length):
+    highs = [float(r[2]) for r in rows]
+    lows = [float(r[3]) for r in rows]
+    closes = [float(r[4]) for r in rows]
+    out = [0] * len(rows)
+    for i in range(len(rows)):
+        prev = out[i - 1] if i else 0
+        if i < length:
+            out[i] = prev
+            continue
+        hh_prev = max(highs[i - length:i])
+        ll_prev = min(lows[i - length:i])
+        if closes[i] > hh_prev:
+            out[i] = 1
+        elif closes[i] < ll_prev:
+            out[i] = -1
+        else:
+            out[i] = prev
+    return out
+
+
+def donchian_ribbon_tv(rows, period=DONCHIAN_RIBBON_PERIOD):
+    """
+    Donchian Trend Ribbon period=20: main length 20 + lower lengths 19..11.
+    Guarda tendencias crudas y consenso; el color visual no se usa como gate.
+    """
+    if not rows:
+        return {}
+    lengths = list(range(period, period - 10, -1))
+    series = {length: _donchian_trend_series(rows, length) for length in lengths}
+    idx = len(rows) - 1
+    states = [series[length][idx] for length in lengths]
+    main = states[0]
+    bull = sum(1 for x in states if x == 1)
+    bear = sum(1 for x in states if x == -1)
+    neutral = len(states) - bull - bear
+    match = sum(1 for x in states if main != 0 and x == main)
+    consensus = (match / len(states)) * 100.0 if main != 0 else 0.0
+
+    main_series = series[period]
+    flip = "NONE"
+    last_flip = None
+    for i in range(1, len(main_series)):
+        if main_series[i] != 0 and main_series[i] != main_series[i - 1]:
+            last_flip = i
+            if i == idx:
+                flip = "BULL" if main_series[i] == 1 else "BEAR"
+    age = idx - last_flip if last_flip is not None else None
+
+    return {
+        "main": "BULL" if main == 1 else "BEAR" if main == -1 else "NEUTRAL",
+        "bull_count": bull,
+        "bear_count": bear,
+        "neutral_count": neutral,
+        "match_count": match,
+        "consensus_pct": consensus,
+        "flip": flip,
+        "age": age,
+    }
 
 def daily_vwap_from_15m(rows):
     if not rows:
@@ -543,6 +702,25 @@ class Collector:
             if "vol_rel20" in metrics:
                 add(f"{tf}.volume_rel20", metrics.get("vol_rel20"), tf.upper())
 
+            st = supertrend_tv(a[tf])
+            dtr = donchian_ribbon_tv(a[tf])
+            add(f"tv.st.{tf}.direction", st.get("direction"), tf.upper(), TV_SHADOW_VERSION)
+            add(f"tv.st.{tf}.line", st.get("line"), tf.upper(), TV_SHADOW_VERSION)
+            add(f"tv.st.{tf}.flip", st.get("flip"), tf.upper(), TV_SHADOW_VERSION)
+            add(f"tv.st.{tf}.age", st.get("age"), tf.upper(), TV_SHADOW_VERSION)
+            add(f"tv.st.{tf}.distance_pct", st.get("distance_pct"), tf.upper(), TV_SHADOW_VERSION)
+            add(f"tv.st.{tf}.distance_atr", st.get("distance_atr"), tf.upper(), TV_SHADOW_VERSION)
+            add(f"tv.dtr.{tf}.main", dtr.get("main"), tf.upper(), TV_SHADOW_VERSION)
+            add(f"tv.dtr.{tf}.bull_count", dtr.get("bull_count"), tf.upper(), TV_SHADOW_VERSION)
+            add(f"tv.dtr.{tf}.bear_count", dtr.get("bear_count"), tf.upper(), TV_SHADOW_VERSION)
+            add(f"tv.dtr.{tf}.match_count", dtr.get("match_count"), tf.upper(), TV_SHADOW_VERSION)
+            add(f"tv.dtr.{tf}.consensus_pct", dtr.get("consensus_pct"), tf.upper(), TV_SHADOW_VERSION)
+            add(f"tv.dtr.{tf}.flip", dtr.get("flip"), tf.upper(), TV_SHADOW_VERSION)
+            add(f"tv.dtr.{tf}.age", dtr.get("age"), tf.upper(), TV_SHADOW_VERSION)
+
+        add("tv.shadow.version", TV_SHADOW_VERSION, "SYSTEM")
+        add("tv.st.config", "ATR10|HL2|MULT3|RMA", "SYSTEM")
+        add("tv.dtr.config", "PERIOD20|L20..11", "SYSTEM")
         add("vwap.daily_utc", avwap, "15M", "VWAP diario UTC calculado desde velas 15m")
 
         for tf in active_tfs:
