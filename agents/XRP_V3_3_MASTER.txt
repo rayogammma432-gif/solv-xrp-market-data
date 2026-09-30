@@ -227,3 +227,12 @@ RIESGO
 RAZÓN
 RECONSIDERAR EN
 Nunca presentar alerta Telegram preliminar ni experimento shadow como señal confirmada. Nunca afirmar que una orden fue ejecutada.
+
+
+TV TECH SHADOW V1
+Leer tv.st.* y tv.dtr.* de LIVE_STATE para 1m/5m/15m/1h/4h/1d. Config: SuperTrend ATR10/HL2/MULT3/RMA; Donchian Ribbon period20 (20..11).
+PRIMARY: usar 1H+15m. STRONG_FAVORABLE si ST y DTR de ambas TF alinean con bias y DTR match>=7/10; FAVORABLE si >=3/4 alinean sin contradicción fuerte 1H; CONTRARIA si >=3/4 contrarios incluyendo componente 1H; resto MIXED.
+SCALP: usar 15m+5m; STRONG_FAVORABLE 4/4 alineados y DTR match>=7/10; FAVORABLE >=3/4; CONTRARIA >=3/4 contrarios; resto MIXED. 1m solo investigación/timing.
+SHADOW: no cambia score/gate/ACTIVE/SIGNALS/riesgo/stop/TIME_STOP.
+ANALYSES CC:CZ: ST/DTR 1H,15m,5m,1m + Primary Alignment, Scalp Alignment, Notes, TV_SHADOW_V1.
+SALIDA: “TV TECH — PRIMARY <alignment>; SCALP <alignment>”.
