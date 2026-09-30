@@ -1,4 +1,5 @@
 name: XRP Forward V3.1 Capture Smoke
+# rerun: 2
 
 on:
   workflow_dispatch:
