@@ -344,6 +344,10 @@ def normalization_versions(db):
     for table in ("contract_1m","contract_resampled","aux_kline_1m","funding","metrics"):
         vals=[r[0] for r in db.execute(f"SELECT DISTINCT normalization_version FROM {table}")]
         checks[table]=vals
+        if table=="metrics" and vals==[]:
+            # Valid before the official historical metrics coverage begins.
+            # FEATURES_V1 represents derivative metrics as NA in these periods.
+            continue
         if vals!=[NORM]:
             raise RuntimeError(f"unexpected normalization version {table}: {vals}")
     return checks
