@@ -1,0 +1,27 @@
+name: XRP Forward V3.1 Capture Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/xrp-forward-v3-1-capture-smoke.yml"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python syntax
+        run: python -m py_compile termux/forward_v3_tracker.py termux/market_collector.py termux/test_forward_v3_tracker.py
+
+      - name: Apps Script syntax
+        run: |
+          cp apps-script/XRP_Receptor_Incremental.gs /tmp/receptor.js
+          node --check /tmp/receptor.js
+
+      - name: Capture parity recovery tests
+        env:
+          PYTHONPATH: termux:research
+        run: python termux/test_forward_v3_tracker.py
