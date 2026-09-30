@@ -1,4 +1,4 @@
-// Receptor incremental 1m/15m/1H/4H para XRPUSDT
+// Receptor incremental 1m/5m/15m/1H/4H/1D para XRPUSDT
 // + puente SIGNALS/PERFORMANCE para forward tracking.
 // El secreto NO se guarda en el código.
 // Apps Script > Project Settings > Script properties:
@@ -17,6 +17,7 @@ const MAX_ROWS = {
   '15M': 500,
   '1H': 500,
   '4H': 500,
+  '1D': 500,
   'OI_1M': 1440,
   'OI_HISTORY': 96
 };
@@ -139,6 +140,7 @@ function maxForSheet_(name) {
   if (/_15M$/.test(name)) return MAX_ROWS['15M'];
   if (/_1H$/.test(name)) return MAX_ROWS['1H'];
   if (/_4H$/.test(name)) return MAX_ROWS['4H'];
+  if (/_1D$/.test(name)) return MAX_ROWS['1D'];
   return 500;
 }
 
