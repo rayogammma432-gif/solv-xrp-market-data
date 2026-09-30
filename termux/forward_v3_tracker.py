@@ -24,6 +24,7 @@ FORWARD_START_UTC = datetime(2026, 10, 1, 6, 0, 0, tzinfo=timezone.utc)
 FORWARD_START_MS = int(FORWARD_START_UTC.timestamp() * 1000)
 PROTOCOL_VERSION = "XRP_FORWARD_V3_1"
 PROTOCOL_FILE = "research/XRP_FORWARD_RESEARCH_PROTOCOL_V3_1.md"
+PROTOCOL_COMMIT_SHA = "5c738544ffb3e585df70822ef2bdb4c2bb20346b"
 REGISTRY_FILE = "research/experiments/XRP_FORWARD_REGISTRY_V3_1.jsonl"
 REGISTRY_SHA256 = "4905aa1e94cbf2fe9318c761942d440a298ba5655d78e8e3a80bfc5cb85caded"
 
@@ -506,7 +507,7 @@ class ForwardV3Tracker:
                 REGISTRY_FILE,
                 REGISTRY_SHA256,
                 PROTOCOL_FILE,
-                "",
+                PROTOCOL_COMMIT_SHA,
                 COLLECTOR_VERSION,
                 rec["created_utc"],
                 self.collector_git_sha,
