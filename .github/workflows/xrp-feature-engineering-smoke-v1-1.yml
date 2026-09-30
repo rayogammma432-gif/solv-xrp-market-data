@@ -1,0 +1,37 @@
+name: XRP Feature Engineering Smoke V1.1
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/xrp-feature-engineering-smoke-v1-1.yml"
+
+jobs:
+  features:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Normalize anomaly month
+        run: python research/historical_normalizer_v1.py --month 2023-11 --outdir norm-output
+      - name: Build FEATURES_V1_1 pass A
+        run: |
+          DB=$(find norm-output -name '*.sqlite' -type f | head -1)
+          python research/historical_feature_builder_v1_1.py --db "$DB" --outdir feature-a
+      - name: Build FEATURES_V1_1 pass B
+        run: |
+          DB=$(find norm-output -name '*.sqlite' -type f | head -1)
+          python research/historical_feature_builder_v1_1.py --db "$DB" --outdir feature-b
+      - name: Determinism
+        run: |
+          cmp feature-a/XRP_FEATURES_V1_1.csv feature-b/XRP_FEATURES_V1_1.csv
+          sha256sum feature-a/XRP_FEATURES_V1_1.csv
+      - name: Upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrp-feature-engineering-smoke-v1-1
+          path: |
+            feature-a/
+            norm-output/*QC*
+          if-no-files-found: warn
