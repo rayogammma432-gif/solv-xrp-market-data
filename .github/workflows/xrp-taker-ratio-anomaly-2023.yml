@@ -1,0 +1,17 @@
+name: XRP Taker Ratio Anomaly Audit 2023
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/xrp-taker-ratio-anomaly-2023.yml"
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: python research/audit_xrp_taker_ratio_anomaly_2023.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xrp-taker-ratio-anomaly-2023
+          path: audit-output/
