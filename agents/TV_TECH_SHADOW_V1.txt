@@ -1,0 +1,54 @@
+TV TECH SHADOW V1 — SuperTrend + Donchian Trend Ribbon
+
+OBJETIVO
+Reproducir localmente en Motorola los 2 indicadores usados por el usuario en TradingView y medir su valor sin alterar reglas operativas.
+
+CONFIGURACIÓN FIJA
+SuperTrend STRATEGY: ATR Period 10, source HL2, multiplier 3, ATR method RMA.
+Donchian Trend Ribbon: period 20; main length 20 + lower lengths 19..11.
+Versión: TV_SHADOW_V1.
+
+LIVE_STATE
+Para 1m/5m/15m/1h/4h/1d:
+tv.st.<tf>.direction = LONG/SHORT
+tv.st.<tf>.line
+tv.st.<tf>.flip = BUY/SELL/NONE
+tv.st.<tf>.age = velas desde último flip
+tv.st.<tf>.distance_pct
+tv.st.<tf>.distance_atr
+tv.dtr.<tf>.main = BULL/BEAR/NEUTRAL
+tv.dtr.<tf>.bull_count
+tv.dtr.<tf>.bear_count
+tv.dtr.<tf>.match_count
+tv.dtr.<tf>.consensus_pct
+tv.dtr.<tf>.flip = BULL/BEAR/NONE
+tv.dtr.<tf>.age
+
+USO SHADOW
+No sumar/restar confluencias. No gate. No crear/cancelar SIGNAL. No cambiar riesgo, stop ni TIME_STOP.
+
+PRIMARY usa principalmente 1H+15m:
+STRONG_FAVORABLE: ST 1H+15m y DTR 1H+15m alinean con bias; DTR match >=7/10 en ambos.
+FAVORABLE: >=3 de 4 direcciones alinean con bias y no hay contradicción fuerte 1H.
+CONTRARIA: >=3 de 4 direcciones van contra bias, incluyendo al menos un componente 1H.
+MIXED: resto.
+
+SCALP usa principalmente 15m+5m:
+STRONG_FAVORABLE: ST+DTR de 15m y 5m alinean; DTR match >=7/10.
+FAVORABLE: >=3/4 alinean.
+CONTRARIA: >=3/4 contrarios.
+MIXED: resto.
+1m se registra solo como investigación/timing al inicio.
+
+ANALYSES CC:CZ
+CC ST1H Dir; CD ST1H Line; CE ST1H Dist%; CF ST1H Age;
+CG DTR1H Main; CH DTR1H Match/10;
+CI ST15m Dir; CJ ST15m Line; CK ST15m Dist%; CL ST15m Flip; CM ST15m Age;
+CN DTR15m Main; CO DTR15m Match/10;
+CP ST5m Dir; CQ ST5m Age; CR DTR5m Main; CS DTR5m Match/10;
+CT ST1m Dir; CU DTR1m Main; CV DTR1m Match/10;
+CW Primary Alignment; CX Scalp Alignment; CY Notes; CZ TV_SHADOW_V1.
+
+SALIDA
+TV TECH — PRIMARY <alignment>; SCALP <alignment>; resumen breve 1H/15m/5m.
+Nunca presentarlo como señal confirmada ni como modificación del score operativo.
