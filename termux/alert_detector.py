@@ -455,6 +455,15 @@ class AlertDetector:
             for field in ("main", "bull_count", "bear_count", "match_count", "consensus_pct", "flip", "age"):
                 name = f"tv.dtr.{tf}.{field}"
                 out[name] = live.get(name, "")
+        for name in (
+            "tv.pattern.pullback_window",
+            "tv.pattern.pullback_direction",
+            "tv.pattern.extension_warning",
+            "tv.pattern.extension_direction",
+            "tv.pattern.st15_distance_atr",
+            "tv.pattern.version",
+        ):
+            out[name] = live.get(name, "")
         out["tv.shadow.version"] = live.get("tv.shadow.version", "")
         out["tv.st.config"] = live.get("tv.st.config", "")
         out["tv.dtr.config"] = live.get("tv.dtr.config", "")
