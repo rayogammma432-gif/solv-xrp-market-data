@@ -848,12 +848,17 @@ class Collector:
                         "BTC_1D": self.caches["BTCUSDT"]["1d"],
                     },
                 }
+                if key == "xrp":
+                    payload["forwardV3RecoveryRequest"] = True
+
                 if dry_run:
                     logger.info("%s BOOTSTRAP DRY-RUN OK.", symbol)
                 else:
                     response = post_json(self.session, self.cfg[key]["web_app_url"], payload)
                     self.open_signals[key] = list(response.get("openSignals", []))
                     self.pending_analyses[key] = list(response.get("pendingAnalyses", []))
+                    if key == "xrp":
+                        self.forward_v3.reconcile_remote(response.get("forwardV3Recovery"))
                     logger.info("%s BOOTSTRAP OK: %s", symbol, response)
             except Exception as exc:
                 failures.append((symbol, str(exc)))
@@ -929,6 +934,7 @@ class Collector:
                 alert_events = []
                 forward_v3_events = []
                 forward_v3_outcomes = []
+                forward_v3_health = []
                 new_research_events = []
                 completed_research_ids = []
                 if not dry_run:
@@ -973,14 +979,11 @@ class Collector:
                         sheets["ALERT_MFE_MAE"] = mfe_rows
 
                     if key == "xrp":
-                        forward_v3_events, forward_v3_outcomes = self.forward_v3.evaluate(
-                            self.caches[symbol],
-                            {
-                                "1m": bool(new_by_symbol[symbol].get("1m", [])),
-                                "15m": bool(new_by_symbol[symbol].get("15m", [])),
-                            },
-                            self.session,
-                        )
+                        (
+                            forward_v3_events,
+                            forward_v3_outcomes,
+                            forward_v3_health,
+                        ) = self.forward_v3.evaluate(self.session)
 
                 payload = {
                     "secret": self.cfg[key]["shared_secret"],
@@ -1003,6 +1006,8 @@ class Collector:
                     payload["forwardV3Events"] = forward_v3_events
                 if forward_v3_outcomes:
                     payload["forwardV3Outcomes"] = forward_v3_outcomes
+                if forward_v3_health:
+                    payload["forwardV3Health"] = forward_v3_health
 
                 if dry_run:
                     logger.info(
@@ -1015,10 +1020,13 @@ class Collector:
                     self.pending_analyses[key] = list(response.get("pendingAnalyses", []))
                     if alert_events:
                         self.alerts.ack_events([x.get("id") for x in alert_events])
-                    if key == "xrp" and (forward_v3_events or forward_v3_outcomes):
+                    if key == "xrp" and (
+                        forward_v3_events or forward_v3_outcomes or forward_v3_health
+                    ):
                         self.forward_v3.ack(
                             event_rows=forward_v3_events,
                             outcome_rows=forward_v3_outcomes,
+                            health_rows=forward_v3_health,
                         )
                     if new_research_events or completed_research_ids:
                         tracked = self.alert_research_state.setdefault(key, {})
