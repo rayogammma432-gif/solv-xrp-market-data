@@ -286,7 +286,7 @@ def resample_contract(db,symbol):
                            (symbol,"contract_resampled","NONCONTIGUOUS_BUCKET",b,json.dumps({"timeframe":tf},sort_keys=True)))
                 continue
             close_time=b+step-1
-            db.execute("""INSERT INTO contract_resampled VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            db.execute("""INSERT INTO contract_resampled VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                        (symbol,tf,b,close_time,close_time+1,g[0][1],max(x[2] for x in g),min(x[3] for x in g),g[-1][4],
                         sum(x[5] for x in g),sum(x[6] for x in g),sum(x[7] for x in g),
                         sum(x[8] for x in g),sum(x[9] for x in g),len(g),NORM))
