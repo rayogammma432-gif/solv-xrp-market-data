@@ -1,0 +1,110 @@
+{
+  "evaluation_version": "XRP_DISCOVERY_DIAGNOSTICS_V1",
+  "discovery_results_sha256": "6f61495740f4f5fac04f44b1219b869f78bbeae117f920d1f6ea24f3885b379b",
+  "validation_opened": false,
+  "holdout_2026_opened": false,
+  "hypotheses": {
+    "XRP-H1-PRIMARY-MOMENTUM": {
+      "configs": 9,
+      "positive": 0,
+      "negative": 9,
+      "ci95_positive": 0,
+      "ci95_negative": 8,
+      "sample_pass": 9,
+      "economic_pass": 0,
+      "quarter_stability_pass": 0,
+      "holm_pass": 0,
+      "effect_min": -0.0015531534936900852,
+      "effect_max": -0.00024369981257120295
+    },
+    "XRP-H2-PRIMARY-EXTENSION-REVERSION": {
+      "configs": 4,
+      "positive": 3,
+      "negative": 1,
+      "ci95_positive": 0,
+      "ci95_negative": 0,
+      "sample_pass": 4,
+      "economic_pass": 0,
+      "quarter_stability_pass": 2,
+      "holm_pass": 0,
+      "effect_min": -0.00002264407706092612,
+      "effect_max": 0.0001734796551924996
+    },
+    "XRP-H3-PRIMARY-OI-CONFIRMATION": {
+      "configs": 9,
+      "positive": 6,
+      "negative": 3,
+      "ci95_positive": 0,
+      "ci95_negative": 0,
+      "sample_pass": 9,
+      "economic_pass": 2,
+      "quarter_stability_pass": 1,
+      "holm_pass": 0,
+      "effect_min": -0.00009633920822787899,
+      "effect_max": 0.000338515560892825
+    },
+    "XRP-H4-PRIMARY-OI-MODERATOR": {
+      "configs": 9,
+      "positive": 9,
+      "negative": 0,
+      "ci95_positive": 1,
+      "ci95_negative": 0,
+      "sample_pass": 7,
+      "economic_pass": 8,
+      "quarter_stability_pass": 7,
+      "holm_pass": 0,
+      "effect_min": 0.0002078943714164351,
+      "effect_max": 0.0012420628462208772,
+      "closest_config": {
+        "config": "abs_ret_12=0.005|abs_oi_chg_15m=0.005",
+        "effect": 0.0008252021386774608,
+        "ci95_lower": 0.00001107429149057095,
+        "ci95_upper": 0.0017217529313999047,
+        "p_one_sided": 0.03280938982897397,
+        "p_holm": 0.2952845084607657,
+        "a_n": 2810,
+        "b_n": 2937,
+        "unique_days": 693
+      }
+    },
+    "XRP-H5-PRIMARY-BTC-ALIGNMENT": {
+      "configs": 9,
+      "positive": 0,
+      "negative": 9,
+      "ci95_positive": 0,
+      "ci95_negative": 1,
+      "sample_pass": 9,
+      "economic_pass": 0,
+      "quarter_stability_pass": 0,
+      "holm_pass": 0,
+      "effect_min": -0.0007514935349544349,
+      "effect_max": -0.0006001398928919223
+    },
+    "XRP-H6-FUNDING-EXTREME-REVERSION": {
+      "configs": 4,
+      "positive": 0,
+      "negative": 4,
+      "ci95_positive": 0,
+      "ci95_negative": 0,
+      "sample_pass": 0,
+      "economic_pass": 0,
+      "quarter_stability_pass": 1,
+      "holm_pass": 0,
+      "effect_min": -0.002680896653911373,
+      "effect_max": -0.00006765915330018157
+    },
+    "XRP-H7-SCALP-TAKER-FLOW": {
+      "configs": 12,
+      "positive": 0,
+      "negative": 12,
+      "ci95_positive": 0,
+      "ci95_negative": 12,
+      "sample_pass": 12,
+      "economic_pass": 0,
+      "quarter_stability_pass": 0,
+      "holm_pass": 0,
+      "effect_min": -0.00008365506938418362,
+      "effect_max": -0.00006492165252359291
+    }
+  }
+}
