@@ -1,0 +1,27 @@
+name: Historical Full 1m Audit V1
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/historical-full-1m-audit.yml"
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run full XRP/BTC 1m audit
+        run: |
+          python research/historical_full_1m_audit.py --out audit-output/XRP_BTC_FULL_1M_AUDIT_V1.json
+
+      - name: Upload full audit artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrp-btc-full-1m-audit-v1
+          path: audit-output/
+          if-no-files-found: warn
