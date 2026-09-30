@@ -25,6 +25,7 @@ FEATURE_SET_VERSION = "FEATURES_V1"
 NORMALIZATION_VERSION = "HIST_NORM_V1"
 COLLECTOR_VERSION = "XRP_FORWARD_V3_COLLECTOR_V1"
 OUTCOME_ENGINE_VERSION = "XRP_FORWARD_V3_OUTCOME_V1"
+OUTCOME_INCOMPLETE_GRACE_MS = 5 * 60_000
 
 HERE = Path(__file__).resolve().parent
 DEFAULT_STATE_PATH = HERE / "forward_v3_state.json"
@@ -378,6 +379,10 @@ class ForwardV3Tracker:
                     source_last = str(target_row[6])
                     completeness = "COMPLETE"
                 else:
+                    # Give the incremental collector a short recovery window for
+                    # a delayed Binance minute before finalizing a missing exact window.
+                    if latest_available < target + OUTCOME_INCOMPLETE_GRACE_MS:
+                        continue
                     fwd = ""
                     up = ""
                     down = ""
