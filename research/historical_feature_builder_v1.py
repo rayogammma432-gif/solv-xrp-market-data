@@ -304,7 +304,9 @@ def build(db,out_csv):
 def read_qc(path,header):
     idx={c:i for i,c in enumerate(header)}
     counts=defaultdict(int);seen=defaultdict(set);last_t={};violations=[];nonfinite=0;ratio_bad=0
-    warm={"xrp_ema200":defaultdict(list),"btc_ema200":defaultdict(list),"xrp_rel_volume20":defaultdict(list),
+    # Warm-up checks tied to XRP decision rows can only validate XRP features.
+    # BTC may have valid pre-history before the first XRP decision row.
+    warm={"xrp_ema200":defaultdict(list),"xrp_rel_volume20":defaultdict(list),
           "xrp_dist_prev20_high_atr":defaultdict(list)}
     with open(path,newline="",encoding="utf-8") as f:
         rr=csv.reader(f);next(rr)
@@ -334,7 +336,7 @@ def read_qc(path,header):
                 warm[c][grid].append(row[idx[c]]!="")
     # Warm-up rules checked per grid position.
     for grid in counts:
-        for c,minimum in (("xrp_ema200",199),("btc_ema200",199),("xrp_rel_volume20",20),("xrp_dist_prev20_high_atr",20)):
+        for c,minimum in (("xrp_ema200",199),("xrp_rel_volume20",20),("xrp_dist_prev20_high_atr",20)):
             arr=warm[c][grid]
             if any(arr[:minimum]):violations.append(f"{c} appears before warmup on {grid}")
     return {"grid_counts":dict(counts),"violations":violations,"nonfinite":nonfinite,"taker_ratio_bad":ratio_bad}
