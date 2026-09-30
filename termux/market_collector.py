@@ -27,6 +27,7 @@ LOG_DIR.mkdir(exist_ok=True)
 CACHE_LIMIT = 500
 OI_SAMPLE_LIMIT = 1440
 TV_SHADOW_VERSION = "TV_SHADOW_V1"
+TV_PATTERN_VERSION = "TV_PATTERN_R1"
 SUPER_TREND_ATR_PERIOD = 10
 SUPER_TREND_MULTIPLIER = 3.0
 DONCHIAN_RIBBON_PERIOD = 20
@@ -385,6 +386,55 @@ def donchian_ribbon_tv(rows, period=DONCHIAN_RIBBON_PERIOD):
         "age": age,
     }
 
+def tv_pattern_shadow(rows_15m, rows_5m):
+    """
+    Shadow research pattern from retrospective SOLV/XRP study.
+    It is intentionally bias-agnostic: returns a direction, never an entry signal.
+    """
+    st15 = supertrend_tv(rows_15m)
+    d15 = donchian_ribbon_tv(rows_15m)
+    st5 = supertrend_tv(rows_5m)
+    d5 = donchian_ribbon_tv(rows_5m)
+
+    def dtr_dir(x):
+        main = str((x or {}).get("main") or "").upper()
+        if main == "BULL":
+            return "LONG"
+        if main == "BEAR":
+            return "SHORT"
+        return "NONE"
+
+    st15_dir = str(st15.get("direction") or "NONE").upper()
+    d15_dir = dtr_dir(d15)
+    st5_dir = str(st5.get("direction") or "NONE").upper()
+    d5_dir = dtr_dir(d5)
+
+    base_dir = st15_dir if st15_dir in ("LONG", "SHORT") and st15_dir == d15_dir else "NONE"
+    five_fully_aligned = (
+        base_dir in ("LONG", "SHORT")
+        and st5_dir == base_dir
+        and d5_dir == base_dir
+    )
+
+    pullback_dir = base_dir if base_dir != "NONE" and not five_fully_aligned else "NONE"
+    dist15 = st15.get("distance_atr")
+    extended = (
+        five_fully_aligned
+        and dist15 is not None
+        and float(dist15) >= 2.0
+    )
+    extension_dir = base_dir if extended else "NONE"
+
+    return {
+        "pullback_window": "YES" if pullback_dir != "NONE" else "NO",
+        "pullback_direction": pullback_dir,
+        "extension_warning": "YES" if extended else "NO",
+        "extension_direction": extension_dir,
+        "st15_distance_atr": dist15,
+        "version": TV_PATTERN_VERSION,
+    }
+
+
 def daily_vwap_from_15m(rows):
     if not rows:
         return None
@@ -718,6 +768,13 @@ class Collector:
             add(f"tv.dtr.{tf}.flip", dtr.get("flip"), tf.upper(), TV_SHADOW_VERSION)
             add(f"tv.dtr.{tf}.age", dtr.get("age"), tf.upper(), TV_SHADOW_VERSION)
 
+        pattern = tv_pattern_shadow(a["15m"], a["5m"])
+        add("tv.pattern.pullback_window", pattern.get("pullback_window"), "TV PATTERN", TV_PATTERN_VERSION)
+        add("tv.pattern.pullback_direction", pattern.get("pullback_direction"), "TV PATTERN", TV_PATTERN_VERSION)
+        add("tv.pattern.extension_warning", pattern.get("extension_warning"), "TV PATTERN", TV_PATTERN_VERSION)
+        add("tv.pattern.extension_direction", pattern.get("extension_direction"), "TV PATTERN", TV_PATTERN_VERSION)
+        add("tv.pattern.st15_distance_atr", pattern.get("st15_distance_atr"), "TV PATTERN", TV_PATTERN_VERSION)
+        add("tv.pattern.version", pattern.get("version"), "SYSTEM")
         add("tv.shadow.version", TV_SHADOW_VERSION, "SYSTEM")
         add("tv.st.config", "ATR10|HL2|MULT3|RMA", "SYSTEM")
         add("tv.dtr.config", "PERIOD20|L20..11", "SYSTEM")
