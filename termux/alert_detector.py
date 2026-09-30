@@ -448,6 +448,16 @@ class AlertDetector:
             "oi.change_1m_pct", "oi.change_5m_pct", "oi.change_15m_pct", "oi.change_1h_pct", "oi.change_4h_pct",
         ]
         out = {k: live.get(k, "") for k in keys}
+        for tf in ("1m", "5m", "15m", "1h", "4h", "1d"):
+            for field in ("direction", "line", "flip", "age", "distance_pct", "distance_atr"):
+                name = f"tv.st.{tf}.{field}"
+                out[name] = live.get(name, "")
+            for field in ("main", "bull_count", "bear_count", "match_count", "consensus_pct", "flip", "age"):
+                name = f"tv.dtr.{tf}.{field}"
+                out[name] = live.get(name, "")
+        out["tv.shadow.version"] = live.get("tv.shadow.version", "")
+        out["tv.st.config"] = live.get("tv.st.config", "")
+        out["tv.dtr.config"] = live.get("tv.dtr.config", "")
         if direction in ("LONG", "SHORT"):
             ps, pn = self._score_primary(live, direction)
             ss, sn = self._score_scalp(live, direction)
