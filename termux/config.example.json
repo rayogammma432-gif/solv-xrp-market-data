@@ -12,7 +12,8 @@
     "bot_token": "SE_CONFIGURA_LOCALMENTE_CON_configure_telegram.py",
     "chat_id": "SE_CONFIGURA_LOCALMENTE_CON_configure_telegram.py",
     "assets": [
-      "solv"
+      "solv",
+      "xrp"
     ]
   }
 }
