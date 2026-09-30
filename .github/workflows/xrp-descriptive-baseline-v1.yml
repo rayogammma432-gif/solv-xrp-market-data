@@ -1,5 +1,4 @@
 name: XRP Descriptive Baseline V1
-# rerun: parallel-metrics
 
 on:
   workflow_dispatch:
@@ -8,52 +7,88 @@ on:
       - ".github/workflows/xrp-descriptive-baseline-v1.yml"
 
 jobs:
-  baseline:
+  partial:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - year: "2020"
+            norm_start: "2020-01"
+            norm_end: "2020-12"
+            target_start: "2020-02-01T00:00:00Z"
+            target_end: "2021-01-01T00:00:00Z"
+          - year: "2021"
+            norm_start: "2020-12"
+            norm_end: "2021-12"
+            target_start: "2021-01-01T00:00:00Z"
+            target_end: "2022-01-01T00:00:00Z"
+          - year: "2022"
+            norm_start: "2021-12"
+            norm_end: "2022-12"
+            target_start: "2022-01-01T00:00:00Z"
+            target_end: "2023-01-01T00:00:00Z"
+          - year: "2023"
+            norm_start: "2022-12"
+            norm_end: "2023-12"
+            target_start: "2023-01-01T00:00:00Z"
+            target_end: "2024-01-01T00:00:00Z"
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 55
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Normalize full discovery period with warmup
+      - name: Normalize continuous window
         run: |
-          python research/historical_period_normalizer_v1.py             --start 2020-01 --end 2023-12 --outdir baseline-work
+          python research/historical_normalizer_window_v1.py \
+            --start-month "${{ matrix.norm_start }}" \
+            --end-month "${{ matrix.norm_end }}" \
+            --outdir norm-window
 
-      - name: Build FEATURES_V1 for full period
+      - name: Build descriptive partial
         run: |
-          DB=$(find baseline-work -name '*.sqlite' -type f | head -1)
+          DB=$(find norm-window -name '*.sqlite' -type f | head -1)
           test -n "$DB"
-          python research/historical_feature_builder_v1.py             --db "$DB" --outdir feature-full
+          python research/historical_descriptive_baseline_part_v1.py \
+            --db "$DB" \
+            --target-start "${{ matrix.target_start }}" \
+            --target-end "${{ matrix.target_end }}" \
+            --outdir baseline-part
 
-      - name: Build descriptive baseline pass A
-        run: |
-          python research/historical_descriptive_baseline_v1.py             --features feature-full/XRP_FEATURES_V1.csv --outdir baseline-a
-
-      - name: Build descriptive baseline pass B
-        run: |
-          python research/historical_descriptive_baseline_v1.py             --features feature-full/XRP_FEATURES_V1.csv --outdir baseline-b
-
-      - name: Determinism check
-        run: |
-          cmp baseline-a/XRP_DESCRIPTIVE_BASELINE_V1.json baseline-b/XRP_DESCRIPTIVE_BASELINE_V1.json
-          SHA_A=$(sha256sum baseline-a/XRP_DESCRIPTIVE_BASELINE_V1.json | awk '{print $1}')
-          SHA_B=$(sha256sum baseline-b/XRP_DESCRIPTIVE_BASELINE_V1.json | awk '{print $1}')
-          echo "baseline_sha_a=$SHA_A"
-          echo "baseline_sha_b=$SHA_B"
-          test "$SHA_A" = "$SHA_B"
-
-      - name: Remove large intermediate feature CSV
+      - name: Remove large temporary database
         if: always()
-        run: rm -f feature-full/XRP_FEATURES_V1.csv baseline-work/*.sqlite baseline-work/*.sqlite-wal baseline-work/*.sqlite-shm
+        run: rm -f norm-window/*.sqlite norm-window/*.sqlite-wal norm-window/*.sqlite-shm
 
-      - name: Upload baseline reports
+      - name: Upload partial baseline
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: xrp-descriptive-baseline-v1
+          name: baseline-part-${{ matrix.year }}
           path: |
-            baseline-a/
-            baseline-work/PERIOD_NORMALIZATION_QC.json
-            feature-full/XRP_FEATURES_V1_QC.json
-            feature-full/XRP_FEATURES_V1_QC.md
+            baseline-part/
+            norm-window/WINDOW_NORMALIZATION_QC.json
           if-no-files-found: warn
+
+  aggregate:
+    needs: partial
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download partial reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: baseline-part-*
+          path: parts
+
+      - name: Aggregate baseline
+        run: |
+          python research/historical_descriptive_baseline_aggregate_v1.py \
+            --root parts \
+            --outdir baseline-final
+
+      - name: Upload final baseline
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrp-descriptive-baseline-v1
+          path: baseline-final/
