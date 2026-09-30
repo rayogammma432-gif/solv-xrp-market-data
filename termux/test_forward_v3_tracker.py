@@ -220,7 +220,7 @@ def test_recovery_and_health():
     with tempfile.TemporaryDirectory() as td:
         tr=ForwardV3Tracker(
             state_path=Path(td)/"state.json",
-            now_fn=lambda: FORWARD_START_UTC+timedelta(hours=2),
+            now_fn=lambda: FORWARD_START_UTC+timedelta(hours=2, minutes=11),
         )
         tr.reconcile_remote(recovery)
         rec=tr.state["events"][eid]
