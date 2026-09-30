@@ -1,0 +1,33 @@
+name: XRP BTC Normalization Smoke V1
+
+on:
+  workflow_dispatch:
+    inputs:
+      month:
+        description: "YYYY-MM month to normalize"
+        required: false
+        default: "2023-01"
+  push:
+    paths:
+      - ".github/workflows/xrp-btc-normalization-smoke-v1.yml"
+
+jobs:
+  normalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Normalize controlled month
+        run: |
+          MONTH="${{ github.event.inputs.month || '2023-01' }}"
+          python research/historical_normalizer_v1.py --month "$MONTH" --outdir audit-output
+
+      - name: Upload normalization artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrp-btc-normalization-smoke-v1
+          path: audit-output/
+          if-no-files-found: warn
