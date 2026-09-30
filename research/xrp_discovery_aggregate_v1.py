@@ -247,7 +247,7 @@ def main():
                 lo_txt="" if r["ci95_lower"] is None else format(r["ci95_lower"],".8f")
                 lines.append(f"| {hid} | DISCOVERY_FAIL | — | {e:.8f}* | {lo_txt} | {r['p_holm']:.6g} | {n:,} |")
             else:lines.append(f"| {hid} | DISCOVERY_FAIL | — | — | — | — | 0 |")
-    lines+=["","\* For a failed hypothesis, the displayed effect is the largest observed preregistered configuration for diagnostics only; it is **not selected**.","",
+    lines+=["","* For a failed hypothesis, the displayed effect is the largest observed preregistered configuration for diagnostics only; it is **not selected**.","",
             "## Selected configurations",""]
     for h in regs:
         rr=results[h["hypothesis_id"]]
