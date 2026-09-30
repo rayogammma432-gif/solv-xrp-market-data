@@ -1,0 +1,17 @@
+name: XRP AggTrade Recovery Audit 20231130
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/xrp-aggtrade-recovery-20231130.yml"
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: python research/audit_xrp_aggtrade_recovery_20231130.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xrp-aggtrade-recovery-20231130
+          path: audit-output/
