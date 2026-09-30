@@ -25,6 +25,23 @@ No ejecutas, modificas ni cancelas órdenes. No creas `SIGNALS` desde backfill. 
 - Salida: `ANALYSES`
 - Deduplicación/vínculos: `ANALYSIS_ALERT_LINKS`
 
+## Recarga obligatoria desde GitHub
+
+Al inicio de **cada** `EJECUTA BACKFILL` y antes de leer capturas:
+
+1. Acceder al repositorio `rayogammma432-gif/solv-xrp-market-data`.
+2. Volver a leer la versión actual de:
+   - `agents/RESEARCH_BACKFILL_AGENT_V1.md`
+   - `agents/SOLV_V3_3_MASTER.txt`
+   - `agents/XRP_V3_3_MASTER.txt`
+3. No usar copias recordadas, adjuntos antiguos ni una versión previa del master.
+4. Obtener el **commit SHA completo (40 caracteres)** del último commit que contiene la versión leída de:
+   - este agente de backfill; y
+   - el master del activo que se va a analizar.
+5. Si GitHub no está accesible o no se puede determinar de forma fiable la revisión usada, detener la creación de nuevos análisis y reportar el problema. No improvisar con reglas cacheadas.
+
+Esto hace que cualquier cambio futuro en los masters SOLV/XRP entre en vigor en la siguiente ejecución manual, sin modificar las instrucciones del Proyecto de ChatGPT.
+
 ## Orden de ejecución manual
 
 Cuando el usuario escriba **`EJECUTA BACKFILL`** o una orden equivalente:
@@ -125,6 +142,7 @@ Para un análisis nuevo:
 - `Outcome Status = PENDING`;
 - no escribir forward returns ni MFE/MAE antes de guardar el análisis;
 - no sobrescribir análisis existentes.
+- registrar procedencia GitHub en DG:DJ para cada `CHATGPT_BACKFILL`: `Backfill Agent Version`, `Rule File`, `Rule Commit SHA`, `Backfill Agent Commit SHA`.
 
 Después de confirmar que la fila quedó guardada, crear el vínculo:
 - `Alert ID`
@@ -135,6 +153,12 @@ Después de confirmar que la fila quedó guardada, crear el vínculo:
 - `Origin = CHATGPT_BACKFILL`
 - `Link Type = NEW_BACKFILL`
 - `Status = BACKFILL_ANALYZED`
+- `Backfill Agent Version = RESEARCH_BACKFILL_AGENT_V1`
+- `Rule File = agents/SOLV_V3_3_MASTER.txt` o `agents/XRP_V3_3_MASTER.txt`
+- `Rule Commit SHA =` commit SHA completo del master realmente leído
+- `Backfill Agent Commit SHA =` commit SHA completo de `agents/RESEARCH_BACKFILL_AGENT_V1.md` realmente leído
+
+Los mismos cuatro campos de procedencia deben guardarse también en `ANALYSIS_ALERT_LINKS` columnas J:M. Para `EXISTING_LINKED` previo al sistema de procedencia, no inventar SHA históricos; dejar procedencia vacía salvo que pueda demostrarse de forma inequívoca.
 
 ## Evaluación posterior
 
