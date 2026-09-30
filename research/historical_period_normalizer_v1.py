@@ -1,5 +1,6 @@
 from __future__ import annotations
 import argparse, hashlib, json, sqlite3
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 import sys
@@ -8,6 +9,64 @@ sys.path.insert(0,str(Path(__file__).resolve().parent))
 import historical_normalizer_v1 as n
 
 COVERAGE_START={"XRPUSDT":"2021-12","BTCUSDT":"2020-09"}
+
+def load_metrics_fast(db,symbol,month,max_workers=16):
+    def fetch_day(day):
+        url=n.daily_metric_url(symbol,day)
+        blob,sh,line=n.fetch_verified(url)
+        header,raw=n.unzip_csv(blob)
+        if not header: raise RuntimeError("metrics expected header")
+        idx={x.strip():i for i,x in enumerate(header)}
+        parsed=[]
+        for r in raw:
+            ts=n.parse_dt_ms(r[idx["create_time"]])
+            vals=[];missing=False;zero=False
+            for col in n.METCOLS:
+                x=r[idx[col]].strip() if idx[col]<len(r) else ""
+                if x=="":
+                    vals.append(None);missing=True
+                else:
+                    v=float(x);vals.append(v)
+                    if col in ("sum_open_interest","sum_open_interest_value") and v<=0:zero=True
+            parsed.append((ts,tuple(vals),missing,zero))
+        return day,url,sh,line,len(raw),parsed
+
+    days=n.month_days(month)
+    results=[]
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        futs={ex.submit(fetch_day,d):d for d in days}
+        for fut in as_completed(futs):
+            d=futs[fut]
+            try:results.append(fut.result())
+            except Exception as e:
+                db.execute("INSERT INTO normalization_events VALUES(?,?,?,?,?)",
+                           (symbol,"metrics","SOURCE_FILE_UNAVAILABLE",None,json.dumps({"day":d,"error":repr(e)},sort_keys=True)))
+    results.sort(key=lambda x:x[0])
+    seen={};raw_total=0;identical_removed=0;conflicting=0
+    for day,url,sh,line,nraw,parsed in results:
+        raw_total+=nraw
+        n.record_source(db,url,"metrics",symbol,"daily",sh,line,nraw)
+        for ts,tup,missing,zero in parsed:
+            old=seen.get(ts)
+            if old:
+                if old[0]==tup:
+                    identical_removed+=1
+                    seen[ts]=(old[0],old[1],old[2],old[3],old[4],1)
+                else:
+                    conflicting+=1
+                    seen[ts]=("CONFLICT",None,None,True,False,0)
+                    db.execute("INSERT INTO normalization_events VALUES(?,?,?,?,?)",
+                               (symbol,"metrics","CONFLICTING_DUPLICATE",ts,json.dumps({"day":day},sort_keys=True)))
+            else:
+                seen[ts]=(tup,url,sh,missing,zero,0)
+    normalized=0
+    for ts in sorted(seen):
+        tup,sf,sh,missing,zero,dedup=seen[ts]
+        if tup=="CONFLICT":continue
+        db.execute("""INSERT INTO metrics VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   (symbol,ts,ts+300000,*tup,sf,sh,dedup,int(zero),int(missing),n.NORM))
+        normalized+=1
+    return {"raw":raw_total,"normalized":normalized,"identical_removed":identical_removed,"conflicting_excluded":conflicting}
 
 def months(start,end):
     y,m=map(int,start.split("-"));ey,em=map(int,end.split("-"))
@@ -44,7 +103,7 @@ def main():
                 n.load_aux(db,s,mo,fam)
             stats[s]["funding"]+=n.load_funding(db,s,mo)
             if mo>=COVERAGE_START[s]:
-                ms=n.load_metrics(db,s,mo)
+                ms=load_metrics_fast(db,s,mo)
                 stats[s]["metrics_raw"]+=ms["raw"];stats[s]["metrics_normalized"]+=ms["normalized"]
         db.commit()
 
