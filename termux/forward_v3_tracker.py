@@ -128,9 +128,11 @@ def _save_state(path, state):
 
 
 class ForwardV3Tracker:
-    def __init__(self, state_path=DEFAULT_STATE_PATH):
+    def __init__(self, state_path=DEFAULT_STATE_PATH, now_fn=utc_now, oi_feature_fetcher=None):
         self.state_path = Path(state_path)
         self.state = _load_state(self.state_path)
+        self.now_fn = now_fn
+        self.oi_feature_fetcher = oi_feature_fetcher
 
     @staticmethod
     def _event_id(candidate_id, decision_time_ms):
@@ -220,14 +222,14 @@ class ForwardV3Tracker:
             "primary_horizon": int(spec["primary"]),
             "event_posted": False,
             "posted_horizons": [],
-            "created_utc": utc_now().isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+            "created_utc": self.now_fn().isoformat(timespec="milliseconds").replace("+00:00", "Z"),
         }
         events[event_id] = record
         _save_state(self.state_path, self.state)
         return event_id
 
     def detect_new_events(self, xrp_caches, new_flags, session):
-        if utc_now() < FORWARD_START_UTC:
+        if self.now_fn() < FORWARD_START_UTC:
             return []
 
         created = []
@@ -261,7 +263,10 @@ class ForwardV3Tracker:
             oi15 = None
             oi_available = ""
             try:
-                oi15, oi_available = self._get_oi_feature(session, decision_ms)
+                if self.oi_feature_fetcher is not None:
+                    oi15, oi_available = self.oi_feature_fetcher(session, decision_ms)
+                else:
+                    oi15, oi_available = self._get_oi_feature(session, decision_ms)
             except Exception:
                 # OI candidate fails closed; other candidate can still be evaluated.
                 oi15, oi_available = None, ""
@@ -320,10 +325,10 @@ class ForwardV3Tracker:
                     rec["bar_open"],
                     rec["direction"],
                     rec["reference_price"],
-                    f.get("xrp_ret_12", ""),
-                    f.get("xrp_rel_volume20", ""),
-                    f.get("xrp_taker_imbalance", ""),
-                    f.get("xrp_oi_chg_15m", ""),
+                    "" if f.get("xrp_ret_12") is None else f.get("xrp_ret_12"),
+                    "" if f.get("xrp_rel_volume20") is None else f.get("xrp_rel_volume20"),
+                    "" if f.get("xrp_taker_imbalance") is None else f.get("xrp_taker_imbalance"),
+                    "" if f.get("xrp_oi_chg_15m") is None else f.get("xrp_oi_chg_15m"),
                     json.dumps(rec.get("rule_params") or {}, separators=(",", ":"), sort_keys=True),
                     json.dumps(f, separators=(",", ":"), sort_keys=True),
                     FEATURE_SET_VERSION,
@@ -398,7 +403,7 @@ class ForwardV3Tracker:
                         source_last,
                         REGISTRY_SHA256,
                         COLLECTOR_VERSION,
-                        utc_now().isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+                        self.now_fn().isoformat(timespec="milliseconds").replace("+00:00", "Z"),
                         "" if complete else "Exact 1m window incomplete; no interpolation/nearest fallback.",
                     ]
                 )
