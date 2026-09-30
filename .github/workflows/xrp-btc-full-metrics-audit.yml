@@ -1,0 +1,23 @@
+name: XRP BTC Full Metrics Audit V1
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/xrp-btc-full-metrics-audit.yml"
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run full metrics continuity audit
+        run: python research/historical_full_metrics_audit.py
+      - name: Upload full metrics audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrp-btc-full-metrics-audit-v1
+          path: audit-output/
+          if-no-files-found: warn
