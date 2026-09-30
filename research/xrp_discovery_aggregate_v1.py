@@ -222,9 +222,9 @@ def main():
         "results":results
     }
     out=Path(args.outdir);out.mkdir(parents=True,exist_ok=True)
-    jp=out/"XRP_DISCOVERY_RESULTS_V1.json";jp.write_text(json.dumps(report,indent=2,sort_keys=True),encoding="utf-8")
-    report["results_json_sha256"]=sha256_file(jp)
+    jp=out/"XRP_DISCOVERY_RESULTS_V1.json"
     jp.write_text(json.dumps(report,indent=2,sort_keys=True),encoding="utf-8")
+    (out/"XRP_DISCOVERY_RESULTS_V1_SHA256.txt").write_text(sha256_file(jp)+"\n",encoding="utf-8")
 
     lines=["# XRP Discovery Results V1","",
            f"Registry SHA-256: `{REGISTRY_SHA256}`",
@@ -244,7 +244,8 @@ def main():
             ranked.sort(key=lambda x:(-x[0],x[1]))
             if ranked:
                 e,c,r=ranked[0];smp=r["sample"];n=smp.get("n",smp.get("a_n",0)+smp.get("b_n",0))
-                lines.append(f"| {hid} | DISCOVERY_FAIL | — | {e:.8f}* | {'' if r['ci95_lower'] is None else f'{r['ci95_lower']:.8f}'} | {r['p_holm']:.6g} | {n:,} |")
+                lo_txt="" if r["ci95_lower"] is None else format(r["ci95_lower"],".8f")
+                lines.append(f"| {hid} | DISCOVERY_FAIL | — | {e:.8f}* | {lo_txt} | {r['p_holm']:.6g} | {n:,} |")
             else:lines.append(f"| {hid} | DISCOVERY_FAIL | — | — | — | — | 0 |")
     lines+=["","\* For a failed hypothesis, the displayed effect is the largest observed preregistered configuration for diagnostics only; it is **not selected**.","",
             "## Selected configurations",""]
