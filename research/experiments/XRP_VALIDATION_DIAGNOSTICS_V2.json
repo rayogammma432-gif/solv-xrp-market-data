@@ -1,0 +1,45 @@
+{
+  "evaluation_version": "XRP_VALIDATION_DIAGNOSTICS_V2",
+  "validation_results_sha256": "0ecd85c0ca2a69cfc7ea99e75120cc05c7d43c72b272fd7a21f477e818243f62",
+  "registry_sha256": "ab6a355df4699a284ff51ee49ff8e0f944b98e902b87b46384a6957eb9066912",
+  "holdout_2026_opened": false,
+  "pass_count": 0,
+  "hypotheses": {
+    "XRP-V2-H1-PRIMARY-MOMENTUM-EXHAUSTION": {
+      "effect": 0.00038718,
+      "ci95_lower": -0.00007758,
+      "p_holm": 0.105332,
+      "sample_pass": true,
+      "effect_sign_pass": true,
+      "ci_pass": false,
+      "multiplicity_pass": false,
+      "economic_floor_pass": true,
+      "retention_floor_pass": false,
+      "quarter_stability_pass": true
+    },
+    "XRP-V2-H2-PRIMARY-OI-MODERATOR": {
+      "effect": 0.00069828,
+      "ci95_lower": -0.00028136,
+      "p_holm": 0.105332,
+      "sample_pass": true,
+      "effect_sign_pass": true,
+      "ci_pass": false,
+      "multiplicity_pass": false,
+      "economic_floor_pass": true,
+      "retention_floor_pass": true,
+      "quarter_stability_pass": true
+    },
+    "XRP-V2-H3-SCALP-TAKER-FLOW-EXHAUSTION": {
+      "effect": 0.00006657,
+      "ci95_lower": 0.00003509,
+      "p_holm": 0.0000428709,
+      "sample_pass": true,
+      "effect_sign_pass": true,
+      "ci_pass": true,
+      "multiplicity_pass": true,
+      "economic_floor_pass": false,
+      "retention_floor_pass": false,
+      "quarter_stability_pass": true
+    }
+  }
+}
