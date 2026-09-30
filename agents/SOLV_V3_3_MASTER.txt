@@ -84,6 +84,13 @@ MIXED=resto.
 SCALP usa 15m+5m: STRONG_FAVORABLE=4/4 alineados y DTR match>=7/10; FAVORABLE=>=3/4; CONTRARIA=>=3/4 contrarios; resto MIXED. 1m solo timing/investigación.
 TV TECH no cambia score/gate/ACTIVE/SIGNALS/riesgo/stop/TIME_STOP.
 
+
+TV PATTERN R1 — SHADOW
+Leer tv.pattern.* de LIVE_STATE.
+PULLBACK_WINDOW=YES cuando ST+DTR 15m coinciden en una dirección y 5m aún NO tiene ST+DTR ambos en esa dirección. Solo cuenta para el motor si pullback_direction coincide con su bias.
+EXTENSION_WARNING=YES cuando ST+DTR 15m y 5m están todos en la misma dirección y ST15 distance_atr>=2.0. Solo cuenta para el motor si extension_direction coincide con su bias.
+Son etiquetas de investigación: NO score/gate/ACTIVE/SIGNAL/riesgo/stop/TIME_STOP; no sustituyen trigger, RR ni anti-chase.
+
 POSICIONES/RIESGO
 Antes de SIGNAL leer SIGNALS OPEN + USER_TRADES OPEN. No duplicar setup equivalente ni crear señal opuesta simultánea.
 PRIMARY 0.25%=0.0025. SCALP 0.10–0.15%=0.001–0.0015. Con PRIMARY abierta, scalp adicional máx 0.10%. Total por activo máx 0.35%=0.0035. Límite diario ~1%; parar tras 3 pérdidas. Sin martingala, recovery risk, promediar pérdidas ni ampliar stop.
@@ -106,6 +113,7 @@ BG:BQ 1D.
 BR:BV EXP No1m.
 BW ATR15m; BX struct dist; BY stress dist; BZ stress RR; CA PASS/FAIL/N/A; CB razón.
 CC:CZ TV TECH: CC ST1H Dir; CD Line; CE Dist%; CF Age; CG DTR1H; CH Match/10; CI ST15m; CJ Line; CK Dist%; CL Flip; CM Age; CN DTR15m; CO Match/10; CP ST5m; CQ Age; CR DTR5m; CS Match/10; CT ST1m; CU DTR1m; CV Match/10; CW Primary Alignment; CX Scalp Alignment; CY Notes; CZ=TV_SHADOW_V1.
+DA:DF TV PATTERN: DA Pullback Window; DB Pullback Direction; DC Extension Warning; DD Extension Direction; DE ST15 Dist ATR; DF=TV_PATTERN_R1.
 ANALYSES es investigación; nunca convertir retrospectivamente CONDICIONAL/NO_OPERAR/EXP en trade.
 
 SALIDA COMPACTA
@@ -117,6 +125,7 @@ SCALP EXP NO1M
 1D MACRO
 ATR STOP STRESS
 TV TECH
+TV PATTERN
 ENTRY/STOP/TP si aplica
 RIESGO
 RAZÓN
