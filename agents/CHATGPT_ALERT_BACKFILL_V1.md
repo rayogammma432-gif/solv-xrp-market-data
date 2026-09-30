@@ -40,6 +40,14 @@ Si no existe análisis previo:
 
 Después de guardar el análisis, los procesos de performance pueden completar AF:AR usando datos posteriores.
 
+## Procedencia reproducible
+
+Cada nuevo `CHATGPT_BACKFILL` debe registrar la revisión exacta usada:
+- `ANALYSES!DG:DJ`: Backfill Agent Version, Rule File, Rule Commit SHA, Backfill Agent Commit SHA.
+- `ANALYSIS_ALERT_LINKS!J:M`: los mismos cuatro campos.
+
+Los SHA deben corresponder a los archivos leídos desde GitHub al inicio de esa ejecución. No completar retrospectivamente SHA de backfills antiguos si no pueden demostrarse.
+
 ## Análisis en tiempo real
 
 Los análisis existentes con `Origin = CHATGPT_ANALIZA` se preservan. Los de `MANUAL_ANALIZA` también se preservan y pueden servir como análisis existente cuando coinciden inequívocamente con una captura.
