@@ -11,8 +11,13 @@ const ASSET_SYMBOL = 'XRPUSDT';
 const ASSET_PREFIX = 'XRP';
 const SIGNAL_COLS = 38; // A:AL
 const ANALYSIS_COLS = 44; // A:AR
-const FORWARD_V3_EVENT_COLS = 25; // A:Y
-const FORWARD_V3_OUTCOME_COLS = 17; // A:Q
+const FORWARD_V3_EVENT_BASE_COLS = 27; // A:AA, receptor añade AB:AC
+const FORWARD_V3_EVENT_COLS = 29; // A:AC
+const FORWARD_V3_OUTCOME_BASE_COLS = 19; // A:S, receptor añade T:U
+const FORWARD_V3_OUTCOME_COLS = 21; // A:U
+const FORWARD_V3_HEALTH_BASE_COLS = 21; // A:U, receptor añade V:W
+const FORWARD_V3_HEALTH_COLS = 23; // A:W
+const FORWARD_V3_RECEPTOR_VERSION = 'XRP_RECEPTOR_FORWARD_V3_1_V1';
 const MAX_RESEARCH_ROWS = 3000;
 
 const MAX_ROWS = {
@@ -436,7 +441,7 @@ function appendAlertEvents_(ss, events) {
   return rows.length;
 }
 
-function appendUniqueRowsById_(sh, rows, cols) {
+function appendForwardRows_(sh, rows, baseCols, totalCols) {
   if (!Array.isArray(rows) || !rows.length) return 0;
 
   const lastRow = sh.getLastRow();
@@ -448,42 +453,95 @@ function appendUniqueRowsById_(sh, rows, cols) {
     });
   }
 
+  const writeUtc = new Date().toISOString();
   const toAppend = [];
   rows.forEach(function(row) {
-    if (!Array.isArray(row) || row.length !== cols) {
+    if (!Array.isArray(row) || row.length !== baseCols) {
       throw new Error(
-        'Fila append-only con ancho inválido en ' + sh.getName() +
-        ': esperado=' + cols + ' recibido=' + (Array.isArray(row) ? row.length : 'NO_ARRAY')
+        'Fila Forward V3 con ancho inválido en ' + sh.getName() +
+        ': esperado=' + baseCols + ' recibido=' +
+        (Array.isArray(row) ? row.length : 'NO_ARRAY')
       );
     }
     const id = String(row[0] || '');
     if (!id || existing.has(id)) return;
-    toAppend.push(row);
+
+    const stored = row.slice(0, baseCols);
+    stored.push(FORWARD_V3_RECEPTOR_VERSION);
+    stored.push(writeUtc);
+    if (stored.length !== totalCols) {
+      throw new Error('Error interno de ancho Forward V3: ' + stored.length);
+    }
+    toAppend.push(stored);
     existing.add(id);
   });
 
   if (!toAppend.length) return 0;
-
   const startRow = sh.getLastRow() + 1;
   ensureRows_(sh, startRow + toAppend.length - 1);
-  sh.getRange(startRow, 1, toAppend.length, cols).setValues(toAppend);
+  sh.getRange(startRow, 1, toAppend.length, totalCols).setValues(toAppend);
   return toAppend.length;
 }
 
 function appendForwardV3Events_(ss, rows) {
-  return appendUniqueRowsById_(
+  return appendForwardRows_(
     sheet_(ss, 'FORWARD_V3_EVENTS'),
     rows,
+    FORWARD_V3_EVENT_BASE_COLS,
     FORWARD_V3_EVENT_COLS
   );
 }
 
 function appendForwardV3Outcomes_(ss, rows) {
-  return appendUniqueRowsById_(
+  return appendForwardRows_(
     sheet_(ss, 'FORWARD_V3_OUTCOMES'),
     rows,
+    FORWARD_V3_OUTCOME_BASE_COLS,
     FORWARD_V3_OUTCOME_COLS
   );
+}
+
+function appendForwardV3Health_(ss, rows) {
+  return appendForwardRows_(
+    sheet_(ss, 'FORWARD_V3_HEALTH'),
+    rows,
+    FORWARD_V3_HEALTH_BASE_COLS,
+    FORWARD_V3_HEALTH_COLS
+  );
+}
+
+function getForwardV3Recovery_(ss) {
+  const eventsSh = sheet_(ss, 'FORWARD_V3_EVENTS');
+  const outcomesSh = sheet_(ss, 'FORWARD_V3_OUTCOMES');
+  const healthSh = sheet_(ss, 'FORWARD_V3_HEALTH');
+
+  const eventCount = Math.max(0, eventsSh.getLastRow() - 1);
+  const eventTake = Math.min(eventCount, 1200);
+  const events = eventTake
+    ? eventsSh.getRange(eventsSh.getLastRow() - eventTake + 1, 1, eventTake, FORWARD_V3_EVENT_COLS).getValues()
+    : [];
+
+  const outcomeCount = Math.max(0, outcomesSh.getLastRow() - 1);
+  const outcomeTake = Math.min(outcomeCount, 9000);
+  const outcomeIds = outcomeTake
+    ? outcomesSh.getRange(outcomesSh.getLastRow() - outcomeTake + 1, 1, outcomeTake, 1).getValues().map(function(r) {
+        return String(r[0] || '');
+      }).filter(Boolean)
+    : [];
+
+  let latestHealth = null;
+  if (healthSh.getLastRow() >= 2) {
+    latestHealth = healthSh.getRange(
+      healthSh.getLastRow(), 1, 1, FORWARD_V3_HEALTH_COLS
+    ).getValues()[0];
+  }
+
+  return {
+    receptorVersion: FORWARD_V3_RECEPTOR_VERSION,
+    events: events,
+    outcomeIds: outcomeIds,
+    latestHealth: latestHealth
+  };
 }
 
 function doPost(e) {
@@ -575,6 +633,10 @@ function doPost(e) {
       counts.FORWARD_V3_OUTCOMES = appendForwardV3Outcomes_(ss, payload.forwardV3Outcomes);
     }
 
+    if (Array.isArray(payload.forwardV3Health)) {
+      counts.FORWARD_V3_HEALTH = appendForwardV3Health_(ss, payload.forwardV3Health);
+    }
+
     // Archivo de investigación separado: append-only y best-effort.
     // Un fallo del archivo NO debe interrumpir la alimentación operativa.
     let archiveCounts = {};
@@ -593,6 +655,10 @@ function doPost(e) {
 
     SpreadsheetApp.flush();
 
+    const recovery = payload.forwardV3RecoveryRequest
+      ? getForwardV3Recovery_(ss)
+      : null;
+
     return jsonOut_({
       ok: true,
       status: 'OK',
@@ -602,7 +668,9 @@ function doPost(e) {
       archiveRows: archiveCounts,
       archiveError: archiveError,
       openSignals: getOpenSignals_(ss),
-      pendingAnalyses: getPendingAnalyses_(ss)
+      pendingAnalyses: getPendingAnalyses_(ss),
+      receptorVersion: FORWARD_V3_RECEPTOR_VERSION,
+      forwardV3Recovery: recovery
     });
 
   } catch (err) {
