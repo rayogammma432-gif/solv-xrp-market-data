@@ -14,6 +14,14 @@ RECOVERY={
         "2022-04":["2022-04-01","2022-04-02"],
     }
 }
+# Official aggTrades-based recovery for a Binance kline with an impossible base-volume field.
+# Audit: 2023-11-30 12:35 UTC. OHLC, quote volume, trade count and taker fields all
+# match aggTrades exactly; only kline base volume is corrupt.
+AGGTRADE_RECOVERY={
+    "XRPUSDT":{
+        "2023-11":{"2023-11-30":[1701347700000]}
+    }
+}
 TF_MIN={"5m":5,"15m":15,"1h":60,"4h":240,"1d":1440}
 
 def get(url, timeout=120):
@@ -78,6 +86,31 @@ def daily_metric_url(symbol,day):
 
 def daily_contract_url(symbol,day):
     return f"{BASE}/daily/klines/{symbol}/1m/{symbol}-1m-{day}.zip"
+
+def daily_aggtrade_url(symbol,day):
+    return f"{BASE}/daily/aggTrades/{symbol}/{symbol}-aggTrades-{day}.zip"
+
+def reconstruct_aggtrade_minute(rows,target_ms):
+    items=[]
+    for r in rows:
+        if len(r)<7:continue
+        try:t=int(r[5])
+        except Exception:continue
+        if target_ms<=t<target_ms+60000:items.append(r)
+    if not items:raise RuntimeError(f"no aggTrades for {iso_ms(target_ms)}")
+    items.sort(key=lambda r:(int(r[5]),int(r[0])))
+    prices=[];volume=0.0;quote=0.0;taker_buy=0.0;taker_quote=0.0;trades=0
+    for r in items:
+        p=float(r[1]);q=float(r[2]);prices.append(p);volume+=q;quote+=p*q
+        trades+=int(r[4])-int(r[3])+1
+        buyer_maker=str(r[6]).strip().lower() in ("true","1")
+        if not buyer_maker:
+            taker_buy+=q;taker_quote+=p*q
+    return {
+        "open_time":target_ms,"open":float(items[0][1]),"high":max(prices),"low":min(prices),
+        "close":float(items[-1][1]),"volume":volume,"close_time":target_ms+59999,
+        "quote_volume":quote,"trades":trades,"taker_buy_base":taker_buy,"taker_buy_quote":taker_quote
+    }
 
 def month_days(month):
     y,m=map(int,month.split("-"))
@@ -182,6 +215,23 @@ def load_contract(db,symbol,month):
                     raise RuntimeError(f"conflicting daily/monthly contract row {symbol} {iso_ms(r['open_time'])}")
                 continue
             by_t[r["open_time"]]=(r,du,dsh,"daily_recovery",1)
+
+    # Replace explicitly audited corrupt kline minutes using official Binance aggTrades.
+    for day,targets in AGGTRADE_RECOVERY.get(symbol,{}).get(month,{}).items():
+        au=daily_aggtrade_url(symbol,day); abb,ash,aline=fetch_verified(au); _,araw=unzip_csv(abb)
+        record_source(db,au,"contract_1m",symbol,"aggtrade_recovery",ash,aline,len(araw))
+        for target in targets:
+            if target not in by_t:raise RuntimeError(f"aggTrade recovery target missing from kline {symbol} {iso_ms(target)}")
+            old=by_t[target][0];new=reconstruct_aggtrade_minute(araw,target)
+            # All fields except the known corrupt base-volume value must agree with the canonical kline.
+            exact_fields=("open","high","low","close","quote_volume","taker_buy_base","taker_buy_quote")
+            if any(not math.isclose(float(old[x]),float(new[x]),rel_tol=1e-12,abs_tol=1e-9) for x in exact_fields) or old["trades"]!=new["trades"]:
+                raise RuntimeError(f"aggTrade recovery validation mismatch {symbol} {iso_ms(target)}")
+            db.execute("INSERT INTO normalization_events VALUES(?,?,?,?,?)",
+                       (symbol,"contract_1m","AGGTRADE_VOLUME_RECOVERY",target,
+                        json.dumps({"old_volume":old["volume"],"new_volume":new["volume"],"source_file":au,"source_sha256":ash},sort_keys=True)))
+            by_t[target]=(new,au,ash,"aggtrade_recovery",1)
+
     ordered=sorted(by_t.items())
     for t,(r,sf,ssh,gran,recovered) in ordered:
         db.execute("""INSERT INTO contract_1m VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
