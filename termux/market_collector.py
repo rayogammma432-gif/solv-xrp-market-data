@@ -24,9 +24,9 @@ LOG_DIR.mkdir(exist_ok=True)
 
 CACHE_LIMIT = 500
 OI_SAMPLE_LIMIT = 1440
-BASE_TFS = ("1m", "15m", "1h", "4h")
-SOLV_TFS = ("1m", "5m", "15m", "1h", "4h")  # temporalidades completas para SOLV y XRP
-TF_MS = {"1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000}
+BASE_TFS = ("1m", "15m", "1h", "4h", "1d")
+SOLV_TFS = ("1m", "5m", "15m", "1h", "4h", "1d")  # incluye 1D como referencia macro para SOLV/XRP/BTC
+TF_MS = {"1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000}
 
 logger = logging.getLogger("market_collector")
 logger.setLevel(logging.INFO)
@@ -259,7 +259,7 @@ def calc_tf(rows, tf):
         "atr14": atr(rows, 14),
         "vol_rel20": volume_rel(rows, 20),
     }
-    if tf == "4h":
+    if tf in ("4h", "1d"):
         result.pop("ema20", None)
         result.pop("vol_rel20", None)
     return result
@@ -331,7 +331,7 @@ class Collector:
         self.cfg = load_config(config_path)
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "solv-xrp-termux-collector/2.0"})
-        # SOLV, XRP y BTC usan 1m/5m/15m/1h/4h para análisis y sincronización.
+        # SOLV, XRP y BTC usan 1m/5m/15m/1h/4h y 1d; 1d es referencia macro.
         self.caches = {
             "BTCUSDT": {tf: [] for tf in SOLV_TFS},
             "SOLVUSDT": {tf: [] for tf in SOLV_TFS},
@@ -450,11 +450,13 @@ class Collector:
                         f"{prefix}_15M": self.caches[symbol]["15m"],
                         f"{prefix}_1H": self.caches[symbol]["1h"],
                         f"{prefix}_4H": self.caches[symbol]["4h"],
+                        f"{prefix}_1D": self.caches[symbol]["1d"],
                         "BTC_1M": self.caches["BTCUSDT"]["1m"],
                         "BTC_5M": self.caches["BTCUSDT"]["5m"],
                         "BTC_15M": self.caches["BTCUSDT"]["15m"],
                         "BTC_1H": self.caches["BTCUSDT"]["1h"],
                         "BTC_4H": self.caches["BTCUSDT"]["4h"],
+                        "BTC_1D": self.caches["BTCUSDT"]["1d"],
                     },
                 }
                 if dry_run:
@@ -495,7 +497,7 @@ class Collector:
         # SOLV + XRP + BTC: sincronización por estado, no por "caer en el minuto exacto".
         # Si una vela que ya debería existir falta, se vuelve a consultar en cada ciclo
         # hasta alcanzarla. Esto evita saltos por red/retrasos de procesamiento.
-        for tf in ("5m", "15m", "1h", "4h"):
+        for tf in ("5m", "15m", "1h", "4h", "1d"):
             for symbol in ("SOLVUSDT", "XRPUSDT", "BTCUSDT"):
                 if cache_is_behind(self.caches[symbol][tf], tf, now=now):
                     recent = get_recent_closed(self.session, symbol, tf, limit=12)
@@ -524,6 +526,8 @@ class Collector:
                     "BTC_1H": new_by_symbol["BTCUSDT"]["1h"],
                     f"{prefix}_4H": new_by_symbol[symbol]["4h"],
                     "BTC_4H": new_by_symbol["BTCUSDT"]["4h"],
+                    f"{prefix}_1D": new_by_symbol[symbol]["1d"],
+                    "BTC_1D": new_by_symbol["BTCUSDT"]["1d"],
                 }
                 for name, rows in mapping.items():
                     if rows:
