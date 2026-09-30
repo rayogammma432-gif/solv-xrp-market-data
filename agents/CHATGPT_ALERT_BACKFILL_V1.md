@@ -1,5 +1,8 @@
 # ChatGPT Alert Backfill V1
 
+> **ESTADO ACTUAL: MANUAL_ONLY**  
+> La automatización horaria fue desactivada. Este documento conserva la lógica base, pero la ejecución vigente se rige por `agents/RESEARCH_BACKFILL_AGENT_V1.md` y debe iniciarse manualmente desde el proyecto de investigación. No crear ni reactivar una tarea horaria.
+
 ## Objetivo
 
 Convertir cada captura de `ALERT_RESEARCH` de SOLV y XRP en un análisis estructurado de ChatGPT sin duplicar análisis existentes y sin introducir look-ahead bias.
