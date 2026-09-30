@@ -113,6 +113,7 @@ BG:BQ 1D.
 BR:BV EXP No1m.
 BW ATR15m; BX struct dist; BY stress dist; BZ stress RR; CA PASS/FAIL/N/A; CB razón.
 CC:CZ TV TECH: CC ST1H Dir; CD Line; CE Dist%; CF Age; CG DTR1H; CH Match/10; CI ST15m; CJ Line; CK Dist%; CL Flip; CM Age; CN DTR15m; CO Match/10; CP ST5m; CQ Age; CR DTR5m; CS Match/10; CT ST1m; CU DTR1m; CV Match/10; CW Primary Alignment; CX Scalp Alignment; CY Notes; CZ=TV_SHADOW_V1.
+DG:DJ BACKFILL PROVENANCE (solo Origin=CHATGPT_BACKFILL): DG Backfill Agent Version; DH Rule File; DI Rule Commit SHA; DJ Backfill Agent Commit SHA. En ANALIZA operativo normal dejar DG:DJ vacíos.
 DA:DF TV PATTERN: DA Pullback Window; DB Pullback Direction; DC Extension Warning; DD Extension Direction; DE ST15 Dist ATR; DF=TV_PATTERN_R1.
 ANALYSES es investigación; nunca convertir retrospectivamente CONDICIONAL/NO_OPERAR/EXP en trade.
 
