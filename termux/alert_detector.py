@@ -102,6 +102,7 @@ class AlertDetector:
         tcfg = config.get("telegram") or {}
         self.assets = {str(x).lower() for x in tcfg.get("assets", ["solv"])}
         self.state = _load_state()
+        self._current_live = {}
 
     @property
     def enabled(self):
@@ -418,6 +419,42 @@ class AlertDetector:
             f"btc5m_rsi={live.get('btc.5m.rsi14', '')}"
         )
 
+    def _research_payload(self, live, direction=""):
+        keys = [
+            "market.mark_price",
+            "market.index_price",
+            "market.funding_rate",
+            "market.open_interest",
+            "data.last_close_1m",
+            "data.last_close_5m",
+            "data.last_close_15m",
+            "data.last_close_1h",
+            "data.last_close_4h",
+            "data.last_close_1d",
+            "1m.close", "1m.ema20", "1m.ema50", "1m.ema200", "1m.rsi14", "1m.atr14", "1m.volume_rel20",
+            "5m.close", "5m.ema20", "5m.ema50", "5m.ema200", "5m.rsi14", "5m.atr14", "5m.volume_rel20",
+            "15m.close", "15m.ema20", "15m.ema50", "15m.ema200", "15m.rsi14", "15m.atr14", "15m.volume_rel20",
+            "1h.close", "1h.ema20", "1h.ema50", "1h.ema200", "1h.rsi14", "1h.atr14", "1h.volume_rel20",
+            "4h.close", "4h.ema50", "4h.ema200", "4h.rsi14", "4h.atr14",
+            "1d.close", "1d.ema50", "1d.ema200", "1d.rsi14", "1d.atr14",
+            "vwap.daily_utc",
+            "btc.1m.close", "btc.1m.ema50", "btc.1m.ema200", "btc.1m.rsi14",
+            "btc.5m.close", "btc.5m.ema50", "btc.5m.ema200", "btc.5m.rsi14",
+            "btc.15m.close", "btc.15m.ema50", "btc.15m.ema200", "btc.15m.rsi14",
+            "btc.1h.close", "btc.1h.ema50", "btc.1h.ema200", "btc.1h.rsi14",
+            "btc.4h.close", "btc.4h.ema50", "btc.4h.ema200", "btc.4h.rsi14",
+            "btc.1d.close", "btc.1d.ema50", "btc.1d.ema200", "btc.1d.rsi14",
+            "btc.vwap.daily_utc",
+            "oi.change_1m_pct", "oi.change_5m_pct", "oi.change_15m_pct", "oi.change_1h_pct", "oi.change_4h_pct",
+        ]
+        out = {k: live.get(k, "") for k in keys}
+        if direction in ("LONG", "SHORT"):
+            ps, pn = self._score_primary(live, direction)
+            ss, sn = self._score_scalp(live, direction)
+            out["detector.primary_score"] = f"{ps}/{pn}"
+            out["detector.scalp_score"] = f"{ss}/{sn}"
+        return out
+
     def _record_event(self, key, kind, signature, message, telegram_sent=False):
         events = _load_events()
         event_id = f"{key}:{kind}:{signature}"
@@ -433,6 +470,7 @@ class AlertDetector:
             "telegramSent": bool(telegram_sent),
             "message": str(message),
             "direction": direction,
+            "research": self._research_payload(self._current_live, direction) if self._current_live else {},
         })
         _save_events(events)
         return True
@@ -468,6 +506,7 @@ class AlertDetector:
             return
 
         live = self._live_map(live_rows)
+        self._current_live = live
         st = self.state.setdefault(key, {})
         symbol = str(live.get("market.symbol", key.upper()))
         now = time.time()
