@@ -1,4 +1,5 @@
 name: XRP Outcome Engine Smoke V1
+# rerun: 2
 
 on:
   workflow_dispatch:
