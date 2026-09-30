@@ -1,0 +1,27 @@
+name: Historical Data Audit V1
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/historical-data-audit.yml"
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run XRP/BTC historical audit
+        run: |
+          python research/historical_data_audit.py --out audit-output/XRP_BTC_DATA_AUDIT_V1.json
+
+      - name: Upload audit artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrp-btc-historical-data-audit-v1
+          path: audit-output/
+          if-no-files-found: warn
