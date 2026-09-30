@@ -1,0 +1,21 @@
+name: Seal XRP Forward V3.1
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/seal-xrp-forward-v3-1.yml"
+
+jobs:
+  seal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate V3.1 registry protocol tracker and holdout
+        run: python research/validate_xrp_forward_v3_1.py
+      - name: Upload seal
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrp-forward-v3-1-seal
+          path: forward-v3-1-seal/
