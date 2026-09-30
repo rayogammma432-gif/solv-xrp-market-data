@@ -14,6 +14,7 @@ import requests
 from alert_detector import AlertDetector
 from signal_tracker import SignalTracker
 from analysis_tracker import AnalysisTracker
+from forward_v3_tracker import ForwardV3Tracker
 
 BASE_URL = "https://fapi.binance.com"
 HERE = Path(__file__).resolve().parent
@@ -701,6 +702,7 @@ class Collector:
         self.alerts = AlertDetector(self.cfg, self.session)
         self.signal_tracker = SignalTracker(self.alerts)
         self.analysis_tracker = AnalysisTracker()
+        self.forward_v3 = ForwardV3Tracker()
         self.open_signals = {"solv": [], "xrp": []}
         self.pending_analyses = {"solv": [], "xrp": []}
         self.alert_research_state = load_alert_research_state()
@@ -925,6 +927,8 @@ class Collector:
                 signal_updates = []
                 analysis_updates = []
                 alert_events = []
+                forward_v3_events = []
+                forward_v3_outcomes = []
                 new_research_events = []
                 completed_research_ids = []
                 if not dry_run:
@@ -968,6 +972,16 @@ class Collector:
                     if mfe_rows:
                         sheets["ALERT_MFE_MAE"] = mfe_rows
 
+                    if key == "xrp":
+                        forward_v3_events, forward_v3_outcomes = self.forward_v3.evaluate(
+                            self.caches[symbol],
+                            {
+                                "1m": bool(new_by_symbol[symbol].get("1m", [])),
+                                "15m": bool(new_by_symbol[symbol].get("15m", [])),
+                            },
+                            self.session,
+                        )
+
                 payload = {
                     "secret": self.cfg[key]["shared_secret"],
                     "mode": "incremental",
@@ -985,6 +999,10 @@ class Collector:
                     payload["analysisUpdates"] = analysis_updates
                 if alert_events:
                     payload["alertEvents"] = alert_events
+                if forward_v3_events:
+                    payload["forwardV3Events"] = forward_v3_events
+                if forward_v3_outcomes:
+                    payload["forwardV3Outcomes"] = forward_v3_outcomes
 
                 if dry_run:
                     logger.info(
@@ -997,6 +1015,11 @@ class Collector:
                     self.pending_analyses[key] = list(response.get("pendingAnalyses", []))
                     if alert_events:
                         self.alerts.ack_events([x.get("id") for x in alert_events])
+                    if key == "xrp" and (forward_v3_events or forward_v3_outcomes):
+                        self.forward_v3.ack(
+                            event_rows=forward_v3_events,
+                            outcome_rows=forward_v3_outcomes,
+                        )
                     if new_research_events or completed_research_ids:
                         tracked = self.alert_research_state.setdefault(key, {})
                         for event in new_research_events:
