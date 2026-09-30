@@ -1,4 +1,5 @@
 name: XRP Descriptive Baseline V1
+# rerun: parallel-metrics
 
 on:
   workflow_dispatch:
