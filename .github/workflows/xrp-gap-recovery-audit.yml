@@ -1,0 +1,24 @@
+name: XRP Gap Recovery Audit V1
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/xrp-gap-recovery-audit.yml"
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Audit XRP missing daily archives
+        run: python research/historical_gap_recovery.py
+      - name: Upload audit artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrp-2022-gap-recovery-v1
+          path: audit-output/
+          if-no-files-found: warn
