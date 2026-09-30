@@ -1,0 +1,23 @@
+name: XRP BTC Metrics Semantic Audit V1
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/xrp-btc-metrics-semantic-audit.yml"
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit metrics timestamp semantics
+        run: python research/historical_metrics_semantic_audit.py
+      - name: Upload semantic audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrp-btc-metrics-semantic-audit-v1
+          path: audit-output/
+          if-no-files-found: warn
