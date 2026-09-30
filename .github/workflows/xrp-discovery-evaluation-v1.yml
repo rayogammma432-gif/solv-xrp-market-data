@@ -1,0 +1,137 @@
+name: XRP Discovery Evaluation V1
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/xrp-discovery-evaluation-v1.yml"
+
+jobs:
+  partial:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - part: "2020"
+            norm_start: "2020-01"
+            norm_end: "2021-01"
+            target_start: "2020-02-01T00:00:00Z"
+            target_end: "2021-01-01T00:00:00Z"
+          - part: "2021"
+            norm_start: "2020-12"
+            norm_end: "2022-01"
+            target_start: "2021-01-01T00:00:00Z"
+            target_end: "2022-01-01T00:00:00Z"
+          - part: "2022"
+            norm_start: "2021-12"
+            norm_end: "2023-01"
+            target_start: "2022-01-01T00:00:00Z"
+            target_end: "2023-01-01T00:00:00Z"
+          - part: "2023"
+            norm_start: "2022-12"
+            norm_end: "2023-12"
+            target_start: "2023-01-01T00:00:00Z"
+            target_end: "2023-12-31T20:00:00Z"
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Syntax gate
+        run: |
+          python -m py_compile \
+            research/historical_normalizer_window_v1.py \
+            research/historical_feature_builder_v1.py \
+            research/historical_outcome_engine_v1.py \
+            research/xrp_discovery_partial_v1.py \
+            research/xrp_discovery_aggregate_v1.py
+
+      - name: Normalize continuous discovery window
+        run: |
+          python research/historical_normalizer_window_v1.py \
+            --start-month "${{ matrix.norm_start }}" \
+            --end-month "${{ matrix.norm_end }}" \
+            --outdir norm-output
+
+      - name: Build frozen FEATURES_V1
+        run: |
+          DB=$(find norm-output -name '*.sqlite' -type f | head -1)
+          test -n "$DB"
+          python research/historical_feature_builder_v1.py \
+            --db "$DB" \
+            --outdir feature-output
+
+      - name: Build OUTCOMES_V1 for discovery partition
+        run: |
+          DB=$(find norm-output -name '*.sqlite' -type f | head -1)
+          python research/historical_outcome_engine_v1.py \
+            --db "$DB" \
+            --features feature-output/XRP_FEATURES_V1.csv \
+            --target-start "${{ matrix.target_start }}" \
+            --target-end "${{ matrix.target_end }}" \
+            --outdir outcome-output
+
+      - name: Evaluate sealed configs into daily blocks
+        run: |
+          python research/xrp_discovery_partial_v1.py \
+            --features feature-output/XRP_FEATURES_V1.csv \
+            --outcomes outcome-output/XRP_OUTCOMES_V1.csv \
+            --target-start "${{ matrix.target_start }}" \
+            --target-end "${{ matrix.target_end }}" \
+            --outdir discovery-part
+
+      - name: Remove large intermediate data
+        if: always()
+        run: |
+          rm -f norm-output/*.sqlite norm-output/*.sqlite-wal norm-output/*.sqlite-shm
+          rm -f feature-output/XRP_FEATURES_V1.csv
+          rm -f outcome-output/XRP_OUTCOMES_V1.csv
+
+      - name: Upload discovery partial
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrp-discovery-part-${{ matrix.part }}
+          path: |
+            discovery-part/
+            norm-output/WINDOW_NORMALIZATION_QC.json
+            feature-output/XRP_FEATURES_V1_QC.json
+            outcome-output/XRP_OUTCOME_ENGINE_V1_QC.json
+          if-no-files-found: warn
+
+  aggregate:
+    needs: partial
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all discovery parts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: xrp-discovery-part-*
+          path: parts
+
+      - name: Aggregate discovery pass A
+        run: |
+          python research/xrp_discovery_aggregate_v1.py --root parts --outdir discovery-a
+
+      - name: Aggregate discovery pass B
+        run: |
+          python research/xrp_discovery_aggregate_v1.py --root parts --outdir discovery-b
+
+      - name: Determinism gate
+        run: |
+          cmp discovery-a/XRP_DISCOVERY_RESULTS_V1.json discovery-b/XRP_DISCOVERY_RESULTS_V1.json
+          cmp discovery-a/XRP_DISCOVERY_RESULTS_V1.md discovery-b/XRP_DISCOVERY_RESULTS_V1.md
+          SHA_A=$(sha256sum discovery-a/XRP_DISCOVERY_RESULTS_V1.json | awk '{print $1}')
+          SHA_B=$(sha256sum discovery-b/XRP_DISCOVERY_RESULTS_V1.json | awk '{print $1}')
+          echo "discovery_sha_a=$SHA_A"
+          echo "discovery_sha_b=$SHA_B"
+          test "$SHA_A" = "$SHA_B"
+
+      - name: Upload final discovery result
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrp-discovery-results-v1
+          path: discovery-a/
