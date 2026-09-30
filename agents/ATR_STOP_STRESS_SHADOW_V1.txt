@@ -1,0 +1,44 @@
+ATR STOP STRESS — SHADOW V1
+
+OBJETIVO
+Medir si los stops estructurales de PRIMARY/SCALP son demasiado estrechos frente a la volatilidad.
+NO cambia reglas operativas, ACTIVE, SIGNALS, riesgo, stop real ni TIME_STOP.
+
+CALCULO EN CADA ANALIZA
+Solo cuando exista Entry Candidate, Stop Candidate, TP1 Candidate y ATR15m válido:
+
+struct_dist = ABS(Entry - Stop)
+atr_floor = 0.50 * ATR15m
+stress_dist = MAX(struct_dist, atr_floor)
+stress_rr_tp1 = ABS(TP1 - Entry) / stress_dist
+
+ATR Stress Pass:
+YES si stress_rr_tp1 >= 1.50
+NO si stress_rr_tp1 < 1.50
+N/A si faltan Entry/Stop/TP1/ATR15m.
+
+IMPORTANTE
+- El stop real sigue siendo el stop estructural definido por las reglas vigentes.
+- NO ampliar automáticamente el stop a 0.50 ATR.
+- NO bloquear ni activar una señal por este resultado.
+- NO cambiar tamaño de posición ni riesgo.
+- Es telemetría shadow para medir si un setup solo parece cumplir RR por usar un stop demasiado estrecho.
+- Anti-chase y primer obstáculo siguen evaluándose normalmente.
+- Usar TP1/primer obstáculo real, no un objetivo lejano artificial.
+
+ANALYSES
+BW ATR15m Stress Input
+BX Structural Stop Dist
+BY Stress Stop Dist
+BZ Stress RR TP1
+CA ATR Stress Pass = YES/NO/N/A
+CB ATR Stress Reason
+
+SALIDA
+Añadir una línea compacta:
+ATR STOP STRESS — PASS/FAIL/N/A; RR stress X.XX; riesgo estructural X; riesgo stress Y.
+Nunca presentarlo como modificación del stop operativo.
+
+VERSIONES
+XRP mantiene XRP_V3.3.
+SOLV mantiene SOLV_V3.2.
