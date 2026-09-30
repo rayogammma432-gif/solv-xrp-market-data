@@ -1,0 +1,79 @@
+SOLV_V3.2 — ADDON DE INVESTIGACIÓN 1D + SHADOW SIN 1M
+
+OBJETIVO
+Mantener SIN CAMBIOS todas las reglas operativas de SOLV_V3.2.
+Este addon solo añade telemetría de investigación. No modifica gates, score, riesgo, TIME_STOP, SIGNALS ni criterios ACTIVE.
+
+1D MACRO — SOLO REFERENCIA
+En cada ANALIZA leer SOLV_1D y BTC_1D además de LIVE_STATE.
+Comprobar data.sync_1d y btc.data.sync_1d.
+Evaluar estructura diaria, close vs EMA50/EMA200, RSI14 y ATR14.
+Clasificar 1D respecto al sesgo PRIMARY:
+FAVORABLE / NEUTRAL / CONTRARIA.
+
+REGLAS 1D
+- 1D NO suma/resta del 6/8.
+- 1D NO es gate.
+- 1D NO invalida una señal.
+- 1D NO cambia riesgo ni TIME_STOP.
+- Si 1D está LAGGING, anotar 1D DATA MISSING y continuar según las reglas operativas V3.2.
+- No usar vela 1D vieja como referencia actual.
+
+REGISTRO 1D EN ANALYSES
+BG Last 1D Close
+BH 1D Reference = FAVORABLE / NEUTRAL / CONTRARIA
+BI 1D Close
+BJ 1D EMA50
+BK 1D EMA200
+BL 1D RSI14
+BM 1D ATR14
+BN BTC 1D Close
+BO BTC 1D EMA50
+BP BTC 1D EMA200
+BQ BTC 1D RSI14
+
+SCALP EXPERIMENTAL SIN 1M — SHADOW
+En CADA ANALIZA evaluar en paralelo un contrafactual del SCALP que elimina SOLO el requisito #8 trigger 1m.
+
+Usar los criterios 1-7 del SCALP actual y registrar score X/7.
+
+EXP No1m Eligible = YES solo si:
+- #3 setup 15m válido;
+- #7 stop estructural + RR bruto >=1.5;
+- mínimo 5/7;
+- sin contradicción estructural mayor;
+- SOLV/BTC 15m/1H/4H sincronizados;
+- pasa anti-chase;
+- pasa primer obstáculo real.
+
+Para este experimento, 1m NO participa en la elegibilidad.
+5m y 1D siguen siendo observacionales.
+Si 1m está LAGGING pero 15m/1H/4H están frescos, el experimento puede calcularse; el ESTADO OPERATIVO sigue obedeciendo SOLV_V3.2 sin cambios.
+
+MUY IMPORTANTE
+EXP No1m Eligible=YES:
+- NO crea SIGNAL;
+- NO cambia ESTADO a ACTIVE;
+- NO asigna riesgo;
+- NO modifica una señal operativa;
+- NO se presenta como trade válido;
+- solo sirve para comparar resultados forward contra el SCALP operativo con 1m.
+
+REGISTRO SHADOW EN ANALYSES
+BR EXP No1m Eligible = YES/NO
+BS EXP No1m Direction = LONG/SHORT/NEUTRAL
+BT EXP No1m Score = X/7
+BU EXP No1m Gross RR
+BV EXP No1m Reason / Blocker
+
+VERSION
+BF Rule Version permanece SOLV_V3.2.
+No crear una nueva versión operativa por este addon.
+
+SALIDA
+Añadir de forma compacta:
+1D MACRO — FAVORABLE/NEUTRAL/CONTRARIA o DATA MISSING.
+SCALP EXP NO1M — ELIGIBLE o blocker principal.
+Nunca presentar el experimento shadow como señal confirmada.
+
+ANALYSES es investigación, no trades. Nunca convertir retrospectivamente CONDICIONAL/NO_OPERAR/EXP en trade.
