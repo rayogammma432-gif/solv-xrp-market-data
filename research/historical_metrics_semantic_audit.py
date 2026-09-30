@@ -51,7 +51,7 @@ def one(s,d):
     deltas=[b-a for a,b in zip(vals,vals[1:])]
     from collections import Counter
     dc=Counter(deltas)
-    gaps=[(a,b,b-a) for a,b in zip(ts,ts[1:]) if int((b-a).total_seconds())!=300]
+    gaps=[(a,b,int((b-a).total_seconds())) for a,b in zip(ts,ts[1:]) if int((b-a).total_seconds())!=300]
     offgrid=sum((x.minute%5)!=0 or x.second!=0 or x.microsecond!=0 for x in ts)
     return {'available':True,'checksum_ok':exp==act,'rows':len(r),'header':header,
             'first_raw':raw[:5],'last_raw':raw[-5:],
