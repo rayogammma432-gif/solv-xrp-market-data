@@ -6,7 +6,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from statistics import mean
 
 import requests
@@ -19,6 +19,8 @@ BASE_URL = "https://fapi.binance.com"
 HERE = Path(__file__).resolve().parent
 DEFAULT_CONFIG = HERE / "config.json"
 OI_STATE_PATH = HERE / "oi_samples.json"
+ALERT_RESEARCH_STATE_PATH = HERE / "alert_research_state.json"
+ALERT_RESEARCH_VERSION = "ALERT_R1"
 LOG_DIR = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
@@ -326,6 +328,155 @@ def make_oi_sample(market, existing):
     ]
     return base, row
 
+
+def _parse_utc(value):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).astimezone(timezone.utc)
+    except Exception:
+        return None
+
+
+def load_alert_research_state():
+    if not ALERT_RESEARCH_STATE_PATH.exists():
+        return {"solv": {}, "xrp": {}}
+    try:
+        data = json.loads(ALERT_RESEARCH_STATE_PATH.read_text(encoding="utf-8"))
+        return {
+            "solv": dict(data.get("solv", {})),
+            "xrp": dict(data.get("xrp", {})),
+        }
+    except Exception:
+        return {"solv": {}, "xrp": {}}
+
+
+def save_alert_research_state(state):
+    clean = {}
+    for key in ("solv", "xrp"):
+        items = list((state.get(key) or {}).items())
+        items.sort(key=lambda kv: str((kv[1].get("event") or {}).get("utc", "")))
+        clean[key] = dict(items[-700:])
+    tmp = ALERT_RESEARCH_STATE_PATH.with_suffix(".tmp")
+    tmp.write_text(
+        json.dumps(clean, ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    tmp.replace(ALERT_RESEARCH_STATE_PATH)
+
+
+def _alert_snapshot_row(event):
+    research = event.get("research") or {}
+    event_id = str(event.get("id") or "")
+    alert_utc = str(event.get("utc") or "")
+    row_key = f"{alert_utc}|{event_id}"
+    return [
+        row_key,
+        alert_utc,
+        event_id,
+        str(event.get("asset") or ""),
+        str(event.get("type") or ""),
+        str(event.get("direction") or ""),
+        research.get("market.mark_price", ""),
+        research.get("detector.primary_score", ""),
+        research.get("detector.scalp_score", ""),
+        json.dumps(research, ensure_ascii=False, separators=(",", ":")),
+        ALERT_RESEARCH_VERSION,
+    ]
+
+
+def _directional_pct(base, value, direction):
+    if not base:
+        return None
+    raw = ((float(value) / float(base)) - 1.0) * 100.0
+    return raw if str(direction).upper() == "LONG" else -raw
+
+
+def _alert_outcome_rows(record, rows_1m):
+    event = record.get("event") or {}
+    research = event.get("research") or {}
+    alert_dt = _parse_utc(event.get("utc"))
+    base = research.get("market.mark_price")
+    try:
+        base = float(base)
+    except Exception:
+        return None, None
+    if alert_dt is None or not base:
+        return None, None
+
+    candles = []
+    for r in rows_1m or []:
+        dt = _parse_utc(r[6] if len(r) > 6 else "")
+        if dt and dt > alert_dt:
+            candles.append((dt, r))
+    if not candles:
+        return None, None
+
+    target240 = alert_dt + timedelta(minutes=240)
+    if candles[-1][0] < target240:
+        return None, None
+
+    direction = str(event.get("direction") or "").upper()
+    if direction not in ("LONG", "SHORT"):
+        return None, None
+
+    fwd = {}
+    for minutes in (5, 15, 30, 60, 240):
+        target = alert_dt + timedelta(minutes=minutes)
+        eligible = [(dt, r) for dt, r in candles if dt <= target]
+        if not eligible:
+            return None, None
+        close = float(eligible[-1][1][4])
+        fwd[minutes] = round(_directional_pct(base, close, direction), 4)
+
+    excursions = {}
+    for minutes in (15, 60, 240):
+        target = alert_dt + timedelta(minutes=minutes)
+        eligible = [r for dt, r in candles if dt <= target]
+        if not eligible:
+            return None, None
+        high = max(float(r[2]) for r in eligible)
+        low = min(float(r[3]) for r in eligible)
+        if direction == "LONG":
+            mfe = max(0.0, ((high / base) - 1.0) * 100.0)
+            mae = max(0.0, ((base - low) / base) * 100.0)
+        else:
+            mfe = max(0.0, ((base - low) / base) * 100.0)
+            mae = max(0.0, ((high - base) / base) * 100.0)
+        excursions[minutes] = (round(mfe, 4), round(mae, 4))
+
+    event_id = str(event.get("id") or "")
+    alert_utc = str(event.get("utc") or "")
+    target_utc = target240.isoformat(timespec="seconds").replace("+00:00", "Z")
+    row_key = f"{target_utc}|{event_id}"
+    forward_row = [
+        row_key,
+        event_id,
+        alert_utc,
+        str(event.get("asset") or ""),
+        str(event.get("type") or ""),
+        direction,
+        fwd[5],
+        fwd[15],
+        fwd[30],
+        fwd[60],
+        fwd[240],
+    ]
+    mfe_row = [
+        row_key,
+        event_id,
+        alert_utc,
+        str(event.get("asset") or ""),
+        direction,
+        excursions[15][0],
+        excursions[15][1],
+        excursions[60][0],
+        excursions[60][1],
+        excursions[240][0],
+        excursions[240][1],
+    ]
+    return forward_row, mfe_row
+
 class Collector:
     def __init__(self, config_path=DEFAULT_CONFIG):
         self.cfg = load_config(config_path)
@@ -343,6 +494,7 @@ class Collector:
         self.analysis_tracker = AnalysisTracker()
         self.open_signals = {"solv": [], "xrp": []}
         self.pending_analyses = {"solv": [], "xrp": []}
+        self.alert_research_state = load_alert_research_state()
         self.bootstrapped = False
 
     def _asset_spec(self, key):
@@ -538,6 +690,8 @@ class Collector:
                 signal_updates = []
                 analysis_updates = []
                 alert_events = []
+                new_research_events = []
+                completed_research_ids = []
                 if not dry_run:
                     signal_updates = self.signal_tracker.evaluate(
                         key, self.open_signals.get(key, []), self.caches[symbol]
@@ -548,6 +702,36 @@ class Collector:
                         self.caches[symbol]["1m"],
                     )
                     alert_events = self.alerts.pending_events(key)
+
+                    tracked = self.alert_research_state.setdefault(key, {})
+                    for event in alert_events:
+                        event_id = str(event.get("id") or "")
+                        if (
+                            event_id
+                            and bool(event.get("telegramSent"))
+                            and event_id not in tracked
+                        ):
+                            sheets.setdefault("ALERT_RESEARCH", []).append(
+                                _alert_snapshot_row(event)
+                            )
+                            new_research_events.append(event)
+
+                    forward_rows = []
+                    mfe_rows = []
+                    for event_id, record in list(tracked.items()):
+                        if record.get("outcomePosted"):
+                            continue
+                        fwd_row, mfe_row = _alert_outcome_rows(
+                            record, self.caches[symbol]["1m"]
+                        )
+                        if fwd_row and mfe_row:
+                            forward_rows.append(fwd_row)
+                            mfe_rows.append(mfe_row)
+                            completed_research_ids.append(event_id)
+                    if forward_rows:
+                        sheets["ALERT_FORWARD"] = forward_rows
+                    if mfe_rows:
+                        sheets["ALERT_MFE_MAE"] = mfe_rows
 
                 payload = {
                     "secret": self.cfg[key]["shared_secret"],
@@ -578,6 +762,19 @@ class Collector:
                     self.pending_analyses[key] = list(response.get("pendingAnalyses", []))
                     if alert_events:
                         self.alerts.ack_events([x.get("id") for x in alert_events])
+                    if new_research_events or completed_research_ids:
+                        tracked = self.alert_research_state.setdefault(key, {})
+                        for event in new_research_events:
+                            event_id = str(event.get("id") or "")
+                            if event_id:
+                                tracked[event_id] = {
+                                    "event": event,
+                                    "outcomePosted": False,
+                                }
+                        for event_id in completed_research_ids:
+                            if event_id in tracked:
+                                tracked[event_id]["outcomePosted"] = True
+                        save_alert_research_state(self.alert_research_state)
                     logger.info(
                         "%s DELTA OK: sheets=%s response=%s",
                         symbol, {k: len(v) for k, v in sheets.items()}, response
