@@ -263,7 +263,7 @@ def load_metrics(db,symbol,month):
     for ts in sorted(seen):
         tup,sf,sh,missing,zero,dedup=seen[ts]
         if tup=="CONFLICT": continue
-        db.execute("""INSERT INTO metrics VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        db.execute("""INSERT INTO metrics VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                    (symbol,ts,ts+300000,*tup,sf,sh,dedup,int(zero),int(missing),NORM)); n+=1
     return {"raw":raw_total,"normalized":n,"identical_removed":identical_removed,"conflicting_excluded":conflicting}
 
