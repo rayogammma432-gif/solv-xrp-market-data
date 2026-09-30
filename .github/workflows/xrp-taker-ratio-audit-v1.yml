@@ -1,0 +1,23 @@
+name: XRP Taker Ratio Audit V1
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/xrp-taker-ratio-audit-v1.yml"
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Locate taker ratio anomalies
+        run: python research/historical_taker_ratio_audit.py
+      - name: Upload audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrp-taker-ratio-audit-v1
+          path: audit-output/
+          if-no-files-found: warn
