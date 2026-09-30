@@ -1,0 +1,19 @@
+name: Seal XRP Hypothesis Registry V2
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/seal-xrp-hypothesis-registry-v2.yml"
+jobs:
+  seal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate and seal V2 registry
+        run: python research/validate_xrp_hypothesis_registry_v2.py
+      - name: Upload seal
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrp-hypothesis-registry-v2-seal
+          path: v2-seal-output/
