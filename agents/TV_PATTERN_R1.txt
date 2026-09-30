@@ -1,0 +1,34 @@
+TV PATTERN R1 — SHADOW
+
+OBJETIVO
+Medir dos patrones retrospectivos de SuperTrend + Donchian sin cambiar reglas operativas.
+
+PULLBACK_WINDOW
+YES si ST15m y DTR15m coinciden LONG/SHORT y 5m todavía no tiene ST+DTR ambos en esa misma dirección.
+Guardar dirección.
+Interpretación: posible ventana de transición/pullback; NO es trigger.
+
+EXTENSION_WARNING
+YES si ST15m+DTR15m+ST5m+DTR5m coinciden en una dirección Y tv.st.15m.distance_atr >= 2.0.
+Guardar dirección y distancia ATR.
+Interpretación: posible confirmación tardía/sobreextensión; NO bloquea ni activa.
+
+LIVE_STATE
+tv.pattern.pullback_window
+tv.pattern.pullback_direction
+tv.pattern.extension_warning
+tv.pattern.extension_direction
+tv.pattern.st15_distance_atr
+tv.pattern.version=TV_PATTERN_R1
+
+ANALYSES DA:DF
+DA TV Pullback Window
+DB TV Pullback Direction
+DC TV Extension Warning
+DD TV Extension Direction
+DE TV ST15 Dist ATR
+DF TV Pattern Version
+
+REGLA
+Solo evaluar una etiqueta respecto a un motor cuando su dirección coincide con el bias de ese motor.
+No suma/resta confluencias, no gate, no ACTIVE, no SIGNAL, no riesgo, no stop, no TIME_STOP.
