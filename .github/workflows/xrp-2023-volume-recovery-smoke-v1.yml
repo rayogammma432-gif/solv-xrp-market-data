@@ -1,0 +1,53 @@
+name: XRP 2023 Volume Recovery Smoke V1
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/xrp-2023-volume-recovery-smoke-v1.yml"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Normalize November 2023
+        run: python research/historical_normalizer_v1.py --month 2023-11 --outdir recovery-smoke
+      - name: Verify recovered row and provenance
+        run: |
+          DB=$(find recovery-smoke -name '*.sqlite' -type f | head -1)
+          python - "$DB" <<'PY'
+          import sqlite3,sys,math
+          db=sqlite3.connect(sys.argv[1])
+          r=db.execute("""SELECT volume,quote_volume,trades,taker_buy_base,taker_buy_quote,
+                         source_granularity,source_sha256
+                         FROM contract_1m
+                         WHERE symbol='XRPUSDT' AND open_time_ms=1701347700000""").fetchone()
+          assert r is not None
+          assert math.isclose(r[0],331858.0,abs_tol=1e-6)
+          assert math.isclose(r[1],200298.79368,abs_tol=1e-6)
+          assert r[2]==470
+          assert math.isclose(r[3],132462.5,abs_tol=1e-6)
+          assert r[5]=='aggtrade_recovery'
+          assert r[6]=='e5fd4262256cd854b5272b257838d32e5030c886706cb5e38400688d5e53b751'
+          e=db.execute("""SELECT COUNT(*) FROM normalization_events
+                          WHERE event_type='AGGTRADE_VOLUME_RECOVERY'
+                          AND source_timestamp_ms=1701347700000""").fetchone()[0]
+          assert e==1
+          print("recovery_row=PASS ratio=",r[3]/r[0])
+          PY
+      - name: Rebuild FEATURES_V1
+        run: |
+          DB=$(find recovery-smoke -name '*.sqlite' -type f | head -1)
+          python research/historical_feature_builder_v1.py --db "$DB" --outdir feature-smoke
+      - name: Upload QA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrp-2023-volume-recovery-smoke-v1
+          path: |
+            recovery-smoke/*QC*.json
+            recovery-smoke/*QC*.md
+            feature-smoke/*QC*.json
+            feature-smoke/*QC*.md
