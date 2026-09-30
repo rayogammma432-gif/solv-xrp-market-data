@@ -17,6 +17,11 @@ jobs:
         run: |
           python -m py_compile             termux/forward_v3_tracker.py             termux/market_collector.py             termux/test_forward_v3_tracker.py
 
+      - name: Apps Script syntax gate
+        run: |
+          cp apps-script/XRP_Receptor_Incremental.gs /tmp/XRP_Receptor_Incremental.js
+          node --check /tmp/XRP_Receptor_Incremental.js
+
       - name: Run deterministic capture smoke
         env:
           PYTHONPATH: termux
