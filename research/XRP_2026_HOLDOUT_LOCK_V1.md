@@ -50,7 +50,7 @@ Mientras V3 sea forward-only:
 
 Se permite crear un nuevo periodo prospectivo independiente:
 
-- forward_start = `2026-10-01T00:00:00Z`
+- forward_start = `2026-10-01T06:00:00Z`
 
 Ese periodo:
 - no es parte del holdout histórico;
@@ -60,7 +60,7 @@ Ese periodo:
 
 ## Consecuencia metodológica
 
-Si V3 se adapta después de observar datos forward posteriores a 2026-10-01:
+Si V3 se adapta después de observar datos forward posteriores a 2026-10-01T06:00:00Z:
 - esos datos dejan de ser confirmatorios para la siguiente versión;
 - el holdout histórico 2026 continúa sin tocar hasta un gate explícito.
 
@@ -70,4 +70,10 @@ Si V3 se adapta después de observar datos forward posteriores a 2026-10-01:
 - Validation V2: complete
 - Validated challenger: none
 - 2026 historical holdout: LOCKED
-- V3 mode: FORWARD-ONLY
+- V3.1 mode: FORWARD-ONLY
+
+## Amendment pre-launch — V3.1
+
+Antes de observar resultados forward, el inicio se movió de `2026-10-01T00:00:00Z` a `2026-10-01T06:00:00Z` para permitir deployment y QA de captura. Las horas 00:00–05:59 UTC quedan fuera de la población V3.1 y no se recuperan retrospectivamente como eventos.
+
+El histórico 2026-01-01 → 2026-08-31 permanece LOCKED sin cambios.
