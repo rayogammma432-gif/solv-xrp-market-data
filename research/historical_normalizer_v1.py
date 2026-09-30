@@ -14,6 +14,13 @@ RECOVERY={
         "2022-04":["2022-04-01","2022-04-02"],
     }
 }
+
+# Official Binance monthly kline anomaly verified against official daily aggTrades.
+# At 2023-11-30 12:35 UTC, the kline volume is impossible (taker_buy_base > volume)
+# while OHLC, quote volume, trade count and taker-buy fields match aggTrades.
+AGGTRADE_VOLUME_RECOVERY={
+    ("XRPUSDT",1701347700000):"2023-11-30"
+}
 # Official aggTrades-based recovery for a Binance kline with an impossible base-volume field.
 # Audit: 2023-11-30 12:35 UTC. OHLC, quote volume, trade count and taker fields all
 # match aggTrades exactly; only kline base volume is corrupt.
@@ -86,6 +93,44 @@ def daily_metric_url(symbol,day):
 
 def daily_contract_url(symbol,day):
     return f"{BASE}/daily/klines/{symbol}/1m/{symbol}-1m-{day}.zip"
+
+def daily_aggtrade_url(symbol,day):
+    return f"{BASE}/daily/aggTrades/{symbol}/{symbol}-aggTrades-{day}.zip"
+
+def recover_kline_from_aggtrades(symbol,day,target_open_ms):
+    url=daily_aggtrade_url(symbol,day)
+    blob,sh,line=fetch_verified(url)
+    header,raw=unzip_csv(blob)
+    items=[]
+    for r in raw:
+        if len(r)<7: continue
+        try: ts=int(float(r[5]))
+        except Exception: continue
+        if target_open_ms <= ts < target_open_ms+60000:
+            items.append(r)
+    if not items:
+        raise RuntimeError(f"no aggTrades for {symbol} {day} {target_open_ms}")
+    total_qty=0.0;quote=0.0;taker_buy=0.0;taker_buy_quote=0.0;trades=0;prices=[]
+    for r in items:
+        p=float(r[1]);q=float(r[2]);first_id=int(float(r[3]));last_id=int(float(r[4]))
+        buyer_maker=str(r[6]).strip().lower() in ("true","1")
+        total_qty+=q;quote+=p*q;prices.append(p);trades+=last_id-first_id+1
+        if not buyer_maker:
+            taker_buy+=q;taker_buy_quote+=p*q
+    rec={
+        "open_time":target_open_ms,
+        "open":float(items[0][1]),
+        "high":max(prices),
+        "low":min(prices),
+        "close":float(items[-1][1]),
+        "volume":total_qty,
+        "close_time":target_open_ms+59999,
+        "quote_volume":quote,
+        "trades":trades,
+        "taker_buy_base":taker_buy,
+        "taker_buy_quote":taker_buy_quote,
+    }
+    return rec,url,sh,line,len(raw)
 
 def daily_aggtrade_url(symbol,day):
     return f"{BASE}/daily/aggTrades/{symbol}/{symbol}-aggTrades-{day}.zip"
@@ -205,6 +250,32 @@ def load_contract(db,symbol,month):
     # For known broken monthly XRP months, daily official files add absent timestamps.
     by_t={r["open_time"]:(r,url,sh,"monthly",0) for r in rows}
     record_source(db,url,"contract_1m",symbol,"monthly",sh,line,len(raw))
+
+    # Repair only source rows previously proven internally inconsistent,
+    # using official Binance aggTrades and checksum. This is a data-quality
+    # correction, not an outcome-driven transformation.
+    for (rsym,ts),day in AGGTRADE_VOLUME_RECOVERY.items():
+        if rsym!=symbol or ts not in by_t: continue
+        old=by_t[ts][0]
+        rec,au,ash,aline,arows=recover_kline_from_aggtrades(symbol,day,ts)
+        for fld in ("open","high","low","close"):
+            if not math.isclose(float(old[fld]),float(rec[fld]),rel_tol=0,abs_tol=1e-12):
+                raise RuntimeError(f"aggTrade OHLC mismatch {symbol} {iso_ms(ts)} {fld}")
+        for fld in ("quote_volume","taker_buy_base","taker_buy_quote"):
+            if not math.isclose(float(old[fld]),float(rec[fld]),rel_tol=1e-12,abs_tol=1e-8):
+                raise RuntimeError(f"aggTrade flow mismatch {symbol} {iso_ms(ts)} {fld}")
+        if int(old["trades"])!=int(rec["trades"]):
+            raise RuntimeError(f"aggTrade trade-count mismatch {symbol} {iso_ms(ts)}")
+        repaired=dict(old)
+        repaired["volume"]=rec["volume"]
+        by_t[ts]=(repaired,url,sh,"monthly+aggTrades_volume_recovery",0)
+        record_source(db,au,"aggTrades_volume_recovery",symbol,"daily",ash,aline,arows)
+        db.execute("INSERT INTO normalization_events VALUES(?,?,?,?,?)",
+                   (symbol,"contract_1m","AGGTRADES_VOLUME_RECOVERY",ts,
+                    json.dumps({"kline_file":url,"aggtrade_file":au,"aggtrade_sha256":ash,
+                                "old_volume":old["volume"],"recovered_volume":rec["volume"],
+                                "reason":"taker_buy_base exceeded total volume in official monthly kline"},sort_keys=True)))
+
     for day in sorted(recovery):
         du=daily_contract_url(symbol,day); dbb,dsh,dline=fetch_verified(du); _,draw=unzip_csv(dbb); drows=kline_rows(draw)
         record_source(db,du,"contract_1m",symbol,"daily_recovery",dsh,dline,len(draw))
