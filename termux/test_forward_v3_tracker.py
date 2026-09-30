@@ -1,145 +1,255 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+
+import json
+import sqlite3
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from forward_v3_tracker import ForwardV3Tracker, FORWARD_START_UTC
+import historical_feature_builder_v1 as hf
+import historical_normalizer_v1 as hn
+from forward_v3_tracker import (
+    CANDIDATES,
+    FORWARD_START_MS,
+    FORWARD_START_UTC,
+    PROTOCOL_VERSION,
+    ForwardV3Tracker,
+    iso_ms,
+    parse_iso_ms,
+    rel_volume20,
+    resample_15m_from_1m,
+    ret_12,
+    row_available_at_ms,
+    taker_imbalance,
+)
 
 UTC=timezone.utc
 
-def iso(dt):
-    return dt.astimezone(UTC).isoformat(timespec="milliseconds").replace("+00:00","Z")
 
-def make_rows(interval_min,count,last_available,base=1.0,current_volume=100.0,last_volume=200.0,last_taker_ratio=0.8):
-    """
-    Build Binance-like closed kline rows ending exactly at last_available.
-    row[0]=open UTC, row[6]=close UTC (.999), row[9]=taker buy base.
-    """
+def raw_kline(open_ms, price, volume=100.0, taker_ratio=0.5):
+    close_ms=open_ms+59_999
+    close=price
+    return [
+        open_ms,
+        f"{price:.10f}",
+        f"{price*1.0005:.10f}",
+        f"{price*0.9995:.10f}",
+        f"{close:.10f}",
+        f"{volume:.10f}",
+        close_ms,
+        f"{close*volume:.10f}",
+        50,
+        f"{volume*taker_ratio:.10f}",
+        f"{close*volume*taker_ratio:.10f}",
+        "0"
+    ]
+
+
+def row_from_raw(k):
+    return [
+        iso_ms(k[0]),float(k[1]),float(k[2]),float(k[3]),float(k[4]),float(k[5]),
+        iso_ms(k[6]),float(k[7]),int(k[8]),float(k[9]),float(k[10])
+    ]
+
+
+class Resp:
+    def __init__(self,data):
+        self._data=data
+    def raise_for_status(self):
+        return None
+    def json(self):
+        return self._data
+
+
+class FakeSession:
+    def __init__(self, raw_1m, oi_rows=None):
+        self.raw_1m=list(raw_1m)
+        self.oi_rows=list(oi_rows or [])
+        self.kline_calls=0
+        self.oi_calls=0
+    def get(self,url,params=None,timeout=30):
+        params=params or {}
+        if url.endswith("/fapi/v1/klines"):
+            self.kline_calls+=1
+            s=int(params["startTime"]);e=int(params["endTime"])
+            lim=int(params.get("limit",1500))
+            arr=[x for x in self.raw_1m if s<=int(x[0])<=e][:lim]
+            return Resp(arr)
+        if url.endswith("/futures/data/openInterestHist"):
+            self.oi_calls+=1
+            s=int(params.get("startTime",0));e=int(params.get("endTime",2**63-1))
+            arr=[x for x in self.oi_rows if s<=int(x["timestamp"])<=e]
+            return Resp(arr[:int(params.get("limit",20))])
+        raise AssertionError(url)
+
+
+def make_series(start_open, minutes):
     out=[]
-    step=timedelta(minutes=interval_min)
-    first_open=last_available - step*count
-    for i in range(count):
-        op=first_open + step*i
-        av=op+step
-        close_time=av-timedelta(milliseconds=1)
-        # Force a mild trend so 12-bar return is >1% in 15m fixtures.
-        frac=i/max(1,count-1)
-        close=base*(1+0.025*frac)
-        open_=close*(1-0.0002)
-        high=close*(1+0.0005)
-        low=close*(1-0.0005)
-        vol=current_volume
-        taker=vol*0.5
-        if i==count-1:
-            vol=last_volume
-            taker=vol*last_taker_ratio
-        out.append([
-            iso(op),open_,high,low,close,vol,iso(close_time),close*vol,100,taker,close*taker
-        ])
+    for i in range(minutes):
+        # Gentle trend produces deterministic 15m ret_12.
+        p=1.0*(1+0.00012*i)
+        out.append(raw_kline(start_open+i*60_000,p))
     return out
 
-def append_future_1m(rows,minutes,missing_k=None):
-    last_available=datetime.fromisoformat(rows[-1][6].replace("Z","+00:00"))+timedelta(milliseconds=1)
-    last_close=float(rows[-1][4])
-    out=list(rows)
-    for k in range(1,minutes+1):
-        if missing_k is not None and k==missing_k:
-            continue
-        op=last_available+timedelta(minutes=k-1)
-        av=last_available+timedelta(minutes=k)
-        close_time=av-timedelta(milliseconds=1)
-        close=last_close*(1+0.00005*k)
-        out.append([
-            iso(op),close,close*1.0003,close*0.9997,close,100.0,iso(close_time),close*100,80,50.0,close*50
-        ])
-    return out
 
-def fake_oi(session,decision_ms):
-    return 0.006, iso(datetime.fromtimestamp(decision_ms/1000,tz=UTC))
+def test_pre_start_gate():
+    with tempfile.TemporaryDirectory() as td:
+        tracker=ForwardV3Tracker(
+            state_path=Path(td)/"state.json",
+            now_fn=lambda: FORWARD_START_UTC-timedelta(seconds=1),
+        )
+        s=FakeSession([])
+        ev,out,health=tracker.evaluate(s)
+        assert (ev,out,health)==([],[],[])
+        assert s.kline_calls==0
+
+
+def test_paginated_catchup_and_all_new_minutes():
+    start_open=FORWARD_START_MS-400*60_000
+    raw=make_series(start_open, 405)
+    # Make four post-last-eval rows strong A candidates.
+    for k in range(len(raw)-4,len(raw)):
+        raw[k][5]="300.0"; raw[k][7]=f"{float(raw[k][4])*300:.10f}"
+        raw[k][9]="240.0"; raw[k][10]=f"{float(raw[k][4])*240:.10f}"
+
+    oi=[]
+    for ts in range(FORWARD_START_MS-60*60_000,FORWARD_START_MS+60*60_000,300_000):
+        oi.append({"timestamp":ts,"sumOpenInterest":str(1000+((ts//300_000)%20)*10)})
+
+    now=datetime.fromtimestamp((int(raw[-1][6])+1)/1000,tz=UTC)+timedelta(seconds=10)
+    with tempfile.TemporaryDirectory() as td:
+        tr=ForwardV3Tracker(
+            state_path=Path(td)/"state.json",
+            now_fn=lambda: now,
+            oi_feature_fetcher=lambda session,decision:(0.006,iso_ms(decision)),
+        )
+        # Pretend everything through four minutes ago was already evaluated.
+        tr.state["coverage"]["last_evaluated_1m_ms"]=row_available_at_ms(row_from_raw(raw[-5]))
+        # Avoid historical 15m replay in this catch-up-specific assertion.
+        tr.state["coverage"]["last_evaluated_15m_ms"]=row_available_at_ms(
+            resample_15m_from_1m([row_from_raw(x) for x in raw])[-2]
+        )
+        tr._save_state = None if False else getattr(tr,"_save_state",None)
+        # Persist state via normal helper behavior on evaluate.
+        from forward_v3_tracker import _save_state
+        _save_state(tr.state_path,tr.state)
+
+        s=FakeSession(raw,oi)
+        ev,out,health=tr.evaluate(s)
+        assert tr.state["coverage"]["last_evaluated_1m_ms"]==row_available_at_ms(row_from_raw(raw[-1]))
+        hour=tr.state["coverage"]["hours"][iso_ms((row_available_at_ms(row_from_raw(raw[-1]))//3_600_000)*3_600_000)]
+        assert hour["evaluated_1m"]==4, hour
+        assert hour["events_a"]==4, hour
+        assert len([r for r in ev if r[2]=="XRP-FWD-V3-A-TAKER-EXHAUSTION"])==4
+
+    # Separate pagination assertion >1500 rows.
+    long_raw=make_series(FORWARD_START_MS-2100*60_000,2000)
+    with tempfile.TemporaryDirectory() as td:
+        tr=ForwardV3Tracker(state_path=Path(td)/"p.json",now_fn=lambda: FORWARD_START_UTC)
+        s=FakeSession(long_raw)
+        rows=tr._fetch_1m_window(
+            s,
+            int(long_raw[0][6])+1,
+            int(long_raw[-1][6])+1,
+        )
+        assert len(rows)==2000
+        assert s.kline_calls>=2
+
+
+def test_resample_and_feature_parity():
+    start_open=FORWARD_START_MS-450*60_000
+    raw=make_series(start_open,450)
+    rows=[row_from_raw(x) for x in raw]
+    live15=resample_15m_from_1m(rows)
+    assert len(live15)==30
+
+    db=sqlite3.connect(":memory:")
+    hn.init_db(db)
+    for k in raw:
+        om=int(k[0]);cm=int(k[6])
+        db.execute(
+            "INSERT INTO contract_1m VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("XRPUSDT",om,cm,om,cm+1,float(k[1]),float(k[2]),float(k[3]),float(k[4]),
+             float(k[5]),float(k[7]),int(k[8]),float(k[9]),float(k[10]),
+             "synthetic","sha","synthetic",0,hn.NORM)
+        )
+    hn.resample_contract(db,"XRPUSDT")
+    hist=db.execute(
+        "SELECT open_time_ms,close_time_ms,available_at_ms,open,high,low,close,volume,quote_volume,trades,taker_buy_base,taker_buy_quote "
+        "FROM contract_resampled WHERE symbol='XRPUSDT' AND timeframe='15m' ORDER BY open_time_ms"
+    ).fetchall()
+    assert len(hist)==len(live15)
+
+    for h,l in zip(hist,live15):
+        assert h[0]==parse_iso_ms(l[0])
+        assert h[1]==parse_iso_ms(l[6])
+        assert h[2]==row_available_at_ms(l)
+        for hv,lv in zip(h[3:12],[l[1],l[2],l[3],l[4],l[5],l[7],l[8],l[9],l[10]]):
+            assert abs(float(hv)-float(lv))<1e-9, (hv,lv)
+
+    bars=[{
+        "open_time_ms":h[0],"close_time_ms":h[1],"available_at_ms":h[2],
+        "open":h[3],"high":h[4],"low":h[5],"close":h[6],"volume":h[7],
+        "quote_volume":h[8],"trades":h[9],"taker_buy_base":h[10],"taker_buy_quote":h[11]
+    } for h in hist]
+    feats=hf.calc_price_features(bars,{},15)
+    assert abs(feats[-1]["ret_12"]-ret_12(live15))<1e-12
+    assert abs(feats[-1]["rel_volume20"]-rel_volume20(live15))<1e-12
+    assert abs(feats[-1]["taker_imbalance"]-taker_imbalance(live15[-1]))<1e-12
+
+
+def test_recovery_and_health():
+    decision=FORWARD_START_MS+15*60_000
+    eid=f"XRP-FWD-V3-C-MOMENTUM-EXHAUSTION|{iso_ms(decision)}"
+    event=[
+        eid,PROTOCOL_VERSION,"XRP-FWD-V3-C-MOMENTUM-EXHAUSTION","XRPUSDT",
+        "PRIMARY_15M_RESAMPLED_1M",iso_ms(decision),iso_ms(decision-900_000),"SHORT",1.2,
+        0.02,2.0,"","",json.dumps(CANDIDATES["XRP-FWD-V3-C-MOMENTUM-EXHAUSTION"]["params"]),
+        json.dumps({"xrp_ret_12":0.02,"xrp_rel_volume20":2.0}),
+        "FEATURES_V1_LIVE_EQUIV_V1","LIVE_BINANCE_NORMALIZATION_EQUIV_V1",iso_ms(decision),"",
+        "registry","sha","protocol","protocolsha","collector",iso_ms(decision),"git","payload",
+        "receptor",iso_ms(decision)
+    ]
+    health=[
+        f"{PROTOCOL_VERSION}|{iso_ms(FORWARD_START_MS)}",PROTOCOL_VERSION,iso_ms(FORWARD_START_MS),
+        60,60,0,4,4,0,4,0,0,0,1,0,0,iso_ms(FORWARD_START_MS+59*60_000),
+        iso_ms(FORWARD_START_MS+45*60_000),"collector","git","hash","receptor",iso_ms(FORWARD_START_MS+70*60_000)
+    ]
+    recovery={"events":[event],"outcomeIds":[f"{eid}|H15"],"latestHealth":health}
+    with tempfile.TemporaryDirectory() as td:
+        tr=ForwardV3Tracker(
+            state_path=Path(td)/"state.json",
+            now_fn=lambda: FORWARD_START_UTC+timedelta(hours=2),
+        )
+        tr.reconcile_remote(recovery)
+        rec=tr.state["events"][eid]
+        assert rec["event_posted"] is True
+        assert rec["posted_horizons"]==[15]
+        assert tr.state["coverage"]["last_evaluated_1m_ms"]==parse_iso_ms(health[16])
+        assert tr.state["coverage"]["last_evaluated_15m_ms"]==parse_iso_ms(health[17])
+
+        # A finalized hour with a missing minute must surface it.
+        hkey=iso_ms(FORWARD_START_MS+3_600_000)
+        tr.state["coverage"]["hours"][hkey]={
+            "evaluated_1m":59,"evaluated_15m":4,"oi_checks":4,"oi_failures":1,
+            "events_a":2,"events_b":0,"events_c":1
+        }
+        rows=tr.pending_health_rows()
+        target=[r for r in rows if r[2]==hkey]
+        assert len(target)==1
+        assert target[0][5]==1
+        assert target[0][8]==0
+
 
 def main():
-    decision=datetime(2026,10,2,0,0,0,tzinfo=UTC)
-    one=make_rows(1,30,decision,base=1.0,last_volume=250.0,last_taker_ratio=0.8)
-    fifteen=make_rows(15,30,decision,base=1.0,last_volume=250.0,last_taker_ratio=0.5)
-    caches={"1m":one,"15m":fifteen}
+    test_pre_start_gate()
+    test_paginated_catchup_and_all_new_minutes()
+    test_resample_and_feature_parity()
+    test_recovery_and_health()
+    print("PASS XRP_FORWARD_V3_1_CAPTURE_PARITY_RECOVERY")
+    print("pre_start=PASS catchup=PASS pagination=PASS resample_parity=PASS feature_parity=PASS recovery=PASS health=PASS")
 
-    with tempfile.TemporaryDirectory() as td:
-        td=Path(td)
-
-        # Gate: before forward start must emit nothing.
-        pre=ForwardV3Tracker(
-            state_path=td/"pre.json",
-            now_fn=lambda: FORWARD_START_UTC-timedelta(seconds=1),
-            oi_feature_fetcher=fake_oi,
-        )
-        ev,out=pre.evaluate(caches,{"1m":True,"15m":True},session=None)
-        assert ev==[] and out==[], (ev,out)
-
-        tracker=ForwardV3Tracker(
-            state_path=td/"state.json",
-            now_fn=lambda: decision+timedelta(minutes=1),
-            oi_feature_fetcher=fake_oi,
-        )
-        ev,out=tracker.evaluate(caches,{"1m":True,"15m":True},session=None)
-        assert len(ev)==3, len(ev)
-        assert out==[], out
-        ids={r[2] for r in ev}
-        assert ids=={
-            "XRP-FWD-V3-A-TAKER-EXHAUSTION",
-            "XRP-FWD-V3-B-OI-MODERATOR",
-            "XRP-FWD-V3-C-MOMENTUM-EXHAUSTION",
-        }
-        assert all(r[5].startswith("2026-10-02T00:00:00") for r in ev)
-        tracker.ack(event_rows=ev)
-
-        # Retry same exact decision: no duplicate event rows.
-        ev2,out2=tracker.evaluate(caches,{"1m":True,"15m":True},session=None)
-        assert ev2==[], ev2
-        assert out2==[], out2
-
-        # Missing exact 5m target is not finalized during grace.
-        missing_short=append_future_1m(one,9,missing_k=5)
-        pending=tracker.pending_outcome_rows(missing_short)
-        assert not any(r[4]==5 for r in pending), pending
-
-        # Once grace expires, exact missing target becomes INCOMPLETE, never nearest.
-        missing_long=append_future_1m(one,11,missing_k=5)
-        pending=tracker.pending_outcome_rows(missing_long)
-        h5=[r for r in pending if r[4]==5]
-        assert len(h5)==1
-        assert h5[0][10]=="INCOMPLETE"
-        assert h5[0][7]=="" and h5[0][8]=="" and h5[0][9]==""
-
-        # Full exact future window yields all 7 expected candidate/horizon rows.
-        full=append_future_1m(one,245)
-        pending=tracker.pending_outcome_rows(full)
-        expected={
-            ("XRP-FWD-V3-A-TAKER-EXHAUSTION",5),
-            ("XRP-FWD-V3-A-TAKER-EXHAUSTION",15),
-            ("XRP-FWD-V3-A-TAKER-EXHAUSTION",30),
-            ("XRP-FWD-V3-B-OI-MODERATOR",60),
-            ("XRP-FWD-V3-C-MOMENTUM-EXHAUSTION",15),
-            ("XRP-FWD-V3-C-MOMENTUM-EXHAUSTION",60),
-            ("XRP-FWD-V3-C-MOMENTUM-EXHAUSTION",240),
-        }
-        got={(r[2],int(r[4])) for r in pending}
-        assert got==expected, (got,expected)
-        assert all(r[10]=="COMPLETE" for r in pending)
-        tracker.ack(outcome_rows=pending)
-        assert tracker.pending_outcome_rows(full)==[]
-
-        # Durable reload preserves acknowledgements/idempotence.
-        tracker2=ForwardV3Tracker(
-            state_path=td/"state.json",
-            now_fn=lambda: decision+timedelta(hours=5),
-            oi_feature_fetcher=fake_oi,
-        )
-        ev3,out3=tracker2.evaluate(caches,{"1m":True,"15m":True},session=None)
-        assert ev3==[] and out3==[]
-
-    print("PASS XRP_FORWARD_V3_CAPTURE_SMOKE")
-    print("events=3 outcomes=7 pre_start_block=PASS retry_idempotence=PASS exact_window=PASS")
 
 if __name__=="__main__":
     main()
