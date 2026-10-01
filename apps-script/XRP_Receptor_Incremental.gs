@@ -18,6 +18,11 @@ const FORWARD_V3_OUTCOME_COLS = 21; // A:U
 const FORWARD_V3_HEALTH_BASE_COLS = 21; // A:U, receptor añade V:W
 const FORWARD_V3_HEALTH_COLS = 23; // A:W
 const FORWARD_V3_RECEPTOR_VERSION = 'XRP_RECEPTOR_FORWARD_V3_1_V1';
+const PAIRED_CAPTURE_COLS = 18;
+const PAIRED_DECISION_COLS = 30;
+const PAIRED_OUTCOME_COLS = 22;
+const PAIRED_CAPTURE_BATCH = 'XRP_PAIR_POOL_V1';
+const PAIRED_OUTCOME_VERSION = 'XRP_PAIRED_OUTCOME_V1';
 const MAX_RESEARCH_ROWS = 3000;
 
 const MAX_ROWS = {
@@ -510,6 +515,189 @@ function appendForwardV3Health_(ss, rows) {
   );
 }
 
+function sha256Hex_(text) {
+  const bytes = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    String(text),
+    Utilities.Charset.UTF_8
+  );
+  return bytes.map(function(b) {
+    const v = b < 0 ? b + 256 : b;
+    return ('0' + v.toString(16)).slice(-2);
+  }).join('');
+}
+
+function appendPairedCaptures_(ss, alertRows, frozenUtc) {
+  if (!Array.isArray(alertRows) || !alertRows.length) return 0;
+  const sh = sheet_(ss, 'PAIRED_CAPTURES');
+  const existing = new Set();
+  const last = sh.getLastRow();
+  if (last >= 2) {
+    sh.getRange(2, 1, last - 1, 1).getValues().forEach(function(r) {
+      const id = String(r[0] || '');
+      if (id) existing.add(id);
+    });
+  }
+
+  const nowIso = String(frozenUtc || new Date().toISOString());
+  const rows = [];
+  alertRows.forEach(function(src) {
+    if (!Array.isArray(src) || src.length < 11) return;
+    const pairId = String(src[2] || '');
+    if (!pairId || existing.has(pairId)) return;
+    const canonical = JSON.stringify(src.slice(0, 11));
+    rows.push([
+      pairId,
+      String(src[0] || ''),
+      String(src[1] || ''),
+      pairId,
+      String(src[3] || ''),
+      String(src[4] || ''),
+      String(src[5] || ''),
+      src[6] === '' ? '' : Number(src[6]),
+      String(src[7] || ''),
+      String(src[8] || ''),
+      String(src[9] || ''),
+      String(src[10] || ''),
+      'ALERT_RESEARCH',
+      nowIso,
+      PAIRED_CAPTURE_BATCH,
+      'CAPTURED',
+      sha256Hex_(canonical),
+      ''
+    ]);
+    existing.add(pairId);
+  });
+
+  if (!rows.length) return 0;
+  const start = sh.getLastRow() + 1;
+  ensureRows_(sh, start + rows.length - 1);
+  sh.getRange(start, 1, rows.length, PAIRED_CAPTURE_COLS).setValues(rows);
+  return rows.length;
+}
+
+function backfillPairedCapturesFromAlertResearch_(ssOpt) {
+  const ss = ssOpt || SpreadsheetApp.openById(SPREADSHEET_ID);
+  const src = sheet_(ss, 'ALERT_RESEARCH');
+  const last = src.getLastRow();
+  if (last < 2) return 0;
+  const rows = src.getRange(2, 1, last - 1, 11).getValues();
+  return appendPairedCaptures_(ss, rows, new Date().toISOString());
+}
+
+function _decisionPairIds_(sh) {
+  const out = new Set();
+  const last = sh.getLastRow();
+  if (last < 2) return out;
+  sh.getRange(2, 1, last - 1, PAIRED_DECISION_COLS).getValues().forEach(function(r) {
+    if (String(r[28] || '').toUpperCase() !== 'COMPLETE') return;
+    const pairId = String(r[1] || '');
+    if (pairId) out.add(pairId);
+  });
+  return out;
+}
+
+function buildPairedOutcomes_(ssOpt) {
+  const ss = ssOpt || SpreadsheetApp.openById(SPREADSHEET_ID);
+  const currentIds = _decisionPairIds_(sheet_(ss, 'PAIRED_CURRENT'));
+  const challengerIds = _decisionPairIds_(sheet_(ss, 'PAIRED_CHALLENGER'));
+
+  const captureSh = sheet_(ss, 'PAIRED_CAPTURES');
+  const captures = {};
+  if (captureSh.getLastRow() >= 2) {
+    captureSh.getRange(2, 1, captureSh.getLastRow() - 1, PAIRED_CAPTURE_COLS)
+      .getValues().forEach(function(r) {
+        const id = String(r[0] || '');
+        if (id) captures[id] = r;
+      });
+  }
+
+  const fwdSh = sheet_(ss, 'ALERT_FORWARD');
+  const fwd = {};
+  if (fwdSh.getLastRow() >= 2) {
+    fwdSh.getRange(2, 1, fwdSh.getLastRow() - 1, 11).getValues().forEach(function(r) {
+      const id = String(r[1] || '');
+      if (id) fwd[id] = r;
+    });
+  }
+
+  const mfeSh = sheet_(ss, 'ALERT_MFE_MAE');
+  const mfe = {};
+  if (mfeSh.getLastRow() >= 2) {
+    mfeSh.getRange(2, 1, mfeSh.getLastRow() - 1, 11).getValues().forEach(function(r) {
+      const id = String(r[1] || '');
+      if (id) mfe[id] = r;
+    });
+  }
+
+  const outSh = sheet_(ss, 'PAIRED_OUTCOMES');
+  const existing = new Set();
+  if (outSh.getLastRow() >= 2) {
+    outSh.getRange(2, 1, outSh.getLastRow() - 1, 1).getValues().forEach(function(r) {
+      const id = String(r[0] || '');
+      if (id) existing.add(id);
+    });
+  }
+
+  const rows = [];
+  Object.keys(captures).sort().forEach(function(pairId) {
+    if (existing.has(pairId)) return;
+    if (!currentIds.has(pairId) || !challengerIds.has(pairId)) return;
+    const cap = captures[pairId];
+    const fr = fwd[pairId];
+    const mr = mfe[pairId];
+    if (!fr || !mr) return;
+
+    const det = String(cap[6] || '').toUpperCase();
+    if (det !== 'LONG' && det !== 'SHORT') return;
+    const sign = det === 'LONG' ? 1 : -1;
+
+    function n(v) {
+      if (v === '' || v === null || typeof v === 'undefined') return null;
+      const x = Number(v);
+      return isFinite(x) ? x : null;
+    }
+    const f5=n(fr[6]),f15=n(fr[7]),f30=n(fr[8]),f60=n(fr[9]),f240=n(fr[10]);
+    const m15=n(mr[5]),a15=n(mr[6]),m60=n(mr[7]),a60=n(mr[8]),m240=n(mr[9]),a240=n(mr[10]);
+    const vals=[f5,f15,f30,f60,f240,m15,a15,m60,a60,m240,a240];
+    if (vals.some(function(x){return x===null;})) return;
+
+    function rawPair(m, a) {
+      return det === 'LONG' ? [m, -a] : [a, -m];
+    }
+    const e15=rawPair(m15,a15),e60=rawPair(m60,a60),e240=rawPair(m240,a240);
+
+    rows.push([
+      pairId,
+      pairId,
+      String(cap[2] || ''),
+      det,
+      cap[7] === '' ? '' : Number(cap[7]),
+      sign*f5,
+      sign*f15,
+      sign*f30,
+      sign*f60,
+      sign*f240,
+      e15[0],e15[1],
+      e60[0],e60[1],
+      e240[0],e240[1],
+      String(fr[0] || ''),
+      String(mr[0] || ''),
+      'COMPLETE',
+      PAIRED_OUTCOME_VERSION,
+      new Date().toISOString(),
+      'Direction-neutral reconstruction after both arm decisions were COMPLETE.'
+    ]);
+    existing.add(pairId);
+  });
+
+  if (!rows.length) return 0;
+  const start=outSh.getLastRow()+1;
+  ensureRows_(outSh,start+rows.length-1);
+  outSh.getRange(start,1,rows.length,PAIRED_OUTCOME_COLS).setValues(rows);
+  return rows.length;
+}
+
 function getForwardV3Recovery_(ss) {
   const eventsSh = sheet_(ss, 'FORWARD_V3_EVENTS');
   const outcomesSh = sheet_(ss, 'FORWARD_V3_OUTCOMES');
@@ -576,7 +764,18 @@ function doPost(e) {
       } else {
         counts[name] = appendNew_(sh, rows, 11, maxRows);
       }
+      if (name === 'ALERT_RESEARCH') {
+        counts.PAIRED_CAPTURES = appendPairedCaptures_(
+          ss,
+          rows,
+          payload.generatedAtUtc || new Date().toISOString()
+        );
+      }
     });
+
+    if (mode === 'bootstrap') {
+      counts.PAIRED_CAPTURES_BACKFILL = backfillPairedCapturesFromAlertResearch_(ss);
+    }
 
     if (Array.isArray(payload.oiHistory)) {
       counts.OI_HISTORY = fullReplace_(
