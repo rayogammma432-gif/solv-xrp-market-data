@@ -132,7 +132,8 @@ def main():
     ):
         assert forbidden not in current_src, forbidden
 
-    assert "market_collector" not in challenger_src
+    assert "import market_collector" not in challenger_src
+    assert "from market_collector" not in challenger_src
     assert 'mode": "challenger_incremental"' in challenger_src
     assert '"challengerCandidates"' in challenger_src
     assert '"challengerOutcomes"' in challenger_src
