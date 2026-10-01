@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import ast
 import json
 import tempfile
 from datetime import timedelta
@@ -132,8 +133,14 @@ def main():
     ):
         assert forbidden not in current_src, forbidden
 
-    assert "import market_collector" not in challenger_src
-    assert "from market_collector" not in challenger_src
+    tree = ast.parse(challenger_src)
+    imported = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imported.add(node.module)
+    assert "market_collector" not in imported
     assert 'mode": "challenger_incremental"' in challenger_src
     assert '"challengerCandidates"' in challenger_src
     assert '"challengerOutcomes"' in challenger_src
