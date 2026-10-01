@@ -13,12 +13,6 @@
     "activation_file": "termux/challenger_activation.json",
     "collector_version": "XRP_CHALLENGER_COLLECTOR_V1"
   },
-  "outputs": {
-    "candidates": "CHALLENGER_CANDIDATES",
-    "outcomes": "CHALLENGER_OUTCOMES",
-    "health": "CHALLENGER_HEALTH",
-    "audit": "CHALLENGER_AUDIT"
-  },
   "candidates": {
     "XRP-FWD-V3-A-TAKER-EXHAUSTION": {
       "role": "DIRECTIONAL_RESEARCH_CANDIDATE",
@@ -39,5 +33,20 @@
   "orders": false,
   "activation_enabled": false,
   "deployment_verified": false,
-  "formal_collection_started": false
+  "formal_collection_started": false,
+  "storage": {
+    "spreadsheet_title": "XRP_Challenger_Research",
+    "spreadsheet_id": "14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA",
+    "candidates": "CHALLENGER_CANDIDATES",
+    "outcomes": "CHALLENGER_OUTCOMES",
+    "health": "CHALLENGER_HEALTH",
+    "audit": "CHALLENGER_AUDIT"
+  },
+  "receptor": {
+    "file": "apps-script/XRP_Challenger_Receptor.gs",
+    "version": "XRP_RECEPTOR_CHALLENGER_V1",
+    "script_property": "CHALLENGER_SHARED_SECRET",
+    "config_block": "challenger",
+    "shared_with_current": false
+  }
 }
