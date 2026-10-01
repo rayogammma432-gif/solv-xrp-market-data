@@ -49,9 +49,11 @@ def main():
     snap=reg.get("snapshot") or {}
     if snap.get("version")!="XRP_PAIRED_SNAPSHOT_V1":errors.append("snapshot version mismatch")
     if snap.get("formal_required_completeness")!="FULL":errors.append("formal snapshot must be FULL")
-    if snap.get("required_segments")!=12:errors.append("snapshot must have 12 segments")
+    if snap.get("required_logical_series")!=12:errors.append("snapshot must have 12 logical series")
+    if snap.get("chunked") is not True:errors.append("snapshot chunking must be enabled")
+    if snap.get("max_chunk_bars")!=180:errors.append("snapshot chunk size must be 180")
     if snap.get("xrp_1m_bars")!=360:errors.append("XRP 1m snapshot must have 360 bars")
-    if snap.get("other_segment_bars")!=250:errors.append("other segments must have 250 bars")
+    if snap.get("other_series_bars")!=250:errors.append("other series must have 250 bars")
 
     horizons=reg.get("standardized_horizons_min") or {}
     if horizons!={"SCALP_TRIGGER":15,"PRIMARY_TRIGGER":60,"PRIMARY":60}:
