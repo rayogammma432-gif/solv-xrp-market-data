@@ -20,14 +20,14 @@ def main():
             dt=start+timedelta(days=i//20,minutes=i%20)
             pid=f"P{i:04d}";sha=f"{i:064x}"[-64:]
             typ="SCALP_TRIGGER" if i%2==0 else "PRIMARY_TRIGGER"
-            caps.append({"Pair ID":pid,"Alert UTC":dt.isoformat().replace("+00:00","Z"),"Alert Type":typ,"Eligibility":"FORMAL_PROSPECTIVE","Snapshot SHA256":sha})
-            common={"Pair ID":pid,"Status":"COMPLETE","Snapshot SHA256":sha,"Rule Commit SHA":"a"*40,"Output SHA256":"b"*64}
+            caps.append({"Pair ID":pid,"Alert UTC":dt.isoformat().replace("+00:00","Z"),"Alert Type":typ,"Eligibility":"FORMAL_PROSPECTIVE","Full Snapshot SHA256":sha,"Snapshot Completeness":"FULL","Snapshot Version":"XRP_PAIRED_SNAPSHOT_V1"})
+            common={"Pair ID":pid,"Status":"COMPLETE","Snapshot SHA256":sha,"Rule Commit SHA":"a"*40,"Output SHA256":"b"*64,"Model ID":"GPT-5.6 Sol","Run Mode":"HIGH"}
             cur.append({**common,"Benchmark State":"TRADE_LONG" if i%3 else "NO_TRADE"})
             cha.append({**common,"Benchmark State":"TRADE_SHORT" if i%5==0 else "NO_TRADE"})
             # Negative raw return makes challenger shorts favorable on its traded subset.
             outs.append({"Pair ID":pid,"Outcome Complete":"COMPLETE","Raw Fwd 15m %":-0.20,"Raw Fwd 60m %":-0.20})
-        write(td/"caps.csv",["Pair ID","Alert UTC","Alert Type","Eligibility","Snapshot SHA256"],caps)
-        dh=["Pair ID","Status","Snapshot SHA256","Rule Commit SHA","Output SHA256","Benchmark State"]
+        write(td/"caps.csv",["Pair ID","Alert UTC","Alert Type","Eligibility","Full Snapshot SHA256","Snapshot Completeness","Snapshot Version"],caps)
+        dh=["Pair ID","Status","Snapshot SHA256","Rule Commit SHA","Output SHA256","Benchmark State","Model ID","Run Mode"]
         write(td/"cur.csv",dh,cur);write(td/"cha.csv",dh,cha)
         write(td/"out.csv",["Pair ID","Outcome Complete","Raw Fwd 15m %","Raw Fwd 60m %"],outs)
         p=subprocess.run([sys.executable,str(EVAL),"--captures",str(td/"caps.csv"),"--current",str(td/"cur.csv"),"--challenger",str(td/"cha.csv"),"--outcomes",str(td/"out.csv"),"--round-trip-cost-bps","1","--outdir",str(td/"res")],capture_output=True,text=True,check=True)
