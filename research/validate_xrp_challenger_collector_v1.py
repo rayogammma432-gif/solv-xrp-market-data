@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import ast
 import json
 from pathlib import Path
 
@@ -60,7 +61,14 @@ def main():
 
     if "from forward_v3_tracker import" not in collector:
         errors.append("independent collector does not import frozen V3.1 tracker")
-    if "import market_collector" in collector or "from market_collector" in collector:
+    tree=ast.parse(collector)
+    imported=set()
+    for node in ast.walk(tree):
+        if isinstance(node,ast.Import):
+            imported.update(alias.name for alias in node.names)
+        elif isinstance(node,ast.ImportFrom) and node.module:
+            imported.add(node.module)
+    if "market_collector" in imported:
         errors.append("independent collector imports market_collector")
     for marker in (
         "challenger_recovery","challenger_incremental",
