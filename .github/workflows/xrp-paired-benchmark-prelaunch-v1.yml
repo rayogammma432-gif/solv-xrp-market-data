@@ -1,0 +1,40 @@
+name: XRP Paired Benchmark Prelaunch V1
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/xrp-paired-benchmark-prelaunch-v1.yml"
+
+jobs:
+  prelaunch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Python syntax gate
+        run: |
+          python -m py_compile \
+            research/xrp_paired_benchmark_evaluator_v1.py \
+            research/test_xrp_paired_benchmark_v1.py \
+            research/validate_xrp_paired_benchmark_prelaunch_v1.py
+
+      - name: Apps Script syntax gate
+        run: |
+          cp apps-script/XRP_Receptor_Incremental.gs /tmp/xrp_receptor.js
+          node --check /tmp/xrp_receptor.js
+
+      - name: Validate paired prelaunch design
+        run: python research/validate_xrp_paired_benchmark_prelaunch_v1.py
+
+      - name: Run synthetic paired evaluator smoke
+        run: python research/test_xrp_paired_benchmark_v1.py
+
+      - name: Upload prelaunch validation
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrp-paired-benchmark-prelaunch-v1
+          path: paired-prelaunch/
