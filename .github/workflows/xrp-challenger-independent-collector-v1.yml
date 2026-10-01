@@ -1,5 +1,5 @@
 name: XRP Challenger Independent Collector Prelaunch V1
-# rerun: 4
+# rerun: 5
 
 on:
   workflow_dispatch:
@@ -33,7 +33,9 @@ jobs:
       - name: Apps Script syntax
         run: |
           cp apps-script/XRP_Receptor_Incremental.gs /tmp/xrp_receptor.js
+          cp apps-script/XRP_Challenger_Receptor.gs /tmp/xrp_challenger_receptor.js
           node --check /tmp/xrp_receptor.js
+          node --check /tmp/xrp_challenger_receptor.js
 
       - name: Existing V3.1 rule-engine smoke
         env:
