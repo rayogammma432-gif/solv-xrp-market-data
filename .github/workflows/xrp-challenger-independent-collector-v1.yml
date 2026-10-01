@@ -1,4 +1,5 @@
 name: XRP Challenger Independent Collector Prelaunch V1
+# rerun: 2
 
 on:
   workflow_dispatch:
