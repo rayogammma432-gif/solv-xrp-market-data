@@ -1,0 +1,54 @@
+name: XRP Challenger Independent Collector Prelaunch V1
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/xrp-challenger-independent-collector-v1.yml"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python syntax
+        run: |
+          python -m py_compile \
+            termux/forward_v3_tracker.py \
+            termux/xrp_challenger_collector.py \
+            termux/market_collector.py \
+            termux/test_forward_v3_tracker.py \
+            termux/test_xrp_challenger_collector_v1.py \
+            research/validate_xrp_challenger_collector_v1.py
+
+      - name: Shell syntax
+        run: |
+          bash -n termux/start_challenger_collector.sh
+          bash -n termux/stop_challenger_collector.sh
+          bash -n termux/status_challenger_collector.sh
+
+      - name: Apps Script syntax
+        run: |
+          cp apps-script/XRP_Receptor_Incremental.gs /tmp/xrp_receptor.js
+          node --check /tmp/xrp_receptor.js
+
+      - name: Existing V3.1 rule-engine smoke
+        env:
+          PYTHONPATH: termux:research
+        run: python termux/test_forward_v3_tracker.py
+
+      - name: Independent collector isolation smoke
+        env:
+          PYTHONPATH: termux
+        run: python termux/test_xrp_challenger_collector_v1.py
+
+      - name: Validate prelaunch registry and separation
+        run: python research/validate_xrp_challenger_collector_v1.py
+
+      - name: Upload validation
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrp-challenger-independent-collector-prelaunch-v1
+          path: challenger-collector-prelaunch/
