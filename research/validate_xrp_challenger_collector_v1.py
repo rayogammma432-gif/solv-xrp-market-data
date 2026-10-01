@@ -12,7 +12,9 @@ REG=ROOT/"research/experiments/XRP_CHALLENGER_COLLECTOR_REGISTRY_V1.json"
 PROTOCOL=ROOT/"research/XRP_CHALLENGER_COLLECTOR_PROTOCOL_V1.md"
 COLLECTOR=ROOT/"termux/xrp_challenger_collector.py"
 CURRENT=ROOT/"termux/market_collector.py"
-RECEPTOR=ROOT/"apps-script/XRP_Receptor_Incremental.gs"
+OPERATIONAL_RECEPTOR=ROOT/"apps-script/XRP_Receptor_Incremental.gs"
+CHALLENGER_RECEPTOR=ROOT/"apps-script/XRP_Challenger_Receptor.gs"
+CONFIG_EXAMPLE=ROOT/"termux/config.example.json"
 ACTIVATION_EXAMPLE=ROOT/"termux/challenger_activation.example.json"
 
 
@@ -30,7 +32,9 @@ def main():
     protocol=PROTOCOL.read_text(encoding="utf-8")
     collector=COLLECTOR.read_text(encoding="utf-8")
     current=CURRENT.read_text(encoding="utf-8")
-    receptor=RECEPTOR.read_text(encoding="utf-8")
+    operational_receptor=OPERATIONAL_RECEPTOR.read_text(encoding="utf-8")
+    challenger_receptor=CHALLENGER_RECEPTOR.read_text(encoding="utf-8")
+    config_example=json.loads(CONFIG_EXAMPLE.read_text(encoding="utf-8"))
 
     if upstream_sha!="4905aa1e94cbf2fe9318c761942d440a298ba5655d78e8e3a80bfc5cb85caded":
         errors.append(f"upstream V3.1 registry SHA changed: {upstream_sha}")
@@ -79,12 +83,23 @@ def main():
             errors.append(f"collector missing marker {marker}")
 
     for marker in (
-        "XRP_RECEPTOR_CHALLENGER_V1","CHALLENGER_CANDIDATES",
-        "CHALLENGER_OUTCOMES","CHALLENGER_HEALTH",
-        "challenger_recovery","challenger_incremental"
+        "XRP_RECEPTOR_CHALLENGER_V1",
+        "14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA",
+        "CHALLENGER_CANDIDATES","CHALLENGER_OUTCOMES","CHALLENGER_HEALTH",
+        "challenger_recovery","challenger_incremental",
+        "CHALLENGER_SHARED_SECRET"
     ):
-        if marker not in receptor:
-            errors.append(f"receptor missing marker {marker}")
+        if marker not in challenger_receptor:
+            errors.append(f"dedicated receptor missing marker {marker}")
+    for forbidden in (
+        "XRP_RECEPTOR_CHALLENGER_V1","challenger_recovery",
+        "challenger_incremental","challengerCandidates",
+        "challengerOutcomes","challengerHealth"
+    ):
+        if forbidden in operational_receptor:
+            errors.append(f"operational receptor still contains Challenger marker {forbidden}")
+    if "challenger" not in config_example:
+        errors.append("config example missing challenger block")
 
     for marker in (
         "**PRELAUNCH — IMPLEMENTED, NOT FORMALLY ACTIVATED**",
