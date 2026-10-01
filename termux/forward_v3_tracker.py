@@ -242,7 +242,7 @@ class ForwardV3Tracker:
         state_path=DEFAULT_STATE_PATH,
         now_fn=utc_now,
         oi_feature_fetcher=None,
-        collector_version=self.collector_version,
+        collector_version=COLLECTOR_VERSION,
     ):
         self.state_path = Path(state_path)
         self.state = _load_state(self.state_path)
