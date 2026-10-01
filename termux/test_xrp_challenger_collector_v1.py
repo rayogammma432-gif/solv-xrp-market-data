@@ -149,7 +149,7 @@ def main():
     assert '"challengerHealth"' in challenger_src
     assert '"challengerRecoveryRequest"' in challenger_src
 
-    assert "XRP_RECEPTOR_CHALLENGER_V1" in challenger_receptor_src
+    assert "XRP_RECEPTOR_CHALLENGER_V1_R2" in challenger_receptor_src
     assert "14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA" in challenger_receptor_src
     assert "CHALLENGER_CANDIDATES" in challenger_receptor_src
     assert "CHALLENGER_OUTCOMES" in challenger_receptor_src
@@ -157,7 +157,7 @@ def main():
     assert "challenger_recovery" in challenger_receptor_src
     assert "challenger_incremental" in challenger_receptor_src
     for forbidden in (
-        "XRP_RECEPTOR_CHALLENGER_V1",
+        "XRP_RECEPTOR_CHALLENGER_V1_R2",
         "challenger_recovery",
         "challenger_incremental",
         "challengerCandidates",
