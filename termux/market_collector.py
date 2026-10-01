@@ -24,8 +24,10 @@ OI_STATE_PATH = HERE / "oi_samples.json"
 ALERT_RESEARCH_STATE_PATH = HERE / "alert_research_state.json"
 ALERT_RESEARCH_VERSION = "ALERT_R1"
 PAIRED_SNAPSHOT_VERSION = "XRP_PAIRED_SNAPSHOT_V1"
-PAIRED_BENCHMARK_BATCH = "XRP_PAIR_POOL_V1"
-PAIRED_BENCHMARK_ELIGIBILITY = "PRELAUNCH_POOL"
+PAIRED_BENCHMARK_PRELAUNCH_BATCH = "XRP_PAIR_PRELAUNCH_V1"
+PAIRED_BENCHMARK_FORMAL_BATCH = "XRP_PAIR_FORMAL_V1"
+# Freeze to an exact future UTC value only after deployment/isolation verification.
+PAIRED_BENCHMARK_FORMAL_START_UTC = None
 PAIRED_SNAPSHOT_BARS = 250
 PAIRED_SNAPSHOT_CHUNK_BARS = 180
 LOG_DIR = HERE / "logs"
@@ -601,6 +603,17 @@ def _alert_snapshot_row(event):
     ]
 
 
+def _paired_batch_and_eligibility(alert_utc):
+    alert_dt = _parse_utc(alert_utc)
+    if alert_dt is None:
+        return PAIRED_BENCHMARK_PRELAUNCH_BATCH, "PRELAUNCH_POOL"
+    if PAIRED_BENCHMARK_FORMAL_START_UTC:
+        start = _parse_utc(PAIRED_BENCHMARK_FORMAL_START_UTC)
+        if start is not None and alert_dt >= start:
+            return PAIRED_BENCHMARK_FORMAL_BATCH, "FORMAL_PROSPECTIVE"
+    return PAIRED_BENCHMARK_PRELAUNCH_BATCH, "PRELAUNCH_POOL"
+
+
 def _sha256_text(value):
     return hashlib.sha256(str(value).encode("utf-8")).hexdigest()
 
@@ -716,6 +729,9 @@ def _paired_snapshot_bundle(event, session):
         research_sha + "|" + "|".join(sorted(segment_shas))
     )
     research = event.get("research") or {}
+    benchmark_batch, eligibility = _paired_batch_and_eligibility(
+        event.get("utc")
+    )
     capture_row = [
         event_id,
         research_row[0],
@@ -731,8 +747,8 @@ def _paired_snapshot_bundle(event, session):
         ALERT_RESEARCH_VERSION,
         "ALERT_RESEARCH+MARKET_BARS",
         created,
-        PAIRED_BENCHMARK_BATCH,
-        PAIRED_BENCHMARK_ELIGIBILITY,
+        benchmark_batch,
+        eligibility,
         research_sha,
         full_sha,
         "FULL" if all_full else "PARTIAL",
