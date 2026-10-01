@@ -6,6 +6,6 @@
   "deployment_verified_utc": null,
   "collector_commit_sha": "<FILL_WITH_DEPLOYED_GIT_SHA>",
   "receptor_commit_sha": "<FILL_WITH_DEPLOYED_RECEPTOR_GIT_SHA>",
-  "receptor_version": "XRP_RECEPTOR_CHALLENGER_V1",
+  "receptor_version": "XRP_RECEPTOR_CHALLENGER_V1_R2",
   "notes": "Example only. Do not rename to challenger_activation.json until deployment is verified before formal_start_utc."
 }
