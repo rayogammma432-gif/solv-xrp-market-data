@@ -27,6 +27,7 @@ PAIRED_SNAPSHOT_VERSION = "XRP_PAIRED_SNAPSHOT_V1"
 PAIRED_BENCHMARK_BATCH = "XRP_PAIR_POOL_V1"
 PAIRED_BENCHMARK_ELIGIBILITY = "PRELAUNCH_POOL"
 PAIRED_SNAPSHOT_BARS = 250
+PAIRED_SNAPSHOT_CHUNK_BARS = 180
 LOG_DIR = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
@@ -658,34 +659,49 @@ def _paired_snapshot_bundle(event, session):
             ][-expected_bars:]
             complete = len(rows) == expected_bars
             all_full = all_full and complete
-            bars_json = json.dumps(
-                rows, ensure_ascii=False, separators=(",", ":")
-            )
             cutoff = utc_iso_ms(rows[-1][6]) if rows else ""
-            seg_id = f"{event_id}|{symbol}|{tf}"
-            seg_canonical = json.dumps(
-                [seg_id, event_id, symbol, tf, str(event.get("utc") or ""), rows],
-                ensure_ascii=False,
-                separators=(",", ":"),
-            )
-            seg_sha = _sha256_text(seg_canonical)
-            segment_shas.append(seg_sha)
-            segments.append([
-                seg_id,
-                event_id,
-                event_id,
-                symbol,
-                tf,
-                str(event.get("utc") or ""),
-                cutoff,
-                expected_bars,
-                len(rows),
-                "FULL" if complete else "PARTIAL",
-                bars_json,
-                seg_sha,
-                PAIRED_SNAPSHOT_VERSION,
-                created,
-            ])
+            chunks = [
+                rows[i:i + PAIRED_SNAPSHOT_CHUNK_BARS]
+                for i in range(0, len(rows), PAIRED_SNAPSHOT_CHUNK_BARS)
+            ] or [[]]
+            chunk_count = len(chunks)
+            for chunk_index, chunk in enumerate(chunks, start=1):
+                bars_json = json.dumps(
+                    chunk, ensure_ascii=False, separators=(",", ":")
+                )
+                seg_id = (
+                    f"{event_id}|{symbol}|{tf}|"
+                    f"C{chunk_index}of{chunk_count}"
+                )
+                seg_canonical = json.dumps(
+                    [
+                        seg_id, event_id, symbol, tf,
+                        chunk_index, chunk_count,
+                        str(event.get("utc") or ""), chunk
+                    ],
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                )
+                seg_sha = _sha256_text(seg_canonical)
+                segment_shas.append(seg_sha)
+                segments.append([
+                    seg_id,
+                    event_id,
+                    event_id,
+                    symbol,
+                    tf,
+                    chunk_index,
+                    chunk_count,
+                    str(event.get("utc") or ""),
+                    cutoff,
+                    expected_bars,
+                    len(chunk),
+                    "FULL" if complete else "PARTIAL",
+                    bars_json,
+                    seg_sha,
+                    PAIRED_SNAPSHOT_VERSION,
+                    created,
+                ])
 
     full_sha = _sha256_text(
         research_sha + "|" + "|".join(sorted(segment_shas))
