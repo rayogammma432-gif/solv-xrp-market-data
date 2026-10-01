@@ -36,6 +36,17 @@ Universe:
 
 The exact snapshot is frozen before either arm is evaluated.
 
+For formal prospective pairs the frozen snapshot includes:
+- the 11-field ALERT_RESEARCH record;
+- XRPUSDT and BTCUSDT bars for 1m/5m/15m/1h/4h/1d;
+- 360 XRPUSDT 1m bars;
+- 250 bars for each other symbol/timeframe segment;
+- segment SHA256 values;
+- one Full Snapshot SHA256 covering the research row + all 12 segment hashes.
+
+Formal pairs require `Snapshot Completeness = FULL`.
+A bar with close_time after Alert UTC is forbidden.
+
 ## Storage
 
 ### PAIRED_CAPTURES
@@ -72,7 +83,7 @@ This prevents a moving-target comparison.
 Formal comparison requires two isolated executions.
 
 CURRENT runner:
-- reads PAIRED_CAPTURES;
+- reads PAIRED_CAPTURES and PAIRED_SNAPSHOT_BARS;
 - reads frozen CURRENT rule file;
 - reads only PAIRED_CURRENT for deduplication;
 - must not read PAIRED_CHALLENGER;
@@ -81,7 +92,7 @@ CURRENT runner:
 - must not reuse an existing ANALYSES decision as its benchmark answer.
 
 CHALLENGER runner:
-- reads PAIRED_CAPTURES;
+- reads PAIRED_CAPTURES and PAIRED_SNAPSHOT_BARS;
 - reads frozen CHALLENGER rule file;
 - reads only PAIRED_CHALLENGER for deduplication;
 - must not read PAIRED_CURRENT;
@@ -107,19 +118,13 @@ Any baseline rule change creates a new benchmark version.
 ## CHALLENGER requirement
 
 Formal launch requires:
-- a dedicated full research-analysis master;
-- exact rule file path;
-- exact 40-character Git commit SHA;
-- same standardized output contract as CURRENT;
-- no design changes made from paired benchmark outcomes.
+The frozen research challenger is:
+- rule file: `agents/XRP_CHALLENGER_PAIRED_V1.md`
+- rule commit: `5ff3f938245a547b5b4e16ff6bc9ce366a98609b`
 
-At this prelaunch stage no complete challenger master exists.
-Therefore decision collection remains blocked.
+It was derived only from pre-existing V2/V3.1 research and frozen before paired outcomes were opened.
 
-XRP_FORWARD_V3_1 is **not** automatically the challenger master:
-- it is a forward statistical research protocol;
-- its OI moderator is not a direct entry rule;
-- legacy ALERT_RESEARCH captures do not contain every V3.1 feature required to replay it exactly.
+XRP_FORWARD_V3_1 itself is not the paired agent. The paired Challenger uses only the direct, preregistered signal components that can be interpreted without inventing an OI trading rule.
 
 ## Standardized benchmark decision
 
@@ -237,18 +242,16 @@ This primary metric intentionally evaluates:
 
 ## Execution / net profitability
 
-A final claim of “more profitable” requires a frozen execution-cost contract.
+The standardized primary execution contract is frozen in:
+- `research/XRP_PAIRED_STANDARD_COST_V1.md`
 
-Required before NET evaluation:
-- round-trip fees;
-- spread treatment;
-- slippage;
-- latency / fill convention.
+Primary cost:
+- 10 bps round-trip per TRADE.
 
-Until that contract is frozen:
-- gross paired results may be computed;
-- status = `NO_NET_VERDICT`;
-- no agent may be declared economically superior.
+Sensitivity:
+- 5 bps and 15 bps descriptive only.
+
+This is a normalized research cost, not the user's exact account fee tier. Actual deployment profitability still requires the separate execution-economics gate.
 
 Agent-specific entry/stop/TP profitability is a later execution study because MFE/MAE alone does not reveal intrabar hit ordering when both stop and TP are reachable.
 
@@ -297,7 +300,7 @@ Before the checkpoint:
 ## Secondary diagnostics
 
 Per arm:
-- total gross/net return;
+- sum of gross/net per-capture returns (diagnostic, **not portfolio PnL** when alerts overlap);
 - mean return per capture;
 - mean return per trade;
 - trade count;
@@ -380,3 +383,32 @@ V1 cannot launch while any of these is missing:
 
 Net winner evaluation additionally requires:
 - frozen execution-cost contract.
+
+
+## LLM / runner provenance
+
+Every decision stores:
+- Model ID;
+- Run Mode;
+- rule commit;
+- runner commit;
+- input Full Snapshot SHA256;
+- output SHA256.
+
+For every formal Pair ID:
+- CURRENT and CHALLENGER must use the same Model ID;
+- CURRENT and CHALLENGER must use the same Run Mode.
+
+The aggregate report stratifies model provenance. A mismatched pair fails provenance.
+
+## Overlapping alerts
+
+Multiple detector alerts can occur close together and their outcome windows may overlap.
+
+Therefore:
+- primary inference is paired **per capture**;
+- UTC-day block bootstrap handles temporal dependence;
+- summed returns and max drawdown are diagnostics only;
+- they must not be described as executable portfolio PnL without a separately frozen overlap/capital allocation policy.
+
+No duplicate or inconvenient Pair ID may be removed merely because its outcome overlaps another capture.
