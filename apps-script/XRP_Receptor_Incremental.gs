@@ -19,7 +19,7 @@ const FORWARD_V3_HEALTH_BASE_COLS = 21; // A:U, receptor añade V:W
 const FORWARD_V3_HEALTH_COLS = 23; // A:W
 const FORWARD_V3_RECEPTOR_VERSION = 'XRP_RECEPTOR_FORWARD_V3_1_V1';
 const PAIRED_CAPTURE_COLS = 21;
-const PAIRED_SNAPSHOT_SEGMENT_COLS = 14;
+const PAIRED_SNAPSHOT_SEGMENT_COLS = 16;
 const PAIRED_DECISION_COLS = 32;
 const PAIRED_OUTCOME_COLS = 22;
 const PAIRED_CAPTURE_BATCH = 'XRP_PAIR_POOL_V1';
@@ -622,11 +622,9 @@ function appendPairedCaptureBundles_(ss, bundles) {
     const pairId = String(cap[0] || '');
     if (!pairId) throw new Error('paired capture sin Pair ID');
 
-    if (segs.length !== 12) {
-      throw new Error('paired snapshot requiere 12 segmentos: ' + pairId);
-    }
     const segShas = [];
-    const seenKeys = new Set();
+    const seenSegmentIds = new Set();
+    const series = {};
     segs.forEach(function(seg) {
       if (!Array.isArray(seg) || seg.length !== PAIRED_SNAPSHOT_SEGMENT_COLS) {
         throw new Error('paired snapshot segment inválido');
@@ -634,19 +632,93 @@ function appendPairedCaptureBundles_(ss, bundles) {
       if (String(seg[1] || '') !== pairId || String(seg[2] || '') !== pairId) {
         throw new Error('paired snapshot Pair ID inconsistente: ' + pairId);
       }
-      const key = String(seg[3] || '') + '|' + String(seg[4] || '');
-      if (seenKeys.has(key)) throw new Error('segmento duplicado: ' + key);
-      seenKeys.add(key);
-      const cutoff = Date.parse(String(seg[6] || ''));
-      const alertTs = Date.parse(String(cap[2] || ''));
-      if (!isFinite(cutoff) || !isFinite(alertTs) || cutoff > alertTs) {
-        throw new Error('look-ahead en paired snapshot: ' + pairId + ' ' + key);
+      const segId = String(seg[0] || '');
+      if (!segId || seenSegmentIds.has(segId)) {
+        throw new Error('segmento duplicado/sin ID: ' + pairId);
       }
-      if (String(seg[10] || '').length > 48000) {
+      seenSegmentIds.add(segId);
+
+      const key = String(seg[3] || '') + '|' + String(seg[4] || '');
+      const chunkIndex = Number(seg[5]);
+      const chunkCount = Number(seg[6]);
+      const expectedTotal = Number(seg[9]);
+      const chunkBars = Number(seg[10]);
+      if (
+        !Number.isInteger(chunkIndex) || !Number.isInteger(chunkCount) ||
+        chunkIndex < 1 || chunkCount < 1 || chunkIndex > chunkCount ||
+        !Number.isInteger(expectedTotal) || expectedTotal < 1 ||
+        !Number.isInteger(chunkBars) || chunkBars < 0
+      ) {
+        throw new Error('metadata de chunk inválida: ' + pairId + ' ' + key);
+      }
+
+      const cutoff = Date.parse(String(seg[8] || ''));
+      const alertTs = Date.parse(String(cap[2] || ''));
+      const segAlertTs = Date.parse(String(seg[7] || ''));
+      if (
+        !isFinite(cutoff) || !isFinite(alertTs) || !isFinite(segAlertTs) ||
+        cutoff > alertTs || segAlertTs !== alertTs
+      ) {
+        throw new Error('look-ahead/timestamp inconsistente: ' + pairId + ' ' + key);
+      }
+
+      const barsJson = String(seg[12] || '');
+      if (barsJson.length > 48000) {
         throw new Error('Bars JSON excede límite seguro de celda: ' + pairId + ' ' + key);
       }
-      segShas.push(String(seg[11] || ''));
+      let parsedBars;
+      try {
+        parsedBars = JSON.parse(barsJson);
+      } catch (e) {
+        throw new Error('Bars JSON inválido: ' + pairId + ' ' + key);
+      }
+      if (!Array.isArray(parsedBars) || parsedBars.length !== chunkBars) {
+        throw new Error('conteo de barras de chunk inconsistente: ' + pairId + ' ' + key);
+      }
+
+      const group = series[key] || {
+        chunkCount: chunkCount,
+        expectedTotal: expectedTotal,
+        barTotal: 0,
+        indexes: new Set(),
+        allFull: true
+      };
+      if (group.chunkCount !== chunkCount || group.expectedTotal !== expectedTotal) {
+        throw new Error('metadata de serie inconsistente: ' + pairId + ' ' + key);
+      }
+      if (group.indexes.has(chunkIndex)) {
+        throw new Error('chunk index duplicado: ' + pairId + ' ' + key);
+      }
+      group.indexes.add(chunkIndex);
+      group.barTotal += chunkBars;
+      group.allFull = group.allFull && String(seg[11] || '') === 'FULL';
+      series[key] = group;
+
+      if (String(seg[14] || '') !== 'XRP_PAIRED_SNAPSHOT_V1') {
+        throw new Error('snapshot version de segmento inválida: ' + pairId + ' ' + key);
+      }
+      segShas.push(String(seg[13] || ''));
     });
+
+    const seriesKeys = Object.keys(series);
+    if (seriesKeys.length !== 12) {
+      throw new Error('paired snapshot requiere 12 series lógicas: ' + pairId);
+    }
+    seriesKeys.forEach(function(key) {
+      const g = series[key];
+      if (g.indexes.size !== g.chunkCount || g.barTotal !== g.expectedTotal) {
+        throw new Error('serie chunked incompleta: ' + pairId + ' ' + key);
+      }
+      for (let i = 1; i <= g.chunkCount; i++) {
+        if (!g.indexes.has(i)) {
+          throw new Error('falta chunk ' + i + ': ' + pairId + ' ' + key);
+        }
+      }
+      if (String(cap[15] || '').toUpperCase() === 'FORMAL_PROSPECTIVE' && !g.allFull) {
+        throw new Error('serie formal PARTIAL: ' + pairId + ' ' + key);
+      }
+    });
+
     const calculatedFullSha = sha256Hex_(
       String(cap[16] || '') + '|' + segShas.slice().sort().join('|')
     );
@@ -656,9 +728,6 @@ function appendPairedCaptureBundles_(ss, bundles) {
     if (String(cap[15] || '').toUpperCase() === 'FORMAL_PROSPECTIVE') {
       if (String(cap[18] || '') !== 'FULL' || String(cap[19] || '') !== 'XRP_PAIRED_SNAPSHOT_V1') {
         throw new Error('snapshot formal incompleto/version inválida: ' + pairId);
-      }
-      if (segs.some(function(seg){ return String(seg[9] || '') !== 'FULL'; })) {
-        throw new Error('segmento formal PARTIAL: ' + pairId);
       }
     }
 
