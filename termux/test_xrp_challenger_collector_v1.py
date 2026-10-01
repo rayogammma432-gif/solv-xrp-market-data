@@ -120,7 +120,9 @@ def main():
     root = Path(__file__).resolve().parents[1]
     current_src = (root / "termux/market_collector.py").read_text(encoding="utf-8")
     challenger_src = (root / "termux/xrp_challenger_collector.py").read_text(encoding="utf-8")
-    receptor_src = (root / "apps-script/XRP_Receptor_Incremental.gs").read_text(encoding="utf-8")
+    operational_receptor_src = (root / "apps-script/XRP_Receptor_Incremental.gs").read_text(encoding="utf-8")
+    challenger_receptor_src = (root / "apps-script/XRP_Challenger_Receptor.gs").read_text(encoding="utf-8")
+    config_example = json.loads((root / "termux/config.example.json").read_text(encoding="utf-8"))
 
     # Operational separation: CURRENT collector no longer runs the Challenger tracker.
     for forbidden in (
@@ -147,12 +149,25 @@ def main():
     assert '"challengerHealth"' in challenger_src
     assert '"challengerRecoveryRequest"' in challenger_src
 
-    assert "XRP_RECEPTOR_CHALLENGER_V1" in receptor_src
-    assert "CHALLENGER_CANDIDATES" in receptor_src
-    assert "CHALLENGER_OUTCOMES" in receptor_src
-    assert "CHALLENGER_HEALTH" in receptor_src
-    assert "challenger_recovery" in receptor_src
-    assert "challenger_incremental" in receptor_src
+    assert "XRP_RECEPTOR_CHALLENGER_V1" in challenger_receptor_src
+    assert "14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA" in challenger_receptor_src
+    assert "CHALLENGER_CANDIDATES" in challenger_receptor_src
+    assert "CHALLENGER_OUTCOMES" in challenger_receptor_src
+    assert "CHALLENGER_HEALTH" in challenger_receptor_src
+    assert "challenger_recovery" in challenger_receptor_src
+    assert "challenger_incremental" in challenger_receptor_src
+    for forbidden in (
+        "XRP_RECEPTOR_CHALLENGER_V1",
+        "challenger_recovery",
+        "challenger_incremental",
+        "challengerCandidates",
+        "challengerOutcomes",
+        "challengerHealth",
+    ):
+        assert forbidden not in operational_receptor_src, forbidden
+    assert "challenger" in config_example
+    assert "web_app_url" in config_example["challenger"]
+    assert "shared_secret" in config_example["challenger"]
 
     assert COLLECTOR_VERSION == "XRP_CHALLENGER_COLLECTOR_V1"
 
