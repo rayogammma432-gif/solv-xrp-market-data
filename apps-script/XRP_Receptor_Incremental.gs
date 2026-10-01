@@ -20,7 +20,7 @@ const FORWARD_V3_HEALTH_COLS = 23; // A:W
 const FORWARD_V3_RECEPTOR_VERSION = 'XRP_RECEPTOR_FORWARD_V3_1_V1';
 const PAIRED_CAPTURE_COLS = 21;
 const PAIRED_SNAPSHOT_SEGMENT_COLS = 14;
-const PAIRED_DECISION_COLS = 30;
+const PAIRED_DECISION_COLS = 32;
 const PAIRED_OUTCOME_COLS = 22;
 const PAIRED_CAPTURE_BATCH = 'XRP_PAIR_POOL_V1';
 const PAIRED_OUTCOME_VERSION = 'XRP_PAIRED_OUTCOME_V1';
@@ -621,6 +621,46 @@ function appendPairedCaptureBundles_(ss, bundles) {
     }
     const pairId = String(cap[0] || '');
     if (!pairId) throw new Error('paired capture sin Pair ID');
+
+    if (segs.length !== 12) {
+      throw new Error('paired snapshot requiere 12 segmentos: ' + pairId);
+    }
+    const segShas = [];
+    const seenKeys = new Set();
+    segs.forEach(function(seg) {
+      if (!Array.isArray(seg) || seg.length !== PAIRED_SNAPSHOT_SEGMENT_COLS) {
+        throw new Error('paired snapshot segment inválido');
+      }
+      if (String(seg[1] || '') !== pairId || String(seg[2] || '') !== pairId) {
+        throw new Error('paired snapshot Pair ID inconsistente: ' + pairId);
+      }
+      const key = String(seg[3] || '') + '|' + String(seg[4] || '');
+      if (seenKeys.has(key)) throw new Error('segmento duplicado: ' + key);
+      seenKeys.add(key);
+      const cutoff = Date.parse(String(seg[6] || ''));
+      const alertTs = Date.parse(String(cap[2] || ''));
+      if (!isFinite(cutoff) || !isFinite(alertTs) || cutoff > alertTs) {
+        throw new Error('look-ahead en paired snapshot: ' + pairId + ' ' + key);
+      }
+      if (String(seg[10] || '').length > 48000) {
+        throw new Error('Bars JSON excede límite seguro de celda: ' + pairId + ' ' + key);
+      }
+      segShas.push(String(seg[11] || ''));
+    });
+    const calculatedFullSha = sha256Hex_(
+      String(cap[16] || '') + '|' + segShas.slice().sort().join('|')
+    );
+    if (!String(cap[17] || '') || calculatedFullSha !== String(cap[17] || '')) {
+      throw new Error('Full Snapshot SHA256 inválido: ' + pairId);
+    }
+    if (String(cap[15] || '').toUpperCase() === 'FORMAL_PROSPECTIVE') {
+      if (String(cap[18] || '') !== 'FULL' || String(cap[19] || '') !== 'XRP_PAIRED_SNAPSHOT_V1') {
+        throw new Error('snapshot formal incompleto/version inválida: ' + pairId);
+      }
+      if (segs.some(function(seg){ return String(seg[9] || '') !== 'FULL'; })) {
+        throw new Error('segmento formal PARTIAL: ' + pairId);
+      }
+    }
 
     const existingRow = capRowById[pairId];
     if (existingRow) {
