@@ -237,11 +237,18 @@ def resample_15m_from_1m(rows_1m):
 
 
 class ForwardV3Tracker:
-    def __init__(self, state_path=DEFAULT_STATE_PATH, now_fn=utc_now, oi_feature_fetcher=None):
+    def __init__(
+        self,
+        state_path=DEFAULT_STATE_PATH,
+        now_fn=utc_now,
+        oi_feature_fetcher=None,
+        collector_version=self.collector_version,
+    ):
         self.state_path = Path(state_path)
         self.state = _load_state(self.state_path)
         self.now_fn = now_fn
         self.oi_feature_fetcher = oi_feature_fetcher
+        self.collector_version = str(collector_version)
         self.collector_git_sha = current_git_sha()
 
     @staticmethod
@@ -508,7 +515,7 @@ class ForwardV3Tracker:
                 REGISTRY_SHA256,
                 PROTOCOL_FILE,
                 PROTOCOL_COMMIT_SHA,
-                COLLECTOR_VERSION,
+                self.collector_version,
                 rec["created_utc"],
                 self.collector_git_sha,
             ]
@@ -572,7 +579,7 @@ class ForwardV3Tracker:
                     OUTCOME_ENGINE_VERSION,
                     source_last,
                     REGISTRY_SHA256,
-                    COLLECTOR_VERSION,
+                    self.collector_version,
                     self.now_fn().isoformat(timespec="milliseconds").replace("+00:00", "Z"),
                     "" if complete else "Exact 1m window incomplete; no interpolation/nearest fallback.",
                     self.collector_git_sha,
@@ -640,7 +647,7 @@ class ForwardV3Tracker:
                 iso_ms(self.state["coverage"]["last_evaluated_15m_ms"])
                 if self.state["coverage"].get("last_evaluated_15m_ms")
                 else "",
-                COLLECTOR_VERSION,
+                self.collector_version,
                 self.collector_git_sha,
             ]
             rows.append(base + [_canonical_hash(base)])
