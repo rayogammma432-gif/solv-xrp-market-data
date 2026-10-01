@@ -11,6 +11,7 @@ UPSTREAM=ROOT/"research/experiments/XRP_FORWARD_REGISTRY_V3_1.jsonl"
 REG=ROOT/"research/experiments/XRP_CHALLENGER_COLLECTOR_REGISTRY_V1.json"
 PROTOCOL=ROOT/"research/XRP_CHALLENGER_COLLECTOR_PROTOCOL_V1.md"
 COLLECTOR=ROOT/"termux/xrp_challenger_collector.py"
+DEPLOYMENT_GATE=ROOT/"termux/challenger_deployment_gate.py"
 CURRENT=ROOT/"termux/market_collector.py"
 OPERATIONAL_RECEPTOR=ROOT/"apps-script/XRP_Receptor_Incremental.gs"
 CHALLENGER_RECEPTOR=ROOT/"apps-script/XRP_Challenger_Receptor.gs"
@@ -31,6 +32,7 @@ def main():
     activation=json.loads(ACTIVATION_EXAMPLE.read_text(encoding="utf-8"))
     protocol=PROTOCOL.read_text(encoding="utf-8")
     collector=COLLECTOR.read_text(encoding="utf-8")
+    deployment_gate=DEPLOYMENT_GATE.read_text(encoding="utf-8")
     current=CURRENT.read_text(encoding="utf-8")
     operational_receptor=OPERATIONAL_RECEPTOR.read_text(encoding="utf-8")
     challenger_receptor=CHALLENGER_RECEPTOR.read_text(encoding="utf-8")
@@ -85,6 +87,7 @@ def main():
     for marker in (
         "XRP_RECEPTOR_CHALLENGER_V1_R2",
         "14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA",
+        "challengerSpreadsheetId",
         "CHALLENGER_CANDIDATES","CHALLENGER_OUTCOMES","CHALLENGER_HEALTH",
         "challenger_recovery","challenger_incremental",
         "CHALLENGER_SHARED_SECRET"
@@ -100,6 +103,17 @@ def main():
             errors.append(f"operational receptor still contains Challenger marker {forbidden}")
     if "challenger" not in config_example:
         errors.append("config example missing challenger block")
+
+    for marker in (
+        "PASS_DEPLOYMENT_GATE",
+        "CHALLENGER_URL_EQUALS_CURRENT",
+        "CHALLENGER_SECRET_EQUALS_CURRENT",
+        "MIN_ACTIVATION_LEAD_SECONDS",
+        "EXPECTED_CHALLENGER_SPREADSHEET_ID",
+        "--write-activation",
+    ):
+        if marker not in deployment_gate:
+            errors.append(f"deployment gate missing marker {marker}")
 
     for marker in (
         "**PRELAUNCH — IMPLEMENTED, NOT FORMALLY ACTIVATED**",
