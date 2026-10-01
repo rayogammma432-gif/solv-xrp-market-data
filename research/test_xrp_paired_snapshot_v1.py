@@ -59,28 +59,36 @@ def main():
     b=mc._paired_snapshot_bundle(event,s)
     assert a["capture"][16]==b["capture"][16]
     assert a["capture"][17]==b["capture"][17]
-    assert [x[11] for x in a["segments"]]==[x[11] for x in b["segments"]]
-    assert [x[10] for x in a["segments"]]==[x[10] for x in b["segments"]]
+    assert [x[13] for x in a["segments"]]==[x[13] for x in b["segments"]]
+    assert [x[12] for x in a["segments"]]==[x[12] for x in b["segments"]]
     assert len(a["capture"])==21
-    assert len(a["segments"])==12
+    assert len(a["segments"])==24
     assert a["capture"][18]=="FULL"
     assert len(a["capture"][17])==64
     alert_ms=int(datetime.fromisoformat(event["utc"].replace("Z","+00:00")).timestamp()*1000)
-    seen=set()
+    groups={}
     for seg in a["segments"]:
-        assert len(seg)==14
-        key=(seg[3],seg[4]);assert key not in seen;seen.add(key)
-        bars=json.loads(seg[10])
-        assert seg[8]==len(bars)==seg[7]
-        assert seg[9]=="FULL"
-        assert len(seg[11])==64
-        assert len(seg[10])<48000, (key,len(seg[10]))
+        assert len(seg)==16
+        key=(seg[3],seg[4])
+        bars=json.loads(seg[12])
+        assert len(bars)==seg[10]
+        assert seg[11]=="FULL"
+        assert len(seg[13])==64
+        assert len(seg[12])<48000, (key,len(seg[12]))
         assert all(int(r[6])<=alert_ms for r in bars)
+        g=groups.setdefault(key,{"chunks":set(),"count":seg[6],"expected":seg[9],"bars":0})
+        assert g["count"]==seg[6] and g["expected"]==seg[9]
+        assert seg[5] not in g["chunks"]
+        g["chunks"].add(seg[5]);g["bars"]+=len(bars)
+    assert len(groups)==12
+    for key,g in groups.items():
+        assert g["chunks"]==set(range(1,g["count"]+1))
+        assert g["bars"]==g["expected"]
         if key==("XRPUSDT","1m"):
-            assert len(bars)==360
+            assert g["bars"]==360
         else:
-            assert len(bars)==250
+            assert g["bars"]==250
     print("PASS XRP_PAIRED_SNAPSHOT_SMOKE")
-    print("segments=12 full_hash=PASS no_lookahead=PASS cell_size=PASS xrp_1m=360")
+    print("logical_series=12 chunks=24 full_hash=PASS no_lookahead=PASS cell_size=PASS xrp_1m=360")
 
 if __name__=="__main__":main()
