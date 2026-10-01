@@ -39,6 +39,20 @@ def main():
     verify_frozen(cha.get("rule_file"),cha.get("rule_commit_sha"),"CHALLENGER rule",errors)
     verify_frozen(cha.get("runner_file"),cha.get("runner_commit_sha"),"CHALLENGER runner",errors)
 
+    infra=reg.get("infrastructure") or {}
+    verify_frozen(infra.get("collector_file"),infra.get("collector_commit_sha"),"collector",errors)
+    verify_frozen(infra.get("receptor_file"),infra.get("receptor_commit_sha"),"receptor",errors)
+    verify_frozen(infra.get("protocol_file"),infra.get("protocol_commit_sha"),"benchmark protocol",errors)
+    verify_frozen(infra.get("isolation_protocol_file"),infra.get("isolation_protocol_commit_sha"),"isolation protocol",errors)
+    verify_frozen(infra.get("evaluator_file"),infra.get("evaluator_commit_sha"),"evaluator",errors)
+
+    if reg.get("existing_prelaunch_capture_count_observed")!=61:
+        errors.append("prelaunch observed capture count must be 61")
+    if reg.get("existing_prelaunch_capture_count_frozen")!=61:
+        errors.append("prelaunch frozen capture count must be 61")
+    if reg.get("existing_prelaunch_role")!="SUPPORTIVE_ONLY_RESEARCH_SNAPSHOT":
+        errors.append("prelaunch role changed")
+
     cost=reg.get("execution_cost_contract") or {}
     verify_frozen(cost.get("file"),cost.get("commit_sha"),"cost contract",errors)
     if cost.get("primary_round_trip_bps")!=10:
