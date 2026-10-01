@@ -41,6 +41,7 @@ LOG_DIR.mkdir(exist_ok=True)
 
 COLLECTOR_VERSION = "XRP_CHALLENGER_COLLECTOR_V1"
 EXPECTED_RECEPTOR_VERSION = "XRP_RECEPTOR_CHALLENGER_V1_R2"
+EXPECTED_CHALLENGER_SPREADSHEET_ID = "14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA"
 CYCLE_SECOND = 8
 
 logger = logging.getLogger("xrp_challenger_collector")
@@ -256,6 +257,12 @@ class ChallengerCollector:
                 f"Receptor Challenger inesperado: {version!r}; "
                 f"esperado={EXPECTED_RECEPTOR_VERSION}"
             )
+        storage_id = str(response.get("challengerSpreadsheetId") or "")
+        if storage_id != EXPECTED_CHALLENGER_SPREADSHEET_ID:
+            raise RuntimeError(
+                f"Storage Challenger inesperado: {storage_id!r}; "
+                f"esperado={EXPECTED_CHALLENGER_SPREADSHEET_ID}"
+            )
         self.tracker.reconcile_remote(response.get("challengerRecovery"))
         return response
 
@@ -287,6 +294,12 @@ class ChallengerCollector:
             raise RuntimeError(
                 f"Receptor Challenger inesperado: {version!r}; "
                 f"esperado={EXPECTED_RECEPTOR_VERSION}"
+            )
+        storage_id = str(response.get("challengerSpreadsheetId") or "")
+        if storage_id != EXPECTED_CHALLENGER_SPREADSHEET_ID:
+            raise RuntimeError(
+                f"Storage Challenger inesperado: {storage_id!r}; "
+                f"esperado={EXPECTED_CHALLENGER_SPREADSHEET_ID}"
             )
 
         self.tracker.ack(
