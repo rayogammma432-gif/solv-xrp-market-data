@@ -25,6 +25,7 @@ Do not silently use a newer XRP master.
 ## Allowed spreadsheet reads
 
 - PAIRED_CAPTURES
+- PAIRED_SNAPSHOT_BARS
 - PAIRED_CURRENT
 
 Only.
@@ -41,6 +42,16 @@ Only.
 - an existing ANALYSES decision for the same capture
 
 The capture snapshot is the complete evidence set.
+
+Formal-prospective Pair IDs require:
+- Full Snapshot SHA256 present;
+- Snapshot Completeness = FULL;
+- Snapshot Version = XRP_PAIRED_SNAPSHOT_V1.
+
+If the full snapshot gate fails:
+- benchmark state = DATA_INSUFFICIENT.
+
+The market-bar segments are part of the frozen capture and may be used for structure/trigger reconstruction.
 
 ## Deduplication
 
@@ -99,7 +110,7 @@ Write one row to PAIRED_CURRENT with:
 - Reconsideration
 - Capture Row Key
 - Research Version
-- Snapshot SHA256
+- Snapshot SHA256 = Full Snapshot SHA256
 - Output SHA256
 - Status = COMPLETE
 
