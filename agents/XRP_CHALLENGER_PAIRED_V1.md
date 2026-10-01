@@ -36,11 +36,17 @@ Que CURRENT disponga de contexto adicional no autoriza al Challenger a añadir f
 
 ## Schema de barras
 
+Cada fila de `PAIRED_SNAPSHOT_BARS` es un chunk. Para una serie `Symbol + Timeframe`:
+- ordenar por Chunk Index;
+- exigir Chunk Index 1..Chunk Count sin huecos;
+- concatenar los Bars JSON en ese orden;
+- exigir que la suma de Chunk Bar Count sea Expected Bars Total.
+
 Cada `Bars JSON` contiene arrays:
 
 `[open_time_ms, open, high, low, close, volume, close_time_ms, quote_volume, trades, taker_buy_base, taker_buy_quote]`
 
-Las barras están cerradas y deben satisfacer:
+Las barras concatenadas están cerradas y deben satisfacer:
 - `close_time_ms <= Alert UTC`;
 - orden temporal ascendente;
 - sin duplicados.
