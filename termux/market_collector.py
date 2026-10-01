@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import hashlib
 import json
 import logging
 from logging.handlers import RotatingFileHandler
@@ -22,6 +23,10 @@ DEFAULT_CONFIG = HERE / "config.json"
 OI_STATE_PATH = HERE / "oi_samples.json"
 ALERT_RESEARCH_STATE_PATH = HERE / "alert_research_state.json"
 ALERT_RESEARCH_VERSION = "ALERT_R1"
+PAIRED_SNAPSHOT_VERSION = "XRP_PAIRED_SNAPSHOT_V1"
+PAIRED_BENCHMARK_BATCH = "XRP_PAIR_POOL_V1"
+PAIRED_BENCHMARK_ELIGIBILITY = "PRELAUNCH_POOL"
+PAIRED_SNAPSHOT_BARS = 250
 LOG_DIR = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
@@ -595,6 +600,115 @@ def _alert_snapshot_row(event):
     ]
 
 
+def _sha256_text(value):
+    return hashlib.sha256(str(value).encode("utf-8")).hexdigest()
+
+
+def _paired_snapshot_bundle(event, session):
+    """Build a no-look-ahead market bundle for one XRP alert."""
+    if str(event.get("asset") or "").upper() != "XRP":
+        return None
+    if not bool(event.get("telegramSent")):
+        return None
+
+    alert_dt = _parse_utc(event.get("utc"))
+    if alert_dt is None:
+        return None
+    alert_ms = int(alert_dt.timestamp() * 1000)
+    event_id = str(event.get("id") or "")
+    if not event_id:
+        return None
+
+    research_row = _alert_snapshot_row(event)
+    research_json = json.dumps(
+        research_row, ensure_ascii=False, separators=(",", ":")
+    )
+    research_sha = _sha256_text(research_json)
+    created = utc_iso_now()
+    segments = []
+    segment_shas = []
+    all_full = True
+
+    for symbol in ("XRPUSDT", "BTCUSDT"):
+        for tf in SOLV_TFS:
+            resp = session.get(
+                f"{BASE_URL}/fapi/v1/klines",
+                params={
+                    "symbol": symbol,
+                    "interval": tf,
+                    "endTime": alert_ms,
+                    "limit": PAIRED_SNAPSHOT_BARS + 5,
+                },
+                timeout=30,
+            )
+            resp.raise_for_status()
+            raw = resp.json()
+            rows = [
+                kline_to_row(k)
+                for k in raw
+                if int(k[6]) <= alert_ms
+            ][-PAIRED_SNAPSHOT_BARS:]
+            complete = len(rows) == PAIRED_SNAPSHOT_BARS
+            all_full = all_full and complete
+            bars_json = json.dumps(
+                rows, ensure_ascii=False, separators=(",", ":")
+            )
+            cutoff = str(rows[-1][6]) if rows else ""
+            seg_id = f"{event_id}|{symbol}|{tf}"
+            seg_canonical = json.dumps(
+                [seg_id, event_id, symbol, tf, str(event.get("utc") or ""), rows],
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+            seg_sha = _sha256_text(seg_canonical)
+            segment_shas.append(seg_sha)
+            segments.append([
+                seg_id,
+                event_id,
+                event_id,
+                symbol,
+                tf,
+                str(event.get("utc") or ""),
+                cutoff,
+                PAIRED_SNAPSHOT_BARS,
+                len(rows),
+                "FULL" if complete else "PARTIAL",
+                bars_json,
+                seg_sha,
+                PAIRED_SNAPSHOT_VERSION,
+                created,
+            ])
+
+    full_sha = _sha256_text(
+        research_sha + "|" + "|".join(sorted(segment_shas))
+    )
+    research = event.get("research") or {}
+    capture_row = [
+        event_id,
+        research_row[0],
+        research_row[1],
+        event_id,
+        research_row[3],
+        research_row[4],
+        research_row[5],
+        research.get("market.mark_price", ""),
+        research.get("detector.primary_score", ""),
+        research.get("detector.scalp_score", ""),
+        research_row[9],
+        ALERT_RESEARCH_VERSION,
+        "ALERT_RESEARCH+MARKET_BARS",
+        created,
+        PAIRED_BENCHMARK_BATCH,
+        PAIRED_BENCHMARK_ELIGIBILITY,
+        research_sha,
+        full_sha,
+        "FULL" if all_full else "PARTIAL",
+        PAIRED_SNAPSHOT_VERSION,
+        "",
+    ]
+    return {"capture": capture_row, "segments": segments}
+
+
 def _directional_pct(base, value, direction):
     if not base:
         return None
@@ -936,6 +1050,7 @@ class Collector:
                 forward_v3_outcomes = []
                 forward_v3_health = []
                 new_research_events = []
+                paired_capture_bundles = []
                 completed_research_ids = []
                 if not dry_run:
                     signal_updates = self.signal_tracker.evaluate(
@@ -959,6 +1074,10 @@ class Collector:
                             sheets.setdefault("ALERT_RESEARCH", []).append(
                                 _alert_snapshot_row(event)
                             )
+                            if key == "xrp":
+                                bundle = _paired_snapshot_bundle(event, self.session)
+                                if bundle:
+                                    paired_capture_bundles.append(bundle)
                             new_research_events.append(event)
 
                     forward_rows = []
@@ -1002,6 +1121,8 @@ class Collector:
                     payload["analysisUpdates"] = analysis_updates
                 if alert_events:
                     payload["alertEvents"] = alert_events
+                if paired_capture_bundles:
+                    payload["pairedCaptureBundles"] = paired_capture_bundles
                 if forward_v3_events:
                     payload["forwardV3Events"] = forward_v3_events
                 if forward_v3_outcomes:
