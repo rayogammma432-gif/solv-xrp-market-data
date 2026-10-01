@@ -121,3 +121,18 @@ No trade execution.
 ## Independence
 
 This runner must execute in a conversation/context that has not read CHALLENGER decisions for the evaluated Pair IDs.
+
+
+## Model provenance
+
+For each Pair ID:
+- record the actual Model ID;
+- record the actual Run Mode / thinking configuration;
+- the opposite arm must use the same Model ID and Run Mode for that Pair ID.
+
+Do not guess these fields.
+If the execution environment cannot identify them reliably:
+- Status = BLOCKED_MODEL_PROVENANCE;
+- do not emit COMPLETE.
+
+A later benchmark version is required if the execution process intentionally changes model family/configuration.
