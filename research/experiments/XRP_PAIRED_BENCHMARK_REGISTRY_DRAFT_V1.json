@@ -1,0 +1,41 @@
+{
+  "benchmark_version": "XRP_PAIRED_BENCHMARK_V1",
+  "status": "BLOCKED_CHALLENGER_MASTER_MISSING",
+  "asset": "XRPUSDT",
+  "pair_id": "Alert ID",
+  "capture_source": "ALERT_RESEARCH",
+  "current_arm": {
+    "agent_name": "XRP CURRENT",
+    "agent_version": "XRP_V3.3_PAIRED_BASELINE_V1",
+    "rule_file": "agents/XRP_V3_3_MASTER.txt",
+    "rule_commit_sha": "b6f62ed220226a10f653c45c5c3680320a0dd7fd",
+    "runner_file": "agents/XRP_PAIRED_CURRENT_RUNNER_V1.md"
+  },
+  "challenger_arm": {
+    "agent_name": null,
+    "agent_version": null,
+    "rule_file": null,
+    "rule_commit_sha": null,
+    "runner_file": null
+  },
+  "standardized_horizons_min": {
+    "SCALP_TRIGGER": 15,
+    "PRIMARY_TRIGGER": 60,
+    "PRIMARY": 60
+  },
+  "primary_metric": "mean paired net return per capture difference: challenger - current",
+  "bootstrap": {
+    "unit": "UTC_DAY",
+    "replicates": 5000,
+    "ci": "percentile_95"
+  },
+  "minimum_checkpoint": {
+    "calendar_days": 60,
+    "complete_pairs": 1000,
+    "unique_utc_days": 40
+  },
+  "execution_cost_contract": null,
+  "net_verdict_enabled": false,
+  "existing_prelaunch_capture_count_observed": 58,
+  "formal_launch": false
+}
