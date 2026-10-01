@@ -63,11 +63,25 @@
     "primary_unit": "CAPTURE",
     "portfolio_pnl_claim": false
   },
-  "existing_prelaunch_capture_count_observed": 58,
-  "existing_prelaunch_role": "SUPPORTIVE_ONLY",
+  "existing_prelaunch_capture_count_observed": 61,
+  "existing_prelaunch_role": "SUPPORTIVE_ONLY_RESEARCH_SNAPSHOT",
   "formal_start_utc": null,
   "deployment_verified": false,
   "isolated_run_process_verified": false,
   "net_verdict_enabled": true,
-  "formal_launch": false
+  "formal_launch": false,
+  "infrastructure": {
+    "collector_file": "termux/market_collector.py",
+    "collector_commit_sha": "fc27fe20340c1d9fd6f047b5a42adc549079839d",
+    "receptor_file": "apps-script/XRP_Receptor_Incremental.gs",
+    "receptor_commit_sha": "dac8e1e9d0280b6bf57f911c7fcdd8ceb11395f2",
+    "protocol_file": "research/XRP_PAIRED_BENCHMARK_PROTOCOL_V1.md",
+    "protocol_commit_sha": "f18d8d95b700f543aa5371fdaf1717a558193fd6",
+    "isolation_protocol_file": "research/XRP_PAIRED_ISOLATION_PROTOCOL_V1.md",
+    "isolation_protocol_commit_sha": "178355de67d6b3b0c0414daf40615c1794484a61",
+    "evaluator_file": "research/xrp_paired_benchmark_evaluator_v1.py",
+    "evaluator_commit_sha": "715f9cbee6b26c317b7184dae1d42beb36b2bc87"
+  },
+  "existing_prelaunch_capture_count_frozen": 61,
+  "existing_prelaunch_frozen_utc": "2026-10-01T00:41:45.144Z"
 }
