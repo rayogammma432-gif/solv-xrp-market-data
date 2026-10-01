@@ -1,0 +1,374 @@
+# XRP Paired Benchmark Protocol V1
+
+## Estado
+
+**PRELAUNCH DESIGN — FORMAL LAUNCH BLOCKED UNTIL CHALLENGER MASTER IS FROZEN**
+
+Asset:
+- XRPUSDT
+
+Spreadsheet:
+- XRP_Market_Data
+- `1ag0yaE0hcDoG8uED4qejfHGlD2OuXZxvUPYZRUzjqG0`
+
+## Question answered
+
+This benchmark answers:
+
+> Given the exact same detector capture, which analysis agent makes the better decision?
+
+It does **not** answer:
+- which full system discovers better opportunities across the entire market;
+- which detector is better;
+- whether a statistically better decision engine is executable after costs.
+
+Those questions remain separate from XRP_FORWARD_V3_1 and the execution-economics gate.
+
+## Pair unit
+
+Primary key:
+- `Pair ID = Alert ID`
+
+Universe:
+- rows from `ALERT_RESEARCH` only;
+- Telegram-sent research captures only;
+- each Pair ID appears once in the capture table.
+
+The exact snapshot is frozen before either arm is evaluated.
+
+## Storage
+
+### PAIRED_CAPTURES
+One immutable snapshot per Pair ID.
+
+### PAIRED_CURRENT
+One CURRENT-arm decision per Pair ID.
+
+### PAIRED_CHALLENGER
+One CHALLENGER-arm decision per Pair ID.
+
+### PAIRED_OUTCOMES
+One shared, direction-neutral market outcome per Pair ID.
+
+### PAIRED_AUDIT
+Append-only provenance / validation log.
+
+Operational `ANALYSES` is not used as the benchmark decision table.
+
+## Why ANALYSES is not reused
+
+Existing analyses can have:
+- different rule versions;
+- different generation times;
+- live vs backfill origins;
+- shared-event links across multiple Alert IDs.
+
+The benchmark therefore **replays each arm from the frozen capture** under one fixed rule commit.
+
+This prevents a moving-target comparison.
+
+## Independent arms
+
+Formal comparison requires two isolated executions.
+
+CURRENT runner:
+- reads PAIRED_CAPTURES;
+- reads frozen CURRENT rule file;
+- reads only PAIRED_CURRENT for deduplication;
+- must not read PAIRED_CHALLENGER;
+- must not read PAIRED_OUTCOMES;
+- must not read ALERT_FORWARD / ALERT_MFE_MAE;
+- must not reuse an existing ANALYSES decision as its benchmark answer.
+
+CHALLENGER runner:
+- reads PAIRED_CAPTURES;
+- reads frozen CHALLENGER rule file;
+- reads only PAIRED_CHALLENGER for deduplication;
+- must not read PAIRED_CURRENT;
+- must not read PAIRED_OUTCOMES;
+- must not read ALERT_FORWARD / ALERT_MFE_MAE;
+- must not use CURRENT output as input or rationale.
+
+The two arms should be run in separate ChatGPT conversations / isolated execution contexts.
+
+Running both arms sequentially in one context is **not** considered blinded paired evaluation.
+
+## Frozen CURRENT baseline
+
+Current baseline intended for V1:
+- rule file: `agents/XRP_V3_3_MASTER.txt`
+- rule commit SHA: `b6f62ed220226a10f653c45c5c3680320a0dd7fd`
+
+Operational XRP rules may evolve later.
+The paired benchmark V1 baseline does not silently follow later commits.
+
+Any baseline rule change creates a new benchmark version.
+
+## CHALLENGER requirement
+
+Formal launch requires:
+- a dedicated full research-analysis master;
+- exact rule file path;
+- exact 40-character Git commit SHA;
+- same standardized output contract as CURRENT;
+- no design changes made from paired benchmark outcomes.
+
+At this prelaunch stage no complete challenger master exists.
+Therefore decision collection remains blocked.
+
+XRP_FORWARD_V3_1 is **not** automatically the challenger master:
+- it is a forward statistical research protocol;
+- its OI moderator is not a direct entry rule;
+- legacy ALERT_RESEARCH captures do not contain every V3.1 feature required to replay it exactly.
+
+## Standardized benchmark decision
+
+For each Pair ID each arm emits exactly one:
+
+- `TRADE_LONG`
+- `TRADE_SHORT`
+- `NO_TRADE`
+- `DATA_INSUFFICIENT`
+
+Additional agent-native fields may be stored:
+- setup;
+- score;
+- entry;
+- stop;
+- TP1;
+- TP2;
+- gross RR;
+- reason;
+- reconsideration.
+
+### Relevant module mapping
+
+For `SCALP_TRIGGER` captures:
+- benchmark the agent's operational SCALP decision.
+
+For `PRIMARY_TRIGGER` and `PRIMARY` captures:
+- benchmark the agent's PRIMARY decision.
+
+A trade exists only when the relevant module is actually ACTIVE.
+
+CONDICIONAL / NO_OPERAR:
+- benchmark state = NO_TRADE.
+
+DATA_INSUFFICIENT:
+- benchmark state = DATA_INSUFFICIENT;
+- standardized PnL contribution = 0;
+- counted separately as missing-decision burden.
+
+## Shared reference price
+
+Reference price:
+- `Context JSON["market.mark_price"]`
+- same field used by the existing alert-outcome tracker.
+
+No arm may substitute its own reference price for the standardized decision-quality benchmark.
+
+Agent-specific entry/stop/TP is retained only for later execution-model research.
+
+## Shared outcome reconstruction
+
+Existing `ALERT_FORWARD` stores returns signed in the **detector direction**.
+
+Existing `ALERT_MFE_MAE` stores excursions in the detector direction.
+
+The paired benchmark first reconstructs direction-neutral market outcomes.
+
+Let:
+- d = +1 if Detector Direction = LONG
+- d = -1 if Detector Direction = SHORT
+- F_dir(h) = ALERT_FORWARD directional percent return.
+
+Then:
+- `raw_forward_pct(h) = d * F_dir(h)`
+
+For excursions:
+
+If detector direction = LONG:
+- raw_up_pct(h) = MFE(h)
+- raw_down_pct(h) = -MAE(h)
+
+If detector direction = SHORT:
+- raw_up_pct(h) = MAE(h)
+- raw_down_pct(h) = -MFE(h)
+
+No agent direction is used while building PAIRED_OUTCOMES.
+
+## Standardized primary horizon
+
+SCALP_TRIGGER:
+- 15 minutes.
+
+PRIMARY_TRIGGER:
+- 60 minutes.
+
+PRIMARY:
+- 60 minutes.
+
+These horizons are frozen before comparison.
+
+Secondary:
+- 5 / 30 / 240m as available;
+- descriptive only.
+
+## Gross standardized return per capture
+
+At the frozen primary horizon:
+
+TRADE_LONG:
+- `gross_pct = raw_forward_pct`
+
+TRADE_SHORT:
+- `gross_pct = -raw_forward_pct`
+
+NO_TRADE:
+- `gross_pct = 0`
+
+DATA_INSUFFICIENT:
+- `gross_pct = 0`
+
+This primary metric intentionally evaluates:
+- direction quality;
+- abstention quality;
+- selection quality conditional on the CURRENT detector universe.
+
+## Execution / net profitability
+
+A final claim of “more profitable” requires a frozen execution-cost contract.
+
+Required before NET evaluation:
+- round-trip fees;
+- spread treatment;
+- slippage;
+- latency / fill convention.
+
+Until that contract is frozen:
+- gross paired results may be computed;
+- status = `NO_NET_VERDICT`;
+- no agent may be declared economically superior.
+
+Agent-specific entry/stop/TP profitability is a later execution study because MFE/MAE alone does not reveal intrabar hit ordering when both stop and TP are reachable.
+
+## Primary paired statistic
+
+Unit:
+- capture.
+
+Primary effect:
+- `mean(net_return_per_capture_CHALLENGER - net_return_per_capture_CURRENT)`
+
+If net cost model is not frozen:
+- use gross difference only as research diagnostic.
+
+Inference:
+- UTC-day block bootstrap;
+- 5,000 replicates;
+- paired within capture;
+- percentile CI95.
+
+A formal superiority claim requires:
+1. both arms complete for all included Pair IDs;
+2. shared outcome complete;
+3. minimum sample gate;
+4. lower CI95 of paired net difference > 0;
+5. positive total net return for winning arm;
+6. no unresolved provenance failures.
+
+No multiple-testing correction is needed for the single predeclared primary paired effect.
+Secondary metrics never replace it.
+
+## Minimum formal checkpoint
+
+Whichever occurs later:
+- 60 calendar days from formal benchmark start;
+- 1,000 complete pairs.
+
+Additional minimum:
+- >=40 unique UTC days with complete pairs.
+
+Before the checkpoint:
+- descriptive monitoring allowed;
+- no winner declaration;
+- no rule changes from interim performance.
+
+## Secondary diagnostics
+
+Per arm:
+- total gross/net return;
+- mean return per capture;
+- mean return per trade;
+- trade count;
+- trade rate;
+- win rate among trades;
+- DATA_INSUFFICIENT rate;
+- max drawdown under equal-notional sequential captures;
+- monthly return;
+- worst day;
+- tail percentiles.
+
+Paired:
+- agreement rate;
+- both trade same direction;
+- both trade opposite direction;
+- CURRENT trade / CHALLENGER abstain;
+- CHALLENGER trade / CURRENT abstain;
+- both abstain;
+- mean paired difference by alert type;
+- mean paired difference by disagreement category.
+
+## Detector-selection limitation
+
+ALERT_RESEARCH exists because the CURRENT detector selected an event.
+
+Therefore the paired benchmark is conditional on the CURRENT detector opportunity universe.
+
+A paired win means:
+- better analysis decisions on CURRENT-detector captures.
+
+It does **not** prove:
+- superior independent opportunity discovery.
+
+That is why XRP_FORWARD_V3_1 remains a separate experiment.
+
+## Existing prelaunch pool
+
+At infrastructure audit time:
+- ALERT_RESEARCH rows observed: 58
+- first capture: 2026-09-30T09:45:56Z
+- latest observed capture: 2026-10-01T00:01:23Z
+- Research Version: ALERT_R1
+
+These may be frozen as a prelaunch pool only if:
+- snapshot is copied verbatim;
+- snapshot hash is recorded;
+- no paired outcome is shown to either arm before its decision;
+- the challenger is not designed using their outcomes.
+
+No arm should be executed on this pool until the challenger master is frozen.
+
+## Versioning
+
+Any change to:
+- agent rules;
+- standardized horizon;
+- state mapping;
+- cost model;
+- sample gate;
+- primary statistic
+
+creates a new benchmark version.
+
+## Formal launch blockers
+
+V1 cannot launch while any of these is missing:
+- CHALLENGER master file;
+- CHALLENGER rule commit SHA;
+- isolated runner protocol verification;
+- snapshot hash completeness;
+- benchmark registry seal.
+
+Net winner evaluation additionally requires:
+- frozen execution-cost contract.
