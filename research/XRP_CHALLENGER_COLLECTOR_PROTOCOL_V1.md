@@ -216,7 +216,7 @@ Accepted modes:
 The operational XRP receptor rejects these modes and contains no Challenger write path.
 
 Expected dedicated receptor version:
-- `XRP_RECEPTOR_CHALLENGER_V1`
+- `XRP_RECEPTOR_CHALLENGER_V1_R2`
 
 ## Health
 
