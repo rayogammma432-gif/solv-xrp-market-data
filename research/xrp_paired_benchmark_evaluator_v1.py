@@ -137,14 +137,25 @@ def main():
         cap=cap_by[pid];c=cur_by[pid];h=cha_by[pid];o=out_by[pid]
         if str(c.get("Status","")).upper()!="COMPLETE": provenance_errors.append(f"{pid}: CURRENT status")
         if str(h.get("Status","")).upper()!="COMPLETE": provenance_errors.append(f"{pid}: CHALLENGER status")
-        capsha=str(cap.get("Snapshot SHA256",""))
-        if not capsha: provenance_errors.append(f"{pid}: capture sha missing")
+        capsha=str(cap.get("Full Snapshot SHA256",""))
+        if not capsha: provenance_errors.append(f"{pid}: full snapshot sha missing")
+        if str(cap.get("Eligibility","")).upper()=="FORMAL_PROSPECTIVE":
+            if str(cap.get("Snapshot Completeness","")).upper()!="FULL":
+                provenance_errors.append(f"{pid}: formal snapshot not FULL")
+            if str(cap.get("Snapshot Version",""))!="XRP_PAIRED_SNAPSHOT_V1":
+                provenance_errors.append(f"{pid}: formal snapshot version mismatch")
         if capsha and str(c.get("Snapshot SHA256",""))!=capsha: provenance_errors.append(f"{pid}: CURRENT capture sha mismatch")
         if capsha and str(h.get("Snapshot SHA256",""))!=capsha: provenance_errors.append(f"{pid}: CHALLENGER capture sha mismatch")
         for arm,row in (("CURRENT",c),("CHALLENGER",h)):
             sha=str(row.get("Rule Commit SHA",""))
             if len(sha)!=40: provenance_errors.append(f"{pid}: {arm} rule sha invalid")
             if not str(row.get("Output SHA256","")): provenance_errors.append(f"{pid}: {arm} output sha missing")
+            if not str(row.get("Model ID","")): provenance_errors.append(f"{pid}: {arm} model id missing")
+            if not str(row.get("Run Mode","")): provenance_errors.append(f"{pid}: {arm} run mode missing")
+        if str(c.get("Model ID","")) != str(h.get("Model ID","")):
+            provenance_errors.append(f"{pid}: model id mismatch")
+        if str(c.get("Run Mode","")) != str(h.get("Run Mode","")):
+            provenance_errors.append(f"{pid}: run mode mismatch")
         at=str(cap.get("Alert Type","")).upper()
         raw=primary_raw_pct(o,at)
         if raw is None: continue
@@ -216,6 +227,8 @@ def main():
         "primary_mean_paired_diff_pct":statistics.mean([r["diff"] for r in records]) if records else None,
         "paired_ci95_lower_pct":lo,"paired_ci95_upper_pct":hi,"bootstrap_replicates":len(boots),
         "current":current_summary,"challenger":challenger_summary,
+        "model_ids":sorted({str(cur_by[r["pair_id"]].get("Model ID","")) for r in records}),
+        "run_modes":sorted({str(cur_by[r["pair_id"]].get("Run Mode","")) for r in records}),
         "disagreement_categories":dict(categories),
         "verdict":verdict,
         "provenance_errors":provenance_errors[:100]
