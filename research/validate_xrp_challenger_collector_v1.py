@@ -89,7 +89,7 @@ def main():
     for marker in (
         "**PRELAUNCH — IMPLEMENTED, NOT FORMALLY ACTIVATED**",
         "Candidate stream vs operational stream",
-        "LATE_FIRST_START",
+        "first live boot occurs after",
         "2026-01-01 → 2026-08-31 remains LOCKED"
     ):
         if marker not in protocol:
