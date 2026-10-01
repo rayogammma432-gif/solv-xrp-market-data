@@ -562,7 +562,7 @@ function appendPairedCaptures_(ss, alertRows, frozenUtc) {
       'ALERT_RESEARCH',
       nowIso,
       PAIRED_CAPTURE_BATCH,
-      'CAPTURED',
+      'PRELAUNCH_POOL',
       sha256Hex_(canonical),
       ''
     ]);
