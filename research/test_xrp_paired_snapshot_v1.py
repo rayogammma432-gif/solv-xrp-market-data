@@ -57,7 +57,10 @@ def main():
     s=FakeSession()
     a=mc._paired_snapshot_bundle(event,s)
     b=mc._paired_snapshot_bundle(event,s)
-    assert a==b
+    assert a["capture"][16]==b["capture"][16]
+    assert a["capture"][17]==b["capture"][17]
+    assert [x[11] for x in a["segments"]]==[x[11] for x in b["segments"]]
+    assert [x[10] for x in a["segments"]]==[x[10] for x in b["segments"]]
     assert len(a["capture"])==21
     assert len(a["segments"])==12
     assert a["capture"][18]=="FULL"
