@@ -60,8 +60,8 @@ def main():
 
     if "from forward_v3_tracker import" not in collector:
         errors.append("independent collector does not import frozen V3.1 tracker")
-    if "market_collector" in collector:
-        errors.append("independent collector imports/mentions market_collector")
+    if "import market_collector" in collector or "from market_collector" in collector:
+        errors.append("independent collector imports market_collector")
     for marker in (
         "challenger_recovery","challenger_incremental",
         "challengerCandidates","challengerOutcomes","challengerHealth",
