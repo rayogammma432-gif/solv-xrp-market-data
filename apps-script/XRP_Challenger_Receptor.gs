@@ -265,6 +265,7 @@ function doPost(e) {
       updatedAtUtc: payload.generatedAtUtc || new Date().toISOString(),
       rows: counts,
       challengerReceptorVersion: CHALLENGER_RECEPTOR_VERSION,
+      challengerSpreadsheetId: CHALLENGER_SPREADSHEET_ID,
       challengerRecovery: recovery
     });
 
