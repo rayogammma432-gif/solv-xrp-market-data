@@ -18,7 +18,8 @@ const FORWARD_V3_OUTCOME_COLS = 21; // A:U
 const FORWARD_V3_HEALTH_BASE_COLS = 21; // A:U, receptor añade V:W
 const FORWARD_V3_HEALTH_COLS = 23; // A:W
 const FORWARD_V3_RECEPTOR_VERSION = 'XRP_RECEPTOR_FORWARD_V3_1_V1';
-const PAIRED_CAPTURE_COLS = 18;
+const PAIRED_CAPTURE_COLS = 21;
+const PAIRED_SNAPSHOT_SEGMENT_COLS = 14;
 const PAIRED_DECISION_COLS = 30;
 const PAIRED_OUTCOME_COLS = 22;
 const PAIRED_CAPTURE_BATCH = 'XRP_PAIR_POOL_V1';
@@ -564,15 +565,18 @@ function appendPairedCaptures_(ss, alertRows, frozenUtc) {
       PAIRED_CAPTURE_BATCH,
       'PRELAUNCH_POOL',
       sha256Hex_(canonical),
-      ''
+      '',
+      'RESEARCH_ONLY',
+      'ALERT_RESEARCH_ONLY_V1',
+      'Legacy/supportive capture; full bar snapshot not frozen.'
     ]);
     existing.add(pairId);
   });
 
   if (!rows.length) return 0;
-  const start = sh.getLastRow() + 1;
-  ensureRows_(sh, start + rows.length - 1);
-  sh.getRange(start, 1, rows.length, PAIRED_CAPTURE_COLS).setValues(rows);
+  const startRow = sh.getLastRow() + 1;
+  ensureRows_(sh, startRow + rows.length - 1);
+  sh.getRange(startRow, 1, rows.length, PAIRED_CAPTURE_COLS).setValues(rows);
   return rows.length;
 }
 
@@ -583,6 +587,74 @@ function backfillPairedCapturesFromAlertResearch_(ssOpt) {
   if (last < 2) return 0;
   const rows = src.getRange(2, 1, last - 1, 11).getValues();
   return appendPairedCaptures_(ss, rows, new Date().toISOString());
+}
+
+function appendPairedCaptureBundles_(ss, bundles) {
+  if (!Array.isArray(bundles) || !bundles.length) return {captures:0, segments:0};
+
+  const capSh = sheet_(ss, 'PAIRED_CAPTURES');
+  const segSh = sheet_(ss, 'PAIRED_SNAPSHOT_BARS');
+
+  const capRowById = {};
+  if (capSh.getLastRow() >= 2) {
+    capSh.getRange(2, 1, capSh.getLastRow() - 1, PAIRED_CAPTURE_COLS)
+      .getValues().forEach(function(r, i) {
+        const id = String(r[0] || '');
+        if (id) capRowById[id] = i + 2;
+      });
+  }
+  const segExisting = new Set();
+  if (segSh.getLastRow() >= 2) {
+    segSh.getRange(2, 1, segSh.getLastRow() - 1, 1).getValues().forEach(function(r) {
+      const id = String(r[0] || '');
+      if (id) segExisting.add(id);
+    });
+  }
+
+  let capWrites = 0;
+  const segRows = [];
+  bundles.forEach(function(b) {
+    const cap = b && Array.isArray(b.capture) ? b.capture : null;
+    const segs = b && Array.isArray(b.segments) ? b.segments : [];
+    if (!cap || cap.length !== PAIRED_CAPTURE_COLS) {
+      throw new Error('paired capture bundle inválido');
+    }
+    const pairId = String(cap[0] || '');
+    if (!pairId) throw new Error('paired capture sin Pair ID');
+
+    const existingRow = capRowById[pairId];
+    if (existingRow) {
+      const current = capSh.getRange(existingRow, 1, 1, PAIRED_CAPTURE_COLS).getValues()[0];
+      const currentCompleteness = String(current[18] || '');
+      if (currentCompleteness !== 'FULL' && String(cap[18] || '') === 'FULL') {
+        capSh.getRange(existingRow, 1, 1, PAIRED_CAPTURE_COLS).setValues([cap]);
+        capWrites += 1;
+      }
+    } else {
+      const row = capSh.getLastRow() + 1;
+      ensureRows_(capSh, row);
+      capSh.getRange(row, 1, 1, PAIRED_CAPTURE_COLS).setValues([cap]);
+      capRowById[pairId] = row;
+      capWrites += 1;
+    }
+
+    segs.forEach(function(seg) {
+      if (!Array.isArray(seg) || seg.length !== PAIRED_SNAPSHOT_SEGMENT_COLS) {
+        throw new Error('paired snapshot segment inválido');
+      }
+      const segId = String(seg[0] || '');
+      if (!segId || segExisting.has(segId)) return;
+      segRows.push(seg);
+      segExisting.add(segId);
+    });
+  });
+
+  if (segRows.length) {
+    const startRow = segSh.getLastRow() + 1;
+    ensureRows_(segSh, startRow + segRows.length - 1);
+    segSh.getRange(startRow, 1, segRows.length, PAIRED_SNAPSHOT_SEGMENT_COLS).setValues(segRows);
+  }
+  return {captures:capWrites, segments:segRows.length};
 }
 
 function _decisionPairIds_(sh) {
@@ -764,17 +836,18 @@ function doPost(e) {
       } else {
         counts[name] = appendNew_(sh, rows, 11, maxRows);
       }
-      if (name === 'ALERT_RESEARCH') {
-        counts.PAIRED_CAPTURES = appendPairedCaptures_(
-          ss,
-          rows,
-          payload.generatedAtUtc || new Date().toISOString()
-        );
-      }
+      // PAIRED_CAPTURES prospectivos se escriben desde pairedCaptureBundles
+      // para garantizar snapshot de barras completo.
     });
 
     if (mode === 'bootstrap') {
       counts.PAIRED_CAPTURES_BACKFILL = backfillPairedCapturesFromAlertResearch_(ss);
+    }
+
+    if (Array.isArray(payload.pairedCaptureBundles)) {
+      const pc = appendPairedCaptureBundles_(ss, payload.pairedCaptureBundles);
+      counts.PAIRED_CAPTURES_FULL = pc.captures;
+      counts.PAIRED_SNAPSHOT_BARS = pc.segments;
     }
 
     if (Array.isArray(payload.oiHistory)) {
