@@ -1,5 +1,5 @@
 name: XRP Challenger Independent Collector Prelaunch V1
-# rerun: 6
+# rerun: 7
 
 on:
   workflow_dispatch:
@@ -19,9 +19,11 @@ jobs:
           python -m py_compile \
             termux/forward_v3_tracker.py \
             termux/xrp_challenger_collector.py \
+            termux/challenger_deployment_gate.py \
             termux/market_collector.py \
             termux/test_forward_v3_tracker.py \
             termux/test_xrp_challenger_collector_v1.py \
+            termux/test_challenger_deployment_gate_v1.py \
             research/validate_xrp_challenger_collector_v1.py
 
       - name: Shell syntax
@@ -47,8 +49,54 @@ jobs:
           PYTHONPATH: termux
         run: python termux/test_xrp_challenger_collector_v1.py
 
+      - name: Deployment gate unit smoke
+        env:
+          PYTHONPATH: termux
+        run: python termux/test_challenger_deployment_gate_v1.py
+
       - name: Validate prelaunch registry and separation
         run: python research/validate_xrp_challenger_collector_v1.py
+
+      - name: Build deployment manifest
+        run: |
+          python - <<'PY'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+
+          def sha256(path):
+              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+          def file_commit(path):
+              return subprocess.check_output(
+                  ["git","log","-1","--format=%H","--",path],
+                  text=True
+              ).strip()
+
+          out=Path("challenger-collector-prelaunch")
+          out.mkdir(exist_ok=True)
+          manifest={
+              "status":"READY_FOR_DEVICE_DEPLOYMENT_NOT_ACTIVATED",
+              "deploy_head_sha":os.environ["GITHUB_SHA"],
+              "collector_file":"termux/xrp_challenger_collector.py",
+              "collector_sha256":sha256("termux/xrp_challenger_collector.py"),
+              "collector_file_commit":file_commit("termux/xrp_challenger_collector.py"),
+              "deployment_gate_file":"termux/challenger_deployment_gate.py",
+              "deployment_gate_sha256":sha256("termux/challenger_deployment_gate.py"),
+              "receptor_file":"apps-script/XRP_Challenger_Receptor.gs",
+              "receptor_sha256":sha256("apps-script/XRP_Challenger_Receptor.gs"),
+              "receptor_file_commit":file_commit("apps-script/XRP_Challenger_Receptor.gs"),
+              "receptor_version":"XRP_RECEPTOR_CHALLENGER_V1_R2",
+              "challenger_spreadsheet_id":"14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA",
+              "protocol_version":"XRP_FORWARD_V3_1",
+              "registry_sha256":"4905aa1e94cbf2fe9318c761942d440a298ba5655d78e8e3a80bfc5cb85caded",
+              "formal_start_utc":"2026-10-01T06:00:00Z",
+              "activation_enabled":False
+          }
+          (out/"XRP_CHALLENGER_DEPLOYMENT_MANIFEST_V1.json").write_text(
+              json.dumps(manifest,indent=2)+"\n", encoding="utf-8"
+          )
+          print(json.dumps(manifest,indent=2))
+          PY
 
       - name: Upload validation
         uses: actions/upload-artifact@v4
