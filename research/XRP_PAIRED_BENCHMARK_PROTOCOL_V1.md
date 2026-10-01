@@ -341,13 +341,21 @@ At infrastructure audit time:
 - latest observed capture: 2026-10-01T00:01:23Z
 - Research Version: ALERT_R1
 
-These may be frozen as a prelaunch pool only if:
+These are frozen as a **PRELAUNCH / BACKFILL SUPPORTIVE** pool only if:
 - snapshot is copied verbatim;
 - snapshot hash is recorded;
 - no paired outcome is shown to either arm before its decision;
 - the challenger is not designed using their outcomes.
 
-No arm should be executed on this pool until the challenger master is frozen.
+Because the challenger does not yet exist at the time this pool is observed, these captures do **not** determine the formal superiority verdict.
+
+After the challenger master is frozen, a separate prospective formal batch begins at an exact UTC timestamp recorded in the sealed registry.
+
+Use:
+- prelaunch pool = supportive paired backfill;
+- post-freeze captures = formal prospective paired benchmark.
+
+No arm should be executed on the prelaunch pool until the challenger master is frozen.
 
 ## Versioning
 
