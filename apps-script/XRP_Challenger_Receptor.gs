@@ -5,6 +5,9 @@
 
 const CHALLENGER_SPREADSHEET_ID = '14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA';
 const CHALLENGER_RECEPTOR_VERSION = 'XRP_RECEPTOR_CHALLENGER_V1';
+const EXPECTED_PROTOCOL_VERSION = 'XRP_FORWARD_V3_1';
+const EXPECTED_REGISTRY_SHA256 = '4905aa1e94cbf2fe9318c761942d440a298ba5655d78e8e3a80bfc5cb85caded';
+const EXPECTED_COLLECTOR_VERSION = 'XRP_CHALLENGER_COLLECTOR_V1';
 
 const EVENT_BASE_COLS = 27;
 const EVENT_COLS = 29;
@@ -71,6 +74,40 @@ function appendUniqueResearchRows_(sh, rows, baseCols, totalCols) {
   ensureRows_(sh, start + out.length - 1);
   sh.getRange(start, 1, out.length, totalCols).setValues(out);
   return out.length;
+}
+
+function validateCandidateRows_(rows) {
+  (rows || []).forEach(function(row) {
+    if (
+      String(row[1] || '') !== EXPECTED_PROTOCOL_VERSION ||
+      String(row[20] || '') !== EXPECTED_REGISTRY_SHA256 ||
+      String(row[23] || '') !== EXPECTED_COLLECTOR_VERSION
+    ) {
+      throw new Error('Candidate provenance/version mismatch');
+    }
+  });
+}
+
+function validateOutcomeRows_(rows) {
+  (rows || []).forEach(function(row) {
+    if (
+      String(row[13] || '') !== EXPECTED_REGISTRY_SHA256 ||
+      String(row[14] || '') !== EXPECTED_COLLECTOR_VERSION
+    ) {
+      throw new Error('Outcome provenance/version mismatch');
+    }
+  });
+}
+
+function validateHealthRows_(rows) {
+  (rows || []).forEach(function(row) {
+    if (
+      String(row[1] || '') !== EXPECTED_PROTOCOL_VERSION ||
+      String(row[18] || '') !== EXPECTED_COLLECTOR_VERSION
+    ) {
+      throw new Error('Health provenance/version mismatch');
+    }
+  });
 }
 
 function appendAudit_(ss, rows) {
@@ -179,6 +216,7 @@ function doPost(e) {
     const counts = {};
 
     if (Array.isArray(payload.challengerCandidates)) {
+      validateCandidateRows_(payload.challengerCandidates);
       counts.CHALLENGER_CANDIDATES = appendUniqueResearchRows_(
         sheet_(ss, 'CHALLENGER_CANDIDATES'),
         payload.challengerCandidates,
@@ -188,6 +226,7 @@ function doPost(e) {
     }
 
     if (Array.isArray(payload.challengerOutcomes)) {
+      validateOutcomeRows_(payload.challengerOutcomes);
       counts.CHALLENGER_OUTCOMES = appendUniqueResearchRows_(
         sheet_(ss, 'CHALLENGER_OUTCOMES'),
         payload.challengerOutcomes,
@@ -197,6 +236,7 @@ function doPost(e) {
     }
 
     if (Array.isArray(payload.challengerHealth)) {
+      validateHealthRows_(payload.challengerHealth);
       counts.CHALLENGER_HEALTH = appendUniqueResearchRows_(
         sheet_(ss, 'CHALLENGER_HEALTH'),
         payload.challengerHealth,
