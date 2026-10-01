@@ -90,18 +90,19 @@ Primary:
 
 ## Storage
 
-Dedicated Google Sheets tabs:
+Dedicated Google spreadsheet:
+- title: `XRP_Challenger_Research`
+- spreadsheet ID: `14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA`
+
+Dedicated tabs:
 - `CHALLENGER_CANDIDATES`
 - `CHALLENGER_OUTCOMES`
 - `CHALLENGER_HEALTH`
 - `CHALLENGER_AUDIT`
 
-Legacy/prelaunch tabs:
-- `FORWARD_V3_EVENTS`
-- `FORWARD_V3_OUTCOMES`
-- `FORWARD_V3_HEALTH`
+The operational XRP workbook does not contain Challenger destination tabs.
 
-are not the independent collector destination.
+Legacy/prelaunch `FORWARD_V3_*` tables remain historical scaffolding only and are not the independent collector destination.
 
 ## Candidate stream vs operational stream
 
@@ -196,21 +197,25 @@ The tracker itself deduplicates decisions/outcomes.
 
 ## Receptor isolation
 
-Challenger modes:
+Dedicated source:
+- `apps-script/XRP_Challenger_Receptor.gs`
+
+This must be deployed as a separate Apps Script web app from the operational XRP receptor.
+
+Dedicated Script Property:
+- `CHALLENGER_SHARED_SECRET`
+
+Dedicated config block:
+- `challenger.web_app_url`
+- `challenger.shared_secret`
+
+Accepted modes:
 - `challenger_recovery`
 - `challenger_incremental`
 
-These modes return before operational XRP receptor logic.
+The operational XRP receptor rejects these modes and contains no Challenger write path.
 
-They do not:
-- update MARKET;
-- update LIVE_STATE;
-- update SIGNALS;
-- update ANALYSES;
-- update USER_TRADES;
-- archive CURRENT rows.
-
-Expected receptor version:
+Expected dedicated receptor version:
 - `XRP_RECEPTOR_CHALLENGER_V1`
 
 ## Health
@@ -243,12 +248,14 @@ Source code being committed is not formal activation.
 
 Before live start:
 1. deploy exact Git commit to Motorola;
-2. deploy exact Apps Script receptor;
-3. confirm CHALLENGER_* tabs exist;
-4. run prelaunch source/receptor smoke;
-5. create activation file with exact deployed SHAs;
-6. verify activation strictly before frozen start;
-7. start independent process before frozen start.
+2. deploy `apps-script/XRP_Challenger_Receptor.gs` as its own Apps Script web app;
+3. configure a unique `CHALLENGER_SHARED_SECRET`;
+4. put that dedicated URL/secret in the local `challenger` config block;
+5. confirm the dedicated Challenger workbook/tabs exist;
+6. run prelaunch source/receptor smoke;
+7. create activation file with exact deployed SHAs;
+8. verify activation strictly before frozen start;
+9. start independent process before frozen start.
 
 If step 6/7 cannot be satisfied:
 - do not backfill;
