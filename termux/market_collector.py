@@ -631,29 +631,37 @@ def _paired_snapshot_bundle(event, session):
 
     for symbol in ("XRPUSDT", "BTCUSDT"):
         for tf in SOLV_TFS:
+            expected_bars = (
+                360 if symbol == "XRPUSDT" and tf == "1m"
+                else PAIRED_SNAPSHOT_BARS
+            )
             resp = session.get(
                 f"{BASE_URL}/fapi/v1/klines",
                 params={
                     "symbol": symbol,
                     "interval": tf,
                     "endTime": alert_ms,
-                    "limit": PAIRED_SNAPSHOT_BARS + 5,
+                    "limit": expected_bars + 5,
                 },
                 timeout=30,
             )
             resp.raise_for_status()
             raw = resp.json()
             rows = [
-                kline_to_row(k)
+                [
+                    int(k[0]), float(k[1]), float(k[2]), float(k[3]),
+                    float(k[4]), float(k[5]), int(k[6]), float(k[7]),
+                    int(k[8]), float(k[9]), float(k[10])
+                ]
                 for k in raw
                 if int(k[6]) <= alert_ms
-            ][-PAIRED_SNAPSHOT_BARS:]
-            complete = len(rows) == PAIRED_SNAPSHOT_BARS
+            ][-expected_bars:]
+            complete = len(rows) == expected_bars
             all_full = all_full and complete
             bars_json = json.dumps(
                 rows, ensure_ascii=False, separators=(",", ":")
             )
-            cutoff = str(rows[-1][6]) if rows else ""
+            cutoff = utc_iso_ms(rows[-1][6]) if rows else ""
             seg_id = f"{event_id}|{symbol}|{tf}"
             seg_canonical = json.dumps(
                 [seg_id, event_id, symbol, tf, str(event.get("utc") or ""), rows],
@@ -670,7 +678,7 @@ def _paired_snapshot_bundle(event, session):
                 tf,
                 str(event.get("utc") or ""),
                 cutoff,
-                PAIRED_SNAPSHOT_BARS,
+                expected_bars,
                 len(rows),
                 "FULL" if complete else "PARTIAL",
                 bars_json,
