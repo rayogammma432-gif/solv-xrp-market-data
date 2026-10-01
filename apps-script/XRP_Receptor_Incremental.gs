@@ -18,7 +18,6 @@ const FORWARD_V3_OUTCOME_COLS = 21; // A:U
 const FORWARD_V3_HEALTH_BASE_COLS = 21; // A:U, receptor añade V:W
 const FORWARD_V3_HEALTH_COLS = 23; // A:W
 const FORWARD_V3_RECEPTOR_VERSION = 'XRP_RECEPTOR_FORWARD_V3_1_V1';
-const CHALLENGER_RECEPTOR_VERSION = 'XRP_RECEPTOR_CHALLENGER_V1';
 const PAIRED_CAPTURE_COLS = 21;
 const PAIRED_SNAPSHOT_SEGMENT_COLS = 16;
 const PAIRED_DECISION_COLS = 32;
@@ -520,70 +519,6 @@ function appendForwardV3Health_(ss, rows) {
   );
 }
 
-function appendChallengerCandidates_(ss, rows) {
-  return appendForwardRows_(
-    sheet_(ss, 'CHALLENGER_CANDIDATES'),
-    rows,
-    FORWARD_V3_EVENT_BASE_COLS,
-    FORWARD_V3_EVENT_COLS,
-    CHALLENGER_RECEPTOR_VERSION
-  );
-}
-
-function appendChallengerOutcomes_(ss, rows) {
-  return appendForwardRows_(
-    sheet_(ss, 'CHALLENGER_OUTCOMES'),
-    rows,
-    FORWARD_V3_OUTCOME_BASE_COLS,
-    FORWARD_V3_OUTCOME_COLS,
-    CHALLENGER_RECEPTOR_VERSION
-  );
-}
-
-function appendChallengerHealth_(ss, rows) {
-  return appendForwardRows_(
-    sheet_(ss, 'CHALLENGER_HEALTH'),
-    rows,
-    FORWARD_V3_HEALTH_BASE_COLS,
-    FORWARD_V3_HEALTH_COLS,
-    CHALLENGER_RECEPTOR_VERSION
-  );
-}
-
-function getChallengerRecovery_(ss) {
-  const eventsSh = sheet_(ss, 'CHALLENGER_CANDIDATES');
-  const outcomesSh = sheet_(ss, 'CHALLENGER_OUTCOMES');
-  const healthSh = sheet_(ss, 'CHALLENGER_HEALTH');
-
-  const eventCount = Math.max(0, eventsSh.getLastRow() - 1);
-  const eventTake = Math.min(eventCount, 1200);
-  const events = eventTake
-    ? eventsSh.getRange(eventsSh.getLastRow() - eventTake + 1, 1, eventTake, FORWARD_V3_EVENT_COLS).getValues()
-    : [];
-
-  const outcomeCount = Math.max(0, outcomesSh.getLastRow() - 1);
-  const outcomeTake = Math.min(outcomeCount, 9000);
-  const outcomeIds = outcomeTake
-    ? outcomesSh.getRange(outcomesSh.getLastRow() - outcomeTake + 1, 1, outcomeTake, 1).getValues().map(function(r) {
-        return String(r[0] || '');
-      }).filter(Boolean)
-    : [];
-
-  let latestHealth = null;
-  if (healthSh.getLastRow() >= 2) {
-    latestHealth = healthSh.getRange(
-      healthSh.getLastRow(), 1, 1, FORWARD_V3_HEALTH_COLS
-    ).getValues()[0];
-  }
-
-  return {
-    receptorVersion: CHALLENGER_RECEPTOR_VERSION,
-    events: events,
-    outcomeIds: outcomeIds,
-    latestHealth: latestHealth
-  };
-}
-
 function sha256Hex_(text) {
   const bytes = Utilities.computeDigest(
     Utilities.DigestAlgorithm.SHA_256,
@@ -1029,51 +964,11 @@ function doPost(e) {
     }
 
     const mode = String(payload.mode || 'bootstrap').toLowerCase();
-    const isChallengerMode = (
-      mode === 'challenger_recovery' ||
-      mode === 'challenger_incremental'
-    );
-    if (
-      mode !== 'bootstrap' &&
-      mode !== 'incremental' &&
-      !isChallengerMode
-    ) {
+    if (mode !== 'bootstrap' && mode !== 'incremental') {
       throw new Error('mode inválido: ' + mode);
     }
 
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-
-    if (isChallengerMode) {
-      const counts = {};
-      if (Array.isArray(payload.challengerCandidates)) {
-        counts.CHALLENGER_CANDIDATES = appendChallengerCandidates_(
-          ss, payload.challengerCandidates
-        );
-      }
-      if (Array.isArray(payload.challengerOutcomes)) {
-        counts.CHALLENGER_OUTCOMES = appendChallengerOutcomes_(
-          ss, payload.challengerOutcomes
-        );
-      }
-      if (Array.isArray(payload.challengerHealth)) {
-        counts.CHALLENGER_HEALTH = appendChallengerHealth_(
-          ss, payload.challengerHealth
-        );
-      }
-      SpreadsheetApp.flush();
-      const recovery = payload.challengerRecoveryRequest
-        ? getChallengerRecovery_(ss)
-        : null;
-      return jsonOut_({
-        ok: true,
-        status: 'OK',
-        mode: mode,
-        updatedAtUtc: payload.generatedAtUtc || new Date().toISOString(),
-        rows: counts,
-        challengerReceptorVersion: CHALLENGER_RECEPTOR_VERSION,
-        challengerRecovery: recovery
-      });
-    }
     const counts = {};
     const incomingSheets = payload.sheets || {};
 
