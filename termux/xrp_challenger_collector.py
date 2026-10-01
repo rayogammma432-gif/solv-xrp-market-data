@@ -85,13 +85,13 @@ def load_xrp_config(path):
     if not p.exists():
         raise RuntimeError(f"No existe config: {p}")
     data = json.loads(p.read_text(encoding="utf-8"))
-    xrp = data.get("xrp") or {}
-    url = str(xrp.get("web_app_url", "")).strip()
-    secret = str(xrp.get("shared_secret", "")).strip()
+    item = data.get("challenger") or {}
+    url = str(item.get("web_app_url", "")).strip()
+    secret = str(item.get("shared_secret", "")).strip()
     if not url.startswith("https://") or "/exec" not in url:
-        raise RuntimeError("xrp.web_app_url inválida o ausente")
+        raise RuntimeError("challenger.web_app_url inválida o ausente")
     if not secret:
-        raise RuntimeError("xrp.shared_secret ausente")
+        raise RuntimeError("challenger.shared_secret ausente")
     return {"web_app_url": url, "shared_secret": secret}
 
 
