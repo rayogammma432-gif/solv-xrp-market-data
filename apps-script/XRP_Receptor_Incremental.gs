@@ -681,6 +681,7 @@ function appendPairedCaptureBundles_(ss, bundles) {
         expectedTotal: expectedTotal,
         barTotal: 0,
         indexes: new Set(),
+        barsByChunk: {},
         allFull: true
       };
       if (group.chunkCount !== chunkCount || group.expectedTotal !== expectedTotal) {
@@ -690,6 +691,7 @@ function appendPairedCaptureBundles_(ss, bundles) {
         throw new Error('chunk index duplicado: ' + pairId + ' ' + key);
       }
       group.indexes.add(chunkIndex);
+      group.barsByChunk[chunkIndex] = parsedBars;
       group.barTotal += chunkBars;
       group.allFull = group.allFull && String(seg[11] || '') === 'FULL';
       series[key] = group;
@@ -713,6 +715,37 @@ function appendPairedCaptureBundles_(ss, bundles) {
         if (!g.indexes.has(i)) {
           throw new Error('falta chunk ' + i + ': ' + pairId + ' ' + key);
         }
+      }
+      const tf = key.split('|')[1];
+      const tfMs = {
+        '1m':60000, '5m':300000, '15m':900000,
+        '1h':3600000, '4h':14400000, '1d':86400000
+      }[tf];
+      if (!tfMs) throw new Error('timeframe paired desconocido: ' + tf);
+      let assembled = [];
+      for (let i = 1; i <= g.chunkCount; i++) {
+        assembled = assembled.concat(g.barsByChunk[i] || []);
+      }
+      if (assembled.length !== g.expectedTotal) {
+        throw new Error('serie reconstruida con conteo inválido: ' + pairId + ' ' + key);
+      }
+      for (let i = 0; i < assembled.length; i++) {
+        const bar = assembled[i];
+        if (!Array.isArray(bar) || bar.length < 7) {
+          throw new Error('barra paired inválida: ' + pairId + ' ' + key);
+        }
+        const om = Number(bar[0]), cm = Number(bar[6]);
+        if (!isFinite(om) || !isFinite(cm) || cm > Date.parse(String(cap[2] || ''))) {
+          throw new Error('barra paired con look-ahead/timestamp inválido: ' + pairId + ' ' + key);
+        }
+        if (i > 0 && om - Number(assembled[i-1][0]) !== tfMs) {
+          throw new Error('gap en paired snapshot: ' + pairId + ' ' + key);
+        }
+      }
+      const alertTs = Date.parse(String(cap[2] || ''));
+      const expectedLastClose = Math.floor(alertTs / tfMs) * tfMs - 1;
+      if (Number(assembled[assembled.length - 1][6]) !== expectedLastClose) {
+        throw new Error('paired snapshot stale/no exact latest close: ' + pairId + ' ' + key);
       }
       if (String(cap[15] || '').toUpperCase() === 'FORMAL_PROSPECTIVE' && !g.allFull) {
         throw new Error('serie formal PARTIAL: ' + pairId + ' ' + key);
