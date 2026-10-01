@@ -55,6 +55,12 @@ def main():
         }
     }
     s=FakeSession()
+    assert mc._paired_batch_and_eligibility(event["utc"])[1]=="PRELAUNCH_POOL"
+    old_start=mc.PAIRED_BENCHMARK_FORMAL_START_UTC
+    mc.PAIRED_BENCHMARK_FORMAL_START_UTC="2026-10-01T06:00:00Z"
+    assert mc._paired_batch_and_eligibility(event["utc"])[1]=="FORMAL_PROSPECTIVE"
+    assert mc._paired_batch_and_eligibility("2026-10-01T05:59:59Z")[1]=="PRELAUNCH_POOL"
+    mc.PAIRED_BENCHMARK_FORMAL_START_UTC=old_start
     a=mc._paired_snapshot_bundle(event,s)
     b=mc._paired_snapshot_bundle(event,s)
     assert a["capture"][16]==b["capture"][16]
@@ -89,6 +95,6 @@ def main():
         else:
             assert g["bars"]==250
     print("PASS XRP_PAIRED_SNAPSHOT_SMOKE")
-    print("logical_series=12 chunks=24 full_hash=PASS no_lookahead=PASS cell_size=PASS xrp_1m=360")
+    print("logical_series=12 chunks=24 full_hash=PASS no_lookahead=PASS continuity=PASS cell_size=PASS formal_gate=PASS xrp_1m=360")
 
 if __name__=="__main__":main()
