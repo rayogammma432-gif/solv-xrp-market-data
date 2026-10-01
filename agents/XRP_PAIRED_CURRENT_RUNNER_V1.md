@@ -136,3 +136,16 @@ If the execution environment cannot identify them reliably:
 - do not emit COMPLETE.
 
 A later benchmark version is required if the execution process intentionally changes model family/configuration.
+
+
+## Chunked market snapshot
+
+PAIRED_SNAPSHOT_BARS is chunked to stay below Google Sheets cell limits.
+
+For every Symbol + Timeframe:
+- sort rows by Chunk Index;
+- require every index 1..Chunk Count;
+- concatenate Bars JSON in index order;
+- require total bars = Expected Bars Total.
+
+Never treat a chunk as an independent timeframe.
