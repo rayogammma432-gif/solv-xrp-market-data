@@ -15,5 +15,9 @@
       "solv",
       "xrp"
     ]
+  },
+  "challenger": {
+    "web_app_url": "PEGA_AQUI_LA_URL_EXEC_DEL_RECEPTOR_CHALLENGER",
+    "shared_secret": "PEGA_AQUI_EL_SHARED_SECRET_EXCLUSIVO_CHALLENGER"
   }
 }
