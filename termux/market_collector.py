@@ -657,7 +657,16 @@ def _paired_snapshot_bundle(event, session):
                 for k in raw
                 if int(k[6]) <= alert_ms
             ][-expected_bars:]
-            complete = len(rows) == expected_bars
+            expected_last_close = (alert_ms // TF_MS[tf]) * TF_MS[tf] - 1
+            consecutive = (
+                len(rows) == expected_bars
+                and all(
+                    int(rows[i][0]) - int(rows[i-1][0]) == TF_MS[tf]
+                    for i in range(1, len(rows))
+                )
+            )
+            latest_exact = bool(rows) and int(rows[-1][6]) == expected_last_close
+            complete = bool(consecutive and latest_exact)
             all_full = all_full and complete
             cutoff = utc_iso_ms(rows[-1][6]) if rows else ""
             chunks = [
