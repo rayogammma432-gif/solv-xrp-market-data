@@ -1,29 +1,48 @@
 {
   "benchmark_version": "XRP_PAIRED_BENCHMARK_V1",
-  "status": "BLOCKED_CHALLENGER_MASTER_MISSING",
+  "status": "READY_PRELAUNCH_DEPLOYMENT_PENDING",
   "asset": "XRPUSDT",
   "pair_id": "Alert ID",
-  "capture_source": "ALERT_RESEARCH",
+  "capture_source": "ALERT_RESEARCH+PAIRED_SNAPSHOT_BARS",
+  "snapshot": {
+    "version": "XRP_PAIRED_SNAPSHOT_V1",
+    "formal_required_completeness": "FULL",
+    "required_segments": 12,
+    "xrp_1m_bars": 360,
+    "other_segment_bars": 250,
+    "full_snapshot_sha_required": true
+  },
   "current_arm": {
     "agent_name": "XRP CURRENT",
     "agent_version": "XRP_V3.3_PAIRED_BASELINE_V1",
     "rule_file": "agents/XRP_V3_3_MASTER.txt",
     "rule_commit_sha": "b6f62ed220226a10f653c45c5c3680320a0dd7fd",
-    "runner_file": "agents/XRP_PAIRED_CURRENT_RUNNER_V1.md"
+    "runner_file": "agents/XRP_PAIRED_CURRENT_RUNNER_V1.md",
+    "runner_commit_sha": "a086ace7bbfc1041a3cfd55bf7a09b884bedf825"
   },
   "challenger_arm": {
-    "agent_name": null,
-    "agent_version": null,
-    "rule_file": null,
-    "rule_commit_sha": null,
-    "runner_file": null
+    "agent_name": "XRP CHALLENGER",
+    "agent_version": "XRP_CHALLENGER_PAIRED_V1",
+    "rule_file": "agents/XRP_CHALLENGER_PAIRED_V1.md",
+    "rule_commit_sha": "5ff3f938245a547b5b4e16ff6bc9ce366a98609b",
+    "runner_file": "agents/XRP_PAIRED_CHALLENGER_RUNNER_V1.md",
+    "runner_commit_sha": "477e272b8e1f8750f676a2d435fb1f7aa03af01e"
   },
   "standardized_horizons_min": {
     "SCALP_TRIGGER": 15,
     "PRIMARY_TRIGGER": 60,
     "PRIMARY": 60
   },
-  "primary_metric": "mean paired net return per capture difference: challenger - current",
+  "execution_cost_contract": {
+    "file": "research/XRP_PAIRED_STANDARD_COST_V1.md",
+    "commit_sha": "acefdefc339f978e22bc6e224b25b3c55b40348e",
+    "primary_round_trip_bps": 10,
+    "sensitivity_round_trip_bps": [
+      5,
+      15
+    ]
+  },
+  "primary_metric": "mean paired standardized net return per capture difference: challenger - current",
   "bootstrap": {
     "unit": "UTC_DAY",
     "replicates": 5000,
@@ -34,8 +53,19 @@
     "complete_pairs": 1000,
     "unique_utc_days": 40
   },
-  "execution_cost_contract": null,
-  "net_verdict_enabled": false,
+  "model_provenance": {
+    "same_model_id_within_pair": true,
+    "same_run_mode_within_pair": true
+  },
+  "overlapping_alerts": {
+    "primary_unit": "CAPTURE",
+    "portfolio_pnl_claim": false
+  },
   "existing_prelaunch_capture_count_observed": 58,
+  "existing_prelaunch_role": "SUPPORTIVE_ONLY",
+  "formal_start_utc": null,
+  "deployment_verified": false,
+  "isolated_run_process_verified": false,
+  "net_verdict_enabled": true,
   "formal_launch": false
 }
