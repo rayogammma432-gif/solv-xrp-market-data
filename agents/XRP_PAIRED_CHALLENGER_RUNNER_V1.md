@@ -123,3 +123,15 @@ If the execution environment cannot identify them reliably:
 - do not emit COMPLETE.
 
 A later benchmark version is required if the execution process intentionally changes model family/configuration.
+
+
+## Chunked market snapshot
+
+For XRPUSDT 1m:
+- read every matching PAIRED_SNAPSHOT_BARS chunk;
+- sort by Chunk Index;
+- require all 1..Chunk Count;
+- concatenate Bars JSON;
+- require total bars = Expected Bars Total.
+
+Do not calculate features from only the final chunk.
