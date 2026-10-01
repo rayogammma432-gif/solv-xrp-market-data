@@ -83,7 +83,7 @@ def main():
             errors.append(f"collector missing marker {marker}")
 
     for marker in (
-        "XRP_RECEPTOR_CHALLENGER_V1",
+        "XRP_RECEPTOR_CHALLENGER_V1_R2",
         "14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA",
         "CHALLENGER_CANDIDATES","CHALLENGER_OUTCOMES","CHALLENGER_HEALTH",
         "challenger_recovery","challenger_incremental",
@@ -92,7 +92,7 @@ def main():
         if marker not in challenger_receptor:
             errors.append(f"dedicated receptor missing marker {marker}")
     for forbidden in (
-        "XRP_RECEPTOR_CHALLENGER_V1","challenger_recovery",
+        "XRP_RECEPTOR_CHALLENGER_V1_R2","challenger_recovery",
         "challenger_incremental","challengerCandidates",
         "challengerOutcomes","challengerHealth"
     ):
