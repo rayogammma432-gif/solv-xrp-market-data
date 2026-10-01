@@ -40,9 +40,11 @@ For formal prospective pairs the frozen snapshot includes:
 - the 11-field ALERT_RESEARCH record;
 - XRPUSDT and BTCUSDT bars for 1m/5m/15m/1h/4h/1d;
 - 360 XRPUSDT 1m bars;
-- 250 bars for each other symbol/timeframe segment;
-- segment SHA256 values;
-- one Full Snapshot SHA256 covering the research row + all 12 segment hashes.
+- 250 bars for each other logical symbol/timeframe series;
+- each logical series split into chunks of at most 180 bars;
+- chunk SHA256 values;
+- exactly 12 logical series;
+- one Full Snapshot SHA256 covering the research row + every chunk hash.
 
 Formal pairs require `Snapshot Completeness = FULL`.
 A bar with close_time after Alert UTC is forbidden.
