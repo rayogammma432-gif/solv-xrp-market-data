@@ -53,5 +53,13 @@
     "config_block": "challenger",
     "shared_with_current": false,
     "serialized_writes": true
+  },
+  "hardening_revision": "XRP_CHALLENGER_PRELAUNCH_HARDENED_20261002_R2",
+  "evaluation_contract": {
+    "version": "XRP_FORWARD_EVALUATION_CONTRACT_V3_2",
+    "protocol_file": "research/XRP_FORWARD_EVALUATION_CONTRACT_V3_2.md",
+    "machine_file": "research/experiments/XRP_FORWARD_EVALUATION_CONTRACT_V3_2.json",
+    "formal_family_gate_utc": "2027-03-31T12:00:00Z",
+    "primary_incomplete_policy": "DATA_QUALITY_BLOCKED"
   }
 }
