@@ -127,6 +127,17 @@ def current_git_sha():
         return "UNKNOWN"
 
 
+def _tail_is_consecutive(rows, count, step_ms):
+    if len(rows) < int(count):
+        return False
+    tail = rows[-int(count):]
+    opens = [row_open_ms(r) for r in tail]
+    return all(
+        opens[i] - opens[i - 1] == int(step_ms)
+        for i in range(1, len(opens))
+    )
+
+
 def rel_volume20(rows):
     if len(rows) < 21:
         return None
@@ -445,7 +456,12 @@ class ForwardV3Tracker:
             _, h = self._hour(decision)
             h["evaluated_1m"] += 1
             ti = taker_imbalance(row)
-            rv = rel_volume20(rows_1m[: i + 1])
+            history_1m = rows_1m[: i + 1]
+            rv = (
+                rel_volume20(history_1m)
+                if _tail_is_consecutive(history_1m, 21, 60_000)
+                else None
+            )
 
             if ti is not None and rv is not None and abs(ti) >= 0.30 and rv >= 1.5:
                 h["events_a"] += 1
@@ -479,8 +495,17 @@ class ForwardV3Tracker:
 
             _, h = self._hour(decision)
             h["evaluated_15m"] += 1
-            r12 = ret_12(rows_15m[: i + 1])
-            rv = rel_volume20(rows_15m[: i + 1])
+            history_15m = rows_15m[: i + 1]
+            r12 = (
+                ret_12(history_15m)
+                if _tail_is_consecutive(history_15m, 13, 900_000)
+                else None
+            )
+            rv = (
+                rel_volume20(history_15m)
+                if _tail_is_consecutive(history_15m, 21, 900_000)
+                else None
+            )
 
             h["oi_checks"] += 1
             try:
