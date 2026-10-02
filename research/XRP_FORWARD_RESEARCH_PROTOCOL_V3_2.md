@@ -213,10 +213,11 @@ Local state must be bound to:
 
 A state file from another protocol/start must fail closed and require the explicit prelaunch reset workflow.
 
-Recovery continues to use:
-- recent Challenger candidates;
-- existing outcome IDs;
-- latest compatible health checkpoint.
+Recovery is completeness-based and has no arbitrary event-age cutoff. It uses:
+- every V3.2 candidate still missing at least one required outcome;
+- every V3.2 candidate newer than the latest compatible health checkpoint;
+- existing outcome IDs for those returned candidates;
+- the latest compatible health checkpoint.
 
 ## Activation/runtime invariants
 
@@ -225,7 +226,7 @@ The deployment is valid only if:
 - deployment verification happened before formal start;
 - deployed tracked Git tree is clean;
 - activation Git SHA equals collector Git SHA;
-- dedicated receptor version/storage/protocol/registry/collector identity all match;
+- dedicated receptor version/build-ID/storage/protocol/registry/collector identity all match;
 - the first runtime marker is created before formal start;
 - runtime marker hash matches the activation;
 - runtime marker protocol/registry/start/collector version/Git SHA all match the running collector.
@@ -246,7 +247,7 @@ The process is READY only after:
 
 The start script must wait for this readiness marker or fail closed.
 
-The status command must distinguish RUNNING_READY, RUNNING_NOT_READY, STOPPED and STALE_PID, and must not present historical log lines as current health.
+The status command must distinguish RUNNING_READY, RUNNING_DEGRADED, RUNNING_NOT_READY, STOPPED and STALE_PID, and must not present historical log lines as current health. A fresh CYCLE_ERROR heartbeat is RUNNING_DEGRADED, never READY.
 
 ## Storage/receptor isolation
 
@@ -263,7 +264,7 @@ Tabs:
 The dedicated Apps Script receptor must:
 - use its own CHALLENGER_SHARED_SECRET;
 - reject CURRENT modes;
-- expose its receptor version, spreadsheet ID, expected protocol version, registry SHA and collector version;
+- expose its receptor version, build ID, spreadsheet ID, expected protocol version, registry SHA and collector version;
 - serialize writes with a script lock to make retries idempotent.
 
 ## Health
