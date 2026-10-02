@@ -41,7 +41,7 @@ jobs:
         working-directory: termux
         env:
           PYTHONPATH: .:../research
-        run: python -m unittest -v test_forward_v3_tracker.py
+        run: python test_forward_v3_tracker.py
 
       - name: Receptor JavaScript syntax
         run: |
