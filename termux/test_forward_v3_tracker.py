@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import subprocess
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import historical_feature_builder_v1 as hf
 import historical_normalizer_v1 as hn
+import forward_v3_tracker as fv
 from forward_v3_tracker import (
     CANDIDATES,
     FORWARD_START_MS,
@@ -22,6 +24,7 @@ from forward_v3_tracker import (
     ret_12,
     row_available_at_ms,
     taker_imbalance,
+    _save_state,
 )
 
 UTC=timezone.utc
@@ -242,13 +245,128 @@ def test_recovery_and_health():
         assert target[0][8]==0
 
 
+def test_git_cleanliness_ignores_untracked_but_detects_tracked():
+    with tempfile.TemporaryDirectory() as td:
+        root=Path(td)
+        subprocess.run(["git","init"],cwd=root,check=True,capture_output=True)
+        subprocess.run(["git","config","user.email","test@example.com"],cwd=root,check=True)
+        subprocess.run(["git","config","user.name","Test"],cwd=root,check=True)
+        (root/"tracked.txt").write_text("a\n",encoding="utf-8")
+        subprocess.run(["git","add","tracked.txt"],cwd=root,check=True)
+        subprocess.run(["git","commit","-m","init"],cwd=root,check=True,capture_output=True)
+        head=subprocess.check_output(["git","rev-parse","HEAD"],cwd=root,text=True).strip()
+
+        old_root=fv.REPO_ROOT
+        fv.REPO_ROOT=root
+        try:
+            (root/"local.backup").write_text("ignored-by-source-identity\n",encoding="utf-8")
+            assert fv.current_git_sha()==head
+            (root/"tracked.txt").write_text("changed\n",encoding="utf-8")
+            assert fv.current_git_sha()==head+"+DIRTY"
+        finally:
+            fv.REPO_ROOT=old_root
+
+
+def test_state_provenance_fail_closed():
+    with tempfile.TemporaryDirectory() as td:
+        p=Path(td)/"state.json"
+        p.write_text(json.dumps({
+            "events":{},
+            "coverage":{
+                "last_evaluated_1m_ms":None,
+                "last_evaluated_15m_ms":None,
+                "hours":{},
+                "posted_health_ids":[]
+            }
+        }),encoding="utf-8")
+        try:
+            ForwardV3Tracker(state_path=p,now_fn=lambda: FORWARD_START_UTC)
+        except RuntimeError as exc:
+            assert "STATE_PROVENANCE_MISMATCH_RESET_REQUIRED" in str(exc)
+        else:
+            raise AssertionError("legacy/stale state must fail closed")
+
+
+def test_decision_cursors_stop_at_first_gap():
+    with tempfile.TemporaryDirectory() as td:
+        tr=ForwardV3Tracker(
+            state_path=Path(td)/"state.json",
+            now_fn=lambda: FORWARD_START_UTC+timedelta(hours=2),
+            oi_feature_fetcher=lambda session,decision:(None,None),
+        )
+        tr.state["coverage"]["last_evaluated_1m_ms"]=FORWARD_START_MS
+        rows1=[
+            row_from_raw(raw_kline(FORWARD_START_MS,1.0)),
+            row_from_raw(raw_kline(FORWARD_START_MS+120_000,1.0)),
+        ]
+        tr._evaluate_1m_decisions(rows1)
+        assert tr.state["coverage"]["last_evaluated_1m_ms"]==FORWARD_START_MS+60_000
+
+        def row15(open_ms):
+            close_ms=open_ms+899_999
+            return [
+                iso_ms(open_ms),1.0,1.0,1.0,1.0,100.0,iso_ms(close_ms),
+                100.0,10,50.0,50.0
+            ]
+
+        tr.state["coverage"]["last_evaluated_15m_ms"]=FORWARD_START_MS
+        rows15=[
+            row15(FORWARD_START_MS),
+            row15(FORWARD_START_MS+30*60_000),
+        ]
+        tr._evaluate_15m_decisions(rows15,FakeSession([]))
+        assert tr.state["coverage"]["last_evaluated_15m_ms"]==FORWARD_START_MS+15*60_000
+
+
+def test_incomplete_outcome_visible_to_same_cycle_health_state():
+    with tempfile.TemporaryDirectory() as td:
+        tr=ForwardV3Tracker(
+            state_path=Path(td)/"state.json",
+            now_fn=lambda: FORWARD_START_UTC+timedelta(minutes=20),
+        )
+        eid="XRP-FWD-V3-A-TAKER-EXHAUSTION|"+iso_ms(FORWARD_START_MS)
+        tr.state["events"][eid]={
+            "event_id":eid,
+            "candidate_id":"XRP-FWD-V3-A-TAKER-EXHAUSTION",
+            "decision_grid":"SCALP_1M",
+            "decision_time_ms":FORWARD_START_MS,
+            "decision_time":iso_ms(FORWARD_START_MS),
+            "bar_open":iso_ms(FORWARD_START_MS-60_000),
+            "direction":"LONG",
+            "reference_price":1.0,
+            "features":{},
+            "metrics_available_at":"",
+            "rule_params":CANDIDATES["XRP-FWD-V3-A-TAKER-EXHAUSTION"]["params"],
+            "horizons":[5],
+            "primary_horizon":5,
+            "event_posted":True,
+            "posted_horizons":[],
+            "outcome_status":{},
+            "created_utc":iso_ms(FORWARD_START_MS),
+        }
+        # Exact 5m window is missing minute +3. A later row moves us beyond grace.
+        available=[1,2,4,5,10]
+        rows=[
+            row_from_raw(raw_kline(FORWARD_START_MS+(m-1)*60_000,1.0))
+            for m in available
+        ]
+        out=tr.pending_outcome_rows(rows)
+        assert len(out)==1
+        assert out[0][10]=="INCOMPLETE"
+        assert tr.state["events"][eid]["outcome_status"]["5"]=="INCOMPLETE"
+
+
 def main():
     test_pre_start_gate()
     test_paginated_catchup_and_all_new_minutes()
     test_resample_and_feature_parity()
     test_recovery_and_health()
-    print("PASS XRP_FORWARD_V3_1_CAPTURE_PARITY_RECOVERY")
-    print("pre_start=PASS catchup=PASS pagination=PASS resample_parity=PASS feature_parity=PASS recovery=PASS health=PASS")
+    test_git_cleanliness_ignores_untracked_but_detects_tracked()
+    test_state_provenance_fail_closed()
+    test_decision_cursors_stop_at_first_gap()
+    test_incomplete_outcome_visible_to_same_cycle_health_state()
+    print("PASS XRP_FORWARD_V3_2_CAPTURE_PARITY_RECOVERY")
+    print("pre_start=PASS catchup=PASS pagination=PASS resample_parity=PASS feature_parity=PASS recovery=PASS health=PASS git_cleanliness=PASS state_provenance=PASS gap_stop=PASS incomplete_health_state=PASS")
 
 
 if __name__=="__main__":
