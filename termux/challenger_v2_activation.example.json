@@ -1,0 +1,13 @@
+{
+  "enabled": false,
+  "protocol_version": "XRP_FORWARD_V3_2",
+  "registry_sha256": "94babcf11323827e1ec7e77cc4c64977c5a656794cef0b1e2c2056c0cc2f34f9",
+  "formal_start_utc": "2026-10-02T12:00:00Z",
+  "deployment_verified_utc": null,
+  "collector_commit_sha": "<FILLED_BY_DEPLOYMENT_GATE>",
+  "receptor_commit_sha": "<FILLED_BY_DEPLOYMENT_GATE>",
+  "receptor_version": "XRP_RECEPTOR_CHALLENGER_V2_R1",
+  "challenger_spreadsheet_id": "14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA",
+  "collector_version": "XRP_CHALLENGER_COLLECTOR_V2",
+  "notes": "Example only. Do not copy manually; use challenger_deployment_gate_v2.py --write-activation."
+}
