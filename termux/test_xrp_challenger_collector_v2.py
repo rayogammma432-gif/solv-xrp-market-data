@@ -152,6 +152,10 @@ def main():
         "RUNNING_READY",
         "RUNTIME_COLLECTOR_GIT_SHA_MISMATCH",
         "LATE_FIRST_START_BLOCKED_CREATE_NEW_PROTOCOL_START",
+        "COLLECTOR_SOURCE_CHANGED_DURING_RUNTIME",
+        "RECEPTOR_IDENTITY_MISMATCH",
+        "UNREGISTERED_RUNNING",
+        "HEARTBEAT_STALE_SECONDS",
     ):
         assert marker_text in challenger_src, marker_text
 
@@ -189,7 +193,7 @@ def main():
     print("PASS XRP_CHALLENGER_INDEPENDENT_COLLECTOR_V2")
     print(
         "activation_guard=PASS late_start=PASS runtime_binding=PASS "
-        "git_semantics=PASS readiness=PASS receptor_lock=PASS isolation=PASS"
+        "git_semantics=PASS readiness=PASS heartbeat=PASS process_discovery=PASS runtime_revalidation=PASS receptor_identity=PASS receptor_lock=PASS isolation=PASS"
     )
 
 
