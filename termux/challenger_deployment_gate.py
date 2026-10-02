@@ -184,7 +184,7 @@ def atomic_write(path, obj):
 
 
 def local_artifact_paths(activation_path=DEFAULT_ACTIVATION):
-    return [
+    primary = [
         Path(activation_path),
         Path(DEFAULT_RUNTIME),
         Path(DEFAULT_STATE),
@@ -192,6 +192,12 @@ def local_artifact_paths(activation_path=DEFAULT_ACTIVATION):
         Path(DEFAULT_HEARTBEAT),
         Path(DEFAULT_PID),
     ]
+    tmp = [
+        p.with_suffix(p.suffix + ".tmp")
+        for p in primary
+        if p.suffix
+    ]
+    return primary + tmp
 
 
 def _pid_alive_from_file(pid_path=None):
@@ -231,10 +237,11 @@ def reset_local_prelaunch(activation_path=DEFAULT_ACTIVATION, now_fn=utc_now):
     archive = ARCHIVE_ROOT / stamp
     moved = []
     candidates = local_artifact_paths(activation_path)
-    challenger_logs = [
-        HERE / "logs" / "challenger_collector.log",
-        HERE / "logs" / "challenger_stdout.log",
-    ]
+    log_dir = HERE / "logs"
+    challenger_logs = []
+    if log_dir.exists():
+        challenger_logs.extend(sorted(log_dir.glob("challenger_collector.log*")))
+        challenger_logs.extend(sorted(log_dir.glob("challenger_stdout.log*")))
     candidates.extend(challenger_logs)
 
     for p in candidates:
