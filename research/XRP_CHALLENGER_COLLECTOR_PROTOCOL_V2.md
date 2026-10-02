@@ -65,7 +65,7 @@ The collector is `RUNNING_READY` only after:
 - activation validates;
 - runtime marker validates/exists;
 - dedicated receptor recovery succeeds;
-- a ready marker matching PID, activation hash, Git SHA, protocol, registry, collector version, receptor version and storage ID exists.
+- a ready marker matching PID, activation hash, Git SHA, protocol, registry, collector version, receptor version, receptor build ID and storage ID exists.
 
 A live PID without these invariants is `RUNNING_NOT_READY`. A live process whose fresh heartbeat reports `CYCLE_ERROR` is `RUNNING_DEGRADED`; it is never reported as READY merely because the process remains alive.
 
@@ -80,7 +80,7 @@ Before a new launch, stale V1 artifacts are removed only through:
 `python termux/challenger_deployment_gate.py --reset-local-prelaunch`
 
 The command:
-- is forbidden inside the final 10-minute safety window;
+- is forbidden inside the final 30-minute safety window;
 - refuses while a Challenger process is alive;
 - archives stale generated artifacts;
 - does not modify `termux/config.json` or its secrets.
@@ -93,7 +93,7 @@ After reset:
 1. tracked Git worktree must be clean;
 2. CURRENT XRP URL and secret must be present so isolation can be proven;
 3. Challenger URL and secret must be non-placeholder and different from CURRENT;
-4. dedicated receptor must return the expected receptor version, spreadsheet ID, protocol version, registry SHA and collector version;
+4. dedicated receptor must return the expected receptor version, receptor build ID, spreadsheet ID, protocol version, registry SHA and collector version;
 5. no stale local launch artifacts may exist;
 6. generated activation must pass the collector's validator;
 7. activation is written only with `--write-activation`.
