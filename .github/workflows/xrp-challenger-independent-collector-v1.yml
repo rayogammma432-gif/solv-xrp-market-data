@@ -1,10 +1,32 @@
-name: XRP Challenger Independent Collector Prelaunch V1
-# rerun: 7
+name: XRP Challenger Independent Collector Prelaunch V2
 
 on:
   workflow_dispatch:
   push:
     paths:
+      - "termux/**"
+      - "apps-script/XRP_Challenger_Receptor.gs"
+      - "apps-script/XRP_Receptor_Incremental.gs"
+      - "research/XRP_FORWARD_RESEARCH_PROTOCOL_V3_2.md"
+      - "research/XRP_CHALLENGER_COLLECTOR_PROTOCOL_V2.md"
+      - "research/XRP_CHALLENGER_DEPLOYMENT_GATE_V2.md"
+      - "research/experiments/XRP_FORWARD_REGISTRY_V3_2.jsonl"
+      - "research/experiments/XRP_CHALLENGER_COLLECTOR_REGISTRY_V2.json"
+      - "research/validate_xrp_challenger_collector_v2.py"
+      - ".gitignore"
+      - ".github/workflows/xrp-challenger-independent-collector-v1.yml"
+  pull_request:
+    paths:
+      - "termux/**"
+      - "apps-script/XRP_Challenger_Receptor.gs"
+      - "apps-script/XRP_Receptor_Incremental.gs"
+      - "research/XRP_FORWARD_RESEARCH_PROTOCOL_V3_2.md"
+      - "research/XRP_CHALLENGER_COLLECTOR_PROTOCOL_V2.md"
+      - "research/XRP_CHALLENGER_DEPLOYMENT_GATE_V2.md"
+      - "research/experiments/XRP_FORWARD_REGISTRY_V3_2.jsonl"
+      - "research/experiments/XRP_CHALLENGER_COLLECTOR_REGISTRY_V2.json"
+      - "research/validate_xrp_challenger_collector_v2.py"
+      - ".gitignore"
       - ".github/workflows/xrp-challenger-independent-collector-v1.yml"
 
 jobs:
@@ -15,91 +37,34 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Python syntax
-        run: |
-          python -m py_compile \
-            termux/forward_v3_tracker.py \
-            termux/xrp_challenger_collector.py \
-            termux/challenger_deployment_gate.py \
-            termux/market_collector.py \
-            termux/test_forward_v3_tracker.py \
-            termux/test_xrp_challenger_collector_v1.py \
-            termux/test_challenger_deployment_gate_v1.py \
-            research/validate_xrp_challenger_collector_v1.py
+        run: python -m py_compile termux/forward_v3_tracker.py termux/xrp_challenger_collector.py termux/challenger_deployment_gate.py termux/market_collector.py termux/test_forward_v3_tracker.py termux/test_xrp_challenger_collector_v2.py termux/test_challenger_deployment_gate_v2.py research/validate_xrp_challenger_collector_v2.py
 
       - name: Shell syntax
-        run: |
-          bash -n termux/start_challenger_collector.sh
-          bash -n termux/stop_challenger_collector.sh
-          bash -n termux/status_challenger_collector.sh
+        run: bash -n termux/start_challenger_collector.sh && bash -n termux/stop_challenger_collector.sh && bash -n termux/status_challenger_collector.sh
 
       - name: Apps Script syntax
-        run: |
-          cp apps-script/XRP_Receptor_Incremental.gs /tmp/xrp_receptor.js
-          cp apps-script/XRP_Challenger_Receptor.gs /tmp/xrp_challenger_receptor.js
-          node --check /tmp/xrp_receptor.js
-          node --check /tmp/xrp_challenger_receptor.js
+        run: cp apps-script/XRP_Challenger_Receptor.gs /tmp/xrp_challenger_receptor.js && cp apps-script/XRP_Receptor_Incremental.gs /tmp/xrp_current_receptor.js && node --check /tmp/xrp_challenger_receptor.js && node --check /tmp/xrp_current_receptor.js
 
-      - name: Existing V3.1 rule-engine smoke
+      - name: V3.2 tracker parity and regressions
         env:
           PYTHONPATH: termux:research
         run: python termux/test_forward_v3_tracker.py
 
-      - name: Independent collector isolation smoke
+      - name: Challenger V2 activation and isolation
         env:
           PYTHONPATH: termux
-        run: python termux/test_xrp_challenger_collector_v1.py
+        run: python termux/test_xrp_challenger_collector_v2.py
 
-      - name: Deployment gate unit smoke
+      - name: Challenger V2 deployment gate
         env:
           PYTHONPATH: termux
-        run: python termux/test_challenger_deployment_gate_v1.py
+        run: python termux/test_challenger_deployment_gate_v2.py
 
-      - name: Validate prelaunch registry and separation
-        run: python research/validate_xrp_challenger_collector_v1.py
+      - name: Validate preregistration and separation
+        run: python research/validate_xrp_challenger_collector_v2.py
 
-      - name: Build deployment manifest
-        run: |
-          python - <<'PY'
-          import hashlib, json, os, subprocess
-          from pathlib import Path
-
-          def sha256(path):
-              return hashlib.sha256(Path(path).read_bytes()).hexdigest()
-
-          def file_commit(path):
-              return subprocess.check_output(
-                  ["git","log","-1","--format=%H","--",path],
-                  text=True
-              ).strip()
-
-          out=Path("challenger-collector-prelaunch")
-          out.mkdir(exist_ok=True)
-          manifest={
-              "status":"READY_FOR_DEVICE_DEPLOYMENT_NOT_ACTIVATED",
-              "deploy_head_sha":os.environ["GITHUB_SHA"],
-              "collector_file":"termux/xrp_challenger_collector.py",
-              "collector_sha256":sha256("termux/xrp_challenger_collector.py"),
-              "collector_file_commit":file_commit("termux/xrp_challenger_collector.py"),
-              "deployment_gate_file":"termux/challenger_deployment_gate.py",
-              "deployment_gate_sha256":sha256("termux/challenger_deployment_gate.py"),
-              "receptor_file":"apps-script/XRP_Challenger_Receptor.gs",
-              "receptor_sha256":sha256("apps-script/XRP_Challenger_Receptor.gs"),
-              "receptor_file_commit":file_commit("apps-script/XRP_Challenger_Receptor.gs"),
-              "receptor_version":"XRP_RECEPTOR_CHALLENGER_V1_R2",
-              "challenger_spreadsheet_id":"14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA",
-              "protocol_version":"XRP_FORWARD_V3_1",
-              "registry_sha256":"4905aa1e94cbf2fe9318c761942d440a298ba5655d78e8e3a80bfc5cb85caded",
-              "formal_start_utc":"2026-10-01T06:00:00Z",
-              "activation_enabled":False
-          }
-          (out/"XRP_CHALLENGER_DEPLOYMENT_MANIFEST_V1.json").write_text(
-              json.dumps(manifest,indent=2)+"\n", encoding="utf-8"
-          )
-          print(json.dumps(manifest,indent=2))
-          PY
-
-      - name: Upload validation
+      - name: Upload validation report
         uses: actions/upload-artifact@v4
         with:
-          name: xrp-challenger-independent-collector-prelaunch-v1
-          path: challenger-collector-prelaunch/
+          name: xrp-challenger-independent-collector-prelaunch-v2
+          path: challenger-collector-prelaunch-v2/
