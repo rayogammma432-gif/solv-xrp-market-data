@@ -4,10 +4,10 @@
 // CHALLENGER_SHARED_SECRET = secret used only by termux challenger config.
 
 const CHALLENGER_SPREADSHEET_ID = '14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA';
-const CHALLENGER_RECEPTOR_VERSION = 'XRP_RECEPTOR_CHALLENGER_V1_R2';
-const EXPECTED_PROTOCOL_VERSION = 'XRP_FORWARD_V3_1';
-const EXPECTED_REGISTRY_SHA256 = '4905aa1e94cbf2fe9318c761942d440a298ba5655d78e8e3a80bfc5cb85caded';
-const EXPECTED_COLLECTOR_VERSION = 'XRP_CHALLENGER_COLLECTOR_V1';
+const CHALLENGER_RECEPTOR_VERSION = 'XRP_RECEPTOR_CHALLENGER_V2_R1';
+const EXPECTED_PROTOCOL_VERSION = 'XRP_FORWARD_V3_2';
+const EXPECTED_REGISTRY_SHA256 = '99c17ecf3c3b376f734dc7469351445c7d6727f96d0cb7d5580ea59b5f9f932a';
+const EXPECTED_COLLECTOR_VERSION = 'XRP_CHALLENGER_COLLECTOR_V2';
 
 const EVENT_BASE_COLS = 27;
 const EVENT_COLS = 29;
@@ -212,8 +212,14 @@ function doPost(e) {
       throw new Error('mode Challenger inválido: ' + mode);
     }
 
-    const ss = SpreadsheetApp.openById(CHALLENGER_SPREADSHEET_ID);
-    const counts = {};
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(30000)) {
+      throw new Error('CHALLENGER_WRITE_LOCK_TIMEOUT');
+    }
+
+    try {
+      const ss = SpreadsheetApp.openById(CHALLENGER_SPREADSHEET_ID);
+      const counts = {};
 
     if (Array.isArray(payload.challengerCandidates)) {
       validateCandidateRows_(payload.challengerCandidates);
@@ -258,16 +264,22 @@ function doPost(e) {
       ? recovery_(ss)
       : null;
 
-    return jsonOut_({
-      ok: true,
-      status: 'OK',
-      mode: mode,
-      updatedAtUtc: payload.generatedAtUtc || new Date().toISOString(),
-      rows: counts,
-      challengerReceptorVersion: CHALLENGER_RECEPTOR_VERSION,
-      challengerSpreadsheetId: CHALLENGER_SPREADSHEET_ID,
-      challengerRecovery: recovery
-    });
+      return jsonOut_({
+        ok: true,
+        status: 'OK',
+        mode: mode,
+        updatedAtUtc: payload.generatedAtUtc || new Date().toISOString(),
+        rows: counts,
+        challengerReceptorVersion: CHALLENGER_RECEPTOR_VERSION,
+        challengerSpreadsheetId: CHALLENGER_SPREADSHEET_ID,
+        challengerProtocolVersion: EXPECTED_PROTOCOL_VERSION,
+        challengerRegistrySha256: EXPECTED_REGISTRY_SHA256,
+        challengerCollectorVersion: EXPECTED_COLLECTOR_VERSION,
+        challengerRecovery: recovery
+      });
+    } finally {
+      lock.releaseLock();
+    }
 
   } catch (err) {
     return jsonOut_({
