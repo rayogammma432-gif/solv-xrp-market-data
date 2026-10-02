@@ -28,7 +28,7 @@
     "rule_file": "agents/XRP_CHALLENGER_PAIRED_V1.md",
     "rule_commit_sha": "bb6605e06066fc42d8b440954ec92a9f401d99bf",
     "runner_file": "agents/XRP_PAIRED_CHALLENGER_RUNNER_V1.md",
-    "runner_commit_sha": "769fa0193b89b63cad81083af8851cb1d3126541"
+    "runner_commit_sha": "822bc86ea4f7a679d2928385ecf6c262a2ee2cbe"
   },
   "standardized_horizons_min": {
     "SCALP_TRIGGER": 15,
@@ -76,7 +76,7 @@
     "receptor_file": "apps-script/XRP_Receptor_Incremental.gs",
     "receptor_commit_sha": "dac8e1e9d0280b6bf57f911c7fcdd8ceb11395f2",
     "protocol_file": "research/XRP_PAIRED_BENCHMARK_PROTOCOL_V1.md",
-    "protocol_commit_sha": "f18d8d95b700f543aa5371fdaf1717a558193fd6",
+    "protocol_commit_sha": "acdbdc70f0e121909e22c71be4f88874f6116f2a",
     "isolation_protocol_file": "research/XRP_PAIRED_ISOLATION_PROTOCOL_V1.md",
     "isolation_protocol_commit_sha": "178355de67d6b3b0c0414daf40615c1794484a61",
     "evaluator_file": "research/xrp_paired_benchmark_evaluator_v1.py",
