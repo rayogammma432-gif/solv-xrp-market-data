@@ -58,6 +58,10 @@ jobs:
           tracker = Path("termux/analysis_tracker.py").read_text()
 
           required_receptor = [
+              "const XRP_V3_4_RECEPTOR_VERSION = 'XRP_RECEPTOR_V3_4_V1';",
+              "const XRP_V3_4_RULE_VERSION = 'XRP_V3.4';",
+              "const XRP_V3_4_SCHEMA_VERSION = 'XRP_V3_4_SCHEMA_DY_AQ_V1';",
+              "function doGet(e) {",
               "const SIGNAL_COLS = 43;",
               "const ANALYSIS_COLS = 129;",
               "const planRange = sh.getRange(row, 118, 1, 2); // DN:DO",
