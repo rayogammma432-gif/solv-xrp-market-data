@@ -43,8 +43,9 @@ DEFAULT_PID = HERE / "challenger_collector.pid"
 LOG_DIR = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
-COLLECTOR_VERSION = "XRP_CHALLENGER_COLLECTOR_V2"
-EXPECTED_RECEPTOR_VERSION = "XRP_RECEPTOR_CHALLENGER_V2_R2"
+COLLECTOR_VERSION = "XRP_CHALLENGER_COLLECTOR_V2_R2"
+EXPECTED_RECEPTOR_VERSION = "XRP_RECEPTOR_CHALLENGER_V2_R3"
+EXPECTED_RECEPTOR_BUILD_ID = "XRP_CHALLENGER_RECEPTOR_BUILD_20261002_R3"
 EXPECTED_CHALLENGER_SPREADSHEET_ID = "14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA"
 CYCLE_SECOND = 8
 HEARTBEAT_STALE_SECONDS = 180
@@ -155,6 +156,8 @@ def validate_activation(
         errors.append("REGISTRY_SHA_MISMATCH")
     if activation.get("receptor_version") != EXPECTED_RECEPTOR_VERSION:
         errors.append("RECEPTOR_VERSION_MISMATCH")
+    if activation.get("receptor_build_id") != EXPECTED_RECEPTOR_BUILD_ID:
+        errors.append("RECEPTOR_BUILD_ID_MISMATCH")
     if activation.get("challenger_spreadsheet_id") != EXPECTED_CHALLENGER_SPREADSHEET_ID:
         errors.append("SPREADSHEET_ID_MISMATCH")
 
@@ -288,6 +291,7 @@ class ChallengerCollector:
             "collector_git_sha": self.git_sha,
             "activation_sha256": sha256_json(activation),
             "receptor_version": str(receptor_response.get("challengerReceptorVersion") or ""),
+            "receptor_build_id": str(receptor_response.get("challengerReceptorBuildId") or ""),
             "challenger_spreadsheet_id": str(receptor_response.get("challengerSpreadsheetId") or ""),
         }
         save_json_atomic(self.ready_path, marker)
@@ -310,6 +314,7 @@ class ChallengerCollector:
     def validate_receptor_identity(response):
         received = {
             "receptor_version": str(response.get("challengerReceptorVersion") or ""),
+            "receptor_build_id": str(response.get("challengerReceptorBuildId") or ""),
             "spreadsheet_id": str(response.get("challengerSpreadsheetId") or ""),
             "protocol_version": str(response.get("challengerProtocolVersion") or ""),
             "registry_sha256": str(response.get("challengerRegistrySha256") or ""),
@@ -317,6 +322,7 @@ class ChallengerCollector:
         }
         expected = {
             "receptor_version": EXPECTED_RECEPTOR_VERSION,
+            "receptor_build_id": EXPECTED_RECEPTOR_BUILD_ID,
             "spreadsheet_id": EXPECTED_CHALLENGER_SPREADSHEET_ID,
             "protocol_version": PROTOCOL_VERSION,
             "registry_sha256": REGISTRY_SHA256,
@@ -429,6 +435,7 @@ class ChallengerCollector:
             response = self.receptor_recovery()
             result["receptor_checked"] = True
             result["receptor_version"] = response.get("challengerReceptorVersion")
+            result["receptor_build_id"] = response.get("challengerReceptorBuildId")
             result["receptor_spreadsheet_id"] = response.get("challengerSpreadsheetId")
             result["receptor_protocol_version"] = response.get("challengerProtocolVersion")
             result["receptor_registry_sha256"] = response.get("challengerRegistrySha256")
@@ -531,10 +538,11 @@ def status_snapshot(
     )
 
     heartbeat_fresh = _heartbeat_is_fresh(heartbeat)
+    heartbeat_status = str((heartbeat or {}).get("status") or "")
     heartbeat_ok = bool(
         heartbeat_fresh
         and int((heartbeat or {}).get("pid") or -1) == int(pid or -2)
-        and str((heartbeat or {}).get("status") or "") not in {"GLOBAL_ERROR"}
+        and heartbeat_status in {"STARTUP_READY", "CYCLE_OK"}
     )
     ready_valid = bool(
         running
@@ -548,6 +556,7 @@ def status_snapshot(
         and ready.get("collector_version") == COLLECTOR_VERSION
         and ready.get("collector_git_sha") == git_sha
         and ready.get("receptor_version") == EXPECTED_RECEPTOR_VERSION
+        and ready.get("receptor_build_id") == EXPECTED_RECEPTOR_BUILD_ID
         and ready.get("challenger_spreadsheet_id") == EXPECTED_CHALLENGER_SPREADSHEET_ID
         and heartbeat_ok
         and not activation_errors
@@ -557,6 +566,8 @@ def status_snapshot(
         status = "UNREGISTERED_RUNNING"
     elif running and ready_valid:
         status = "RUNNING_READY"
+    elif running and heartbeat_fresh and heartbeat_status == "CYCLE_ERROR":
+        status = "RUNNING_DEGRADED"
     elif running:
         status = "RUNNING_NOT_READY"
     elif pid is not None:
@@ -572,6 +583,7 @@ def status_snapshot(
         "unregistered_live_pids": unregistered_pids,
         "ready": ready_valid,
         "heartbeat_fresh": heartbeat_fresh,
+        "heartbeat_status": heartbeat_status,
         "activation_present": Path(activation_path).exists(),
         "runtime_marker_present": Path(runtime_path).exists(),
         "state_present": Path(state_path).exists(),
