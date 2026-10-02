@@ -11,6 +11,10 @@ from pathlib import Path
 import requests
 
 from xrp_challenger_collector import (
+    DEFAULT_HEARTBEAT,
+    DEFAULT_READY,
+    DEFAULT_RUNTIME,
+    DEFAULT_STATE,
     EXPECTED_CHALLENGER_SPREADSHEET_ID,
     EXPECTED_RECEPTOR_VERSION,
     FORWARD_START_UTC,
@@ -23,6 +27,8 @@ HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent
 DEFAULT_CONFIG = HERE / "config.json"
 DEFAULT_ACTIVATION = HERE / "challenger_activation.json"
+DEFAULT_PID = HERE / "challenger_collector.pid"
+ARCHIVE_ROOT = HERE / "prelaunch_archive"
 RECEPTOR_FILE = "apps-script/XRP_Challenger_Receptor.gs"
 MIN_ACTIVATION_LEAD_SECONDS = 10 * 60
 
@@ -76,6 +82,10 @@ def validate_config_isolation(data):
     h_url = str(challenger.get("web_app_url") or "").strip()
     h_secret = str(challenger.get("shared_secret") or "").strip()
 
+    if not c_url:
+        errors.append("CURRENT_XRP_URL_MISSING_CANNOT_VERIFY_ISOLATION")
+    if not c_secret:
+        errors.append("CURRENT_XRP_SECRET_MISSING_CANNOT_VERIFY_ISOLATION")
     if not h_url.startswith("https://") or "/exec" not in h_url:
         errors.append("CHALLENGER_URL_INVALID")
     if not h_secret:
@@ -116,9 +126,28 @@ def probe_receptor(session, cfg, now):
         raise RuntimeError(
             f"RECEPTOR_STORAGE_MISMATCH recibido={storage!r} esperado={EXPECTED_CHALLENGER_SPREADSHEET_ID!r}"
         )
+    protocol = str(data.get("challengerProtocolVersion") or "")
+    registry = str(data.get("challengerRegistrySha256") or "")
+    collector = str(data.get("challengerCollectorVersion") or "")
+    if protocol != PROTOCOL_VERSION:
+        raise RuntimeError(
+            f"RECEPTOR_PROTOCOL_MISMATCH recibido={protocol!r} esperado={PROTOCOL_VERSION!r}"
+        )
+    if registry != REGISTRY_SHA256:
+        raise RuntimeError(
+            f"RECEPTOR_REGISTRY_MISMATCH recibido={registry!r} esperado={REGISTRY_SHA256!r}"
+        )
+    from xrp_challenger_collector import COLLECTOR_VERSION
+    if collector != COLLECTOR_VERSION:
+        raise RuntimeError(
+            f"RECEPTOR_COLLECTOR_MISMATCH recibido={collector!r} esperado={COLLECTOR_VERSION!r}"
+        )
     return {
         "version": version,
         "spreadsheet_id": storage,
+        "protocol_version": protocol,
+        "registry_sha256": registry,
+        "collector_version": collector,
         "recovery_present": data.get("challengerRecovery") is not None,
     }
 
@@ -153,6 +182,76 @@ def atomic_write(path, obj):
     tmp.replace(p)
 
 
+def local_artifact_paths(activation_path=DEFAULT_ACTIVATION):
+    return [
+        Path(activation_path),
+        Path(DEFAULT_RUNTIME),
+        Path(DEFAULT_STATE),
+        Path(DEFAULT_READY),
+        Path(DEFAULT_HEARTBEAT),
+        Path(DEFAULT_PID),
+    ]
+
+
+def _pid_alive_from_file(pid_path=DEFAULT_PID):
+    p = Path(pid_path)
+    if not p.exists():
+        return False
+    try:
+        pid = int(p.read_text(encoding="utf-8").strip())
+        if pid <= 0:
+            return False
+        __import__("os").kill(pid, 0)
+        return True
+    except Exception:
+        return False
+
+
+def stale_local_artifacts(activation_path=DEFAULT_ACTIVATION):
+    return [str(p) for p in local_artifact_paths(activation_path) if p.exists()]
+
+
+def reset_local_prelaunch(activation_path=DEFAULT_ACTIVATION, now_fn=utc_now):
+    now = now_fn()
+    seconds_left = (FORWARD_START_UTC - now).total_seconds()
+    if seconds_left <= MIN_ACTIVATION_LEAD_SECONDS:
+        raise RuntimeError(
+            "RESET_BLOCKED_INSUFFICIENT_PRESTART_MARGIN: quedan "
+            f"{max(0, int(seconds_left))}s; minimo={MIN_ACTIVATION_LEAD_SECONDS}s"
+        )
+    if _pid_alive_from_file():
+        raise RuntimeError("RESET_BLOCKED_CHALLENGER_PROCESS_IS_RUNNING")
+
+    stamp = now.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    archive = ARCHIVE_ROOT / stamp
+    moved = []
+    candidates = local_artifact_paths(activation_path)
+    challenger_logs = [
+        HERE / "logs" / "challenger_collector.log",
+        HERE / "logs" / "challenger_stdout.log",
+    ]
+    candidates.extend(challenger_logs)
+
+    for p in candidates:
+        if not p.exists():
+            continue
+        archive.mkdir(parents=True, exist_ok=True)
+        dest = archive / p.name
+        n = 1
+        while dest.exists():
+            dest = archive / f"{p.stem}.{n}{p.suffix}"
+            n += 1
+        p.replace(dest)
+        moved.append({"from": str(p), "to": str(dest)})
+
+    return {
+        "status": "RESET_PRELAUNCH_OK",
+        "protocol_version": PROTOCOL_VERSION,
+        "formal_start_utc": FORWARD_START_UTC.isoformat().replace("+00:00", "Z"),
+        "archived": moved,
+    }
+
+
 def run(config_path, activation_path, write_activation=False, now_fn=utc_now, session=None):
     now = now_fn()
     seconds_left = (FORWARD_START_UTC - now).total_seconds()
@@ -160,11 +259,17 @@ def run(config_path, activation_path, write_activation=False, now_fn=utc_now, se
         raise RuntimeError(
             "INSUFFICIENT_PRESTART_MARGIN: quedan "
             f"{max(0, int(seconds_left))}s; mínimo={MIN_ACTIVATION_LEAD_SECONDS}s. "
-            "No activar V3.1; crear nueva versión/start."
+            "No activar V3.2; crear nueva versión/start."
         )
 
     if git_tracked_dirty():
         raise RuntimeError("GIT_TRACKED_WORKTREE_DIRTY")
+
+    stale = stale_local_artifacts(activation_path)
+    if stale:
+        raise RuntimeError(
+            "STALE_LOCAL_ARTIFACTS_PRESENT_RUN_RESET_FIRST: " + ", ".join(stale)
+        )
 
     cfg = load_config(config_path)
     errors = validate_config_isolation(cfg)
@@ -199,6 +304,9 @@ def run(config_path, activation_path, write_activation=False, now_fn=utc_now, se
         "protocol_version": PROTOCOL_VERSION,
         "registry_sha256": REGISTRY_SHA256,
         "receptor_version": receptor["version"],
+        "receptor_protocol_version": receptor["protocol_version"],
+        "receptor_registry_sha256": receptor["registry_sha256"],
+        "receptor_collector_version": receptor["collector_version"],
         "challenger_spreadsheet_id": receptor["spreadsheet_id"],
         "config_isolated_from_current": True,
         "activation_written": False,
@@ -221,8 +329,21 @@ def main():
         action="store_true",
         help="Write challenger_activation.json only after every pre-start gate passes.",
     )
+    ap.add_argument(
+        "--reset-local-prelaunch",
+        action="store_true",
+        help="Archive stale Challenger activation/runtime/state/PID/log artifacts before a new pre-start launch.",
+    )
     args = ap.parse_args()
     try:
+        if args.reset_local_prelaunch:
+            if args.write_activation:
+                raise RuntimeError("RESET_AND_WRITE_ACTIVATION_MUST_BE_SEPARATE_STEPS")
+            result = reset_local_prelaunch(
+                activation_path=args.activation,
+            )
+            print(json.dumps(result, indent=2, sort_keys=True))
+            return 0
         result = run(
             config_path=args.config,
             activation_path=args.activation,
