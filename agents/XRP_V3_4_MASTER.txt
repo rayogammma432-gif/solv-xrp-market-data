@@ -263,6 +263,14 @@ COMPATIBILIDAD
 Receptor V3.4: apps-script/XRP_Receptor_V3_4.gs.
 NO modificar ni desplegar apps-script/XRP_Receptor_Incremental.gs como parte de V3.4; ese archivo permanece congelado para V3.3 y el paired benchmark.
 V3.4 debe desplegarse como Web App separado y cambiar el endpoint operativo solo durante la activación explícita.
+Antes de activación, verificar por GET/health:
+- receptorVersion=XRP_RECEPTOR_V3_4_V1
+- ruleVersion=XRP_V3.4
+- schemaVersion=XRP_V3_4_SCHEMA_DY_AQ_V1
+- signalCols=43
+- analysisCols=129
+- spreadsheetId coincide con XRP_Market_Data.
+El health probe no escribe datos.
 XRP_V3.3 queda congelado y no se reescribe.
 No modificar retroactivamente estados, señales ni scores históricos.
 V3.4 comienza solo desde una activación explícita y futura.
