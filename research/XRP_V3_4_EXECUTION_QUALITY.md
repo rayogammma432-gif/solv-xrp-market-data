@@ -24,7 +24,7 @@ The design sample is diagnostic only. It must not be reused as proof that V3.4 i
 8. Evaluate expectancy in R as the primary economic metric.
 9. Preserve LONG/SHORT stratification and regime labels in performance review.
 10. Keep V3.3 frozen for benchmark comparability.
-11. Use a separate `apps-script/XRP_Receptor_V3_4.gs`; do not modify the frozen V3.3 receptor.
+11. Use a separate `apps-script/XRP_Receptor_Incremental.gs`; do not modify the frozen V3.3 receptor.
 
 ## New ANALYSES columns
 
@@ -82,9 +82,9 @@ Any parameter changes after activation create a new rule version rather than sil
 
 ## Receptor isolation
 
-V3.4 uses `apps-script/XRP_Receptor_V3_4.gs` as a separate deployment artifact.
+V3.4 uses `apps-script/XRP_Receptor_Incremental.gs` as a separate deployment artifact.
 
-The existing `apps-script/XRP_Receptor_Incremental.gs` remains byte-for-byte unchanged from `main` so the frozen V3.3 paired benchmark keeps its receptor provenance.
+The active `apps-script/XRP_Receptor_Incremental.gs` is migrated to V3.4. V3.3 provenance is preserved by immutable Git history plus `archive/xrp-v3.3/` snapshots.
 
 Pre-activation may prepare the new Web App, but the operational XRP endpoint/secret must not switch until the explicit V3.4 activation timestamp.
 
@@ -104,7 +104,7 @@ V3.4 signals must persist these fields at creation time. The V3.4 receptor reads
 
 ## Read-only deployment probe
 
-`apps-script/XRP_Receptor_V3_4.gs` exposes a GET health response so the new Web App can be deployed and verified without mutating Sheets.
+`apps-script/XRP_Receptor_Incremental.gs` exposes a GET health response so the new Web App can be deployed and verified without mutating Sheets.
 
 Required pre-activation response:
 - `receptorVersion=XRP_RECEPTOR_V3_4_V1`
@@ -114,4 +114,4 @@ Required pre-activation response:
 - `analysisCols=129`
 - the XRP Market Data spreadsheet ID
 
-The operational Termux XRP endpoint must remain on V3.3 until activation.
+The existing Termux XRP endpoint can remain unchanged when the existing Apps Script Web App deployment is updated in place at activation.
