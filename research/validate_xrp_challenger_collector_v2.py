@@ -150,9 +150,18 @@ def main():
         "challengerRegistrySha256",
         "challengerCollectorVersion",
         "IDEMPOTENCY_CONFLICT",
+        "PENDING_OUTCOMES_PLUS_POST_CHECKPOINT",
+        "requiredHorizons_",
     ):
         if marker not in challenger_receptor:
             errors.append(f"dedicated receptor missing marker {marker}")
+
+    for obsolete in (
+        "Math.min(eventCount, 1200)",
+        "Math.min(outcomeCount, 9000)",
+    ):
+        if obsolete in challenger_receptor:
+            errors.append(f"dedicated receptor still contains bounded recovery window: {obsolete}")
 
     for forbidden in (
         EXPECTED_RECEPTOR, "challenger_recovery", "challenger_incremental",
