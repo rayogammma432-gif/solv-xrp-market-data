@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import os
 import tempfile
 from datetime import timedelta
 from pathlib import Path
 
 import challenger_deployment_gate as gate
-from challenger_deployment_gate import validate_config_isolation
+from challenger_deployment_gate import (
+    MIN_ACTIVATION_LEAD_SECONDS,
+    REPO_ROOT,
+    git_tracked_dirty,
+    validate_config_isolation,
+)
 from xrp_challenger_collector import FORWARD_START_UTC
 
 
@@ -50,6 +56,31 @@ def test_config_isolation():
     assert "CURRENT_XRP_URL_MISSING_CANNOT_VERIFY_ISOLATION" in e
     assert "CURRENT_XRP_SECRET_MISSING_CANNOT_VERIFY_ISOLATION" in e
 
+
+
+def test_git_cleanliness_semantics():
+    # Android/Termux chmod-only changes must not invalidate deployment.
+    sh = Path(REPO_ROOT) / "termux/start_collector.sh"
+    original_mode = sh.stat().st_mode
+    try:
+        os.chmod(sh, original_mode | 0o111)
+        assert git_tracked_dirty() is False, "chmod-only change incorrectly marked dirty"
+    finally:
+        os.chmod(sh, original_mode)
+
+    # Tracked content changes still fail closed.
+    readme = Path(REPO_ROOT) / "termux/README.md"
+    original = readme.read_text(encoding="utf-8")
+    try:
+        readme.write_text(original + "\nV2_TRACKED_CONTENT_DIRTY_TEST\n", encoding="utf-8")
+        assert git_tracked_dirty() is True, "tracked content change was not detected"
+    finally:
+        readme.write_text(original, encoding="utf-8")
+    assert git_tracked_dirty() is False
+
+
+def test_minimum_lead():
+    assert MIN_ACTIVATION_LEAD_SECONDS == 30 * 60
 
 def test_safe_prelaunch_reset():
     with tempfile.TemporaryDirectory() as td:
@@ -126,9 +157,11 @@ def test_safe_prelaunch_reset():
 
 def main():
     test_config_isolation()
+    test_git_cleanliness_semantics()
+    test_minimum_lead()
     test_safe_prelaunch_reset()
     print("PASS XRP_CHALLENGER_DEPLOYMENT_GATE_V2")
-    print("url_isolation=PASS secret_isolation=PASS current_presence=PASS safe_reset=PASS")
+    print("url_isolation=PASS secret_isolation=PASS current_presence=PASS chmod_noise=IGNORED tracked_content=BLOCKED lead_30m=PASS safe_reset=PASS")
 
 
 if __name__ == "__main__":
