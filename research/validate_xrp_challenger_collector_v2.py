@@ -268,6 +268,8 @@ def main():
     if "ABORTED PRELAUNCH / NO VALID FORMAL COLLECTION" not in holdout_lock:
         errors.append("holdout lock does not preserve V3.1 aborted status")
 
+    if "10-minute safety window" in protocol:
+        errors.append("collector protocol still contains obsolete 10-minute launch rule")
     if "30-minute safety window" not in deployment_runbook:
         errors.append("deployment runbook missing 30-minute safety window")
     if "10-minute safety window" in deployment_runbook or "fewer than 10 minutes" in deployment_runbook:
