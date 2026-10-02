@@ -31,7 +31,7 @@ DEFAULT_ACTIVATION = HERE / "challenger_activation.json"
 DEFAULT_PID = HERE / "challenger_collector.pid"
 ARCHIVE_ROOT = HERE / "prelaunch_archive"
 RECEPTOR_FILE = "apps-script/XRP_Challenger_Receptor.gs"
-MIN_ACTIVATION_LEAD_SECONDS = 10 * 60
+MIN_ACTIVATION_LEAD_SECONDS = 30 * 60
 
 
 def utc_now():
@@ -63,7 +63,7 @@ def git_file_commit(path):
 
 
 def git_tracked_dirty():
-    return bool(git(["status", "--porcelain", "--untracked-files=no"]))
+    return bool(git(["-c", "core.fileMode=false", "status", "--porcelain", "--untracked-files=no"]))
 
 
 def load_config(path):
