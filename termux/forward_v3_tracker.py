@@ -37,7 +37,6 @@ BASE_URL = "https://fapi.binance.com"
 WARMUP_MINUTES = 360
 OUTCOME_INCOMPLETE_GRACE_MS = 5 * 60_000
 HEALTH_FINALIZE_GRACE_MS = 10 * 60_000
-RECOVERY_LOOKBACK_HOURS = 12
 
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent
@@ -727,16 +726,18 @@ class ForwardV3Tracker:
             return
 
         outcome_ids = set(str(x) for x in (recovery.get("outcomeIds") or []))
-        now_ms = int(self.now_fn().timestamp() * 1000)
-        min_event_ms = now_ms - RECOVERY_LOOKBACK_HOURS * 3_600_000
 
+        # Recovery is driven by remote completeness, not by an arbitrary age
+        # window. The receptor returns every V3.2 event that is still missing
+        # any required outcome plus all events newer than the latest persisted
+        # health checkpoint, so even a long local outage cannot orphan an event.
         for row in recovery.get("events") or []:
             if not isinstance(row, list) or len(row) < 27:
                 continue
             if str(row[1]) != PROTOCOL_VERSION:
                 continue
             decision_ms = parse_iso_ms(row[5])
-            if decision_ms is None or decision_ms < min_event_ms:
+            if decision_ms is None:
                 continue
             cid = str(row[2])
             if cid not in CANDIDATES:
