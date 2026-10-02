@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-XRP_FORWARD_V3_1 forward-only shadow tracker.
+XRP_FORWARD_V3_2 forward-only shadow tracker.
 
 Properties:
-- hard start at 2026-10-01T06:00:00Z
+- hard start at 2026-10-02T12:00:00Z
 - fetches/catches up every missed XRP 1m decision in chronological order
 - reconstructs PRIMARY_15M from exact 1m bars, matching HIST_NORM_V1 resampling semantics
-- fixed V3.1 candidate rules; no CURRENT-agent decisions
+- fixed V3.2 candidate rules; no CURRENT-agent decisions
 - exact-timestamp outcomes; no nearest/interpolation
 - durable local state + Google Sheets recovery metadata
 - hourly coverage health checkpoints
@@ -20,18 +20,18 @@ import subprocess
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
-FORWARD_START_UTC = datetime(2026, 10, 1, 6, 0, 0, tzinfo=timezone.utc)
+FORWARD_START_UTC = datetime(2026, 10, 2, 12, 0, 0, tzinfo=timezone.utc)
 FORWARD_START_MS = int(FORWARD_START_UTC.timestamp() * 1000)
-PROTOCOL_VERSION = "XRP_FORWARD_V3_1"
-PROTOCOL_FILE = "research/XRP_FORWARD_RESEARCH_PROTOCOL_V3_1.md"
-PROTOCOL_COMMIT_SHA = "5c738544ffb3e585df70822ef2bdb4c2bb20346b"
-REGISTRY_FILE = "research/experiments/XRP_FORWARD_REGISTRY_V3_1.jsonl"
-REGISTRY_SHA256 = "4905aa1e94cbf2fe9318c761942d440a298ba5655d78e8e3a80bfc5cb85caded"
+PROTOCOL_VERSION = "XRP_FORWARD_V3_2"
+PROTOCOL_FILE = "research/XRP_FORWARD_RESEARCH_PROTOCOL_V3_2.md"
+PROTOCOL_COMMIT_SHA = "bf4d2a34684c3315dc36c997b61efd0d7595ade7"
+REGISTRY_FILE = "research/experiments/XRP_FORWARD_REGISTRY_V3_2.jsonl"
+REGISTRY_SHA256 = "99c17ecf3c3b376f734dc7469351445c7d6727f96d0cb7d5580ea59b5f9f932a"
 
 FEATURE_SET_VERSION = "FEATURES_V1_LIVE_EQUIV_V1"
 NORMALIZATION_VERSION = "LIVE_BINANCE_NORMALIZATION_EQUIV_V1"
-COLLECTOR_VERSION = "XRP_FORWARD_V3_1_COLLECTOR_V1"
-OUTCOME_ENGINE_VERSION = "XRP_FORWARD_V3_1_OUTCOME_V1"
+COLLECTOR_VERSION = "XRP_FORWARD_V3_2_COLLECTOR_V1"
+OUTCOME_ENGINE_VERSION = "XRP_FORWARD_V3_2_OUTCOME_V1"
 
 BASE_URL = "https://fapi.binance.com"
 WARMUP_MINUTES = 360
@@ -115,7 +115,7 @@ def current_git_sha():
         )
         sha = p.stdout.strip()
         dirty = subprocess.run(
-            ["git", "status", "--porcelain"],
+            ["git", "status", "--porcelain", "--untracked-files=no"],
             cwd=str(REPO_ROOT),
             check=True,
             capture_output=True,
@@ -153,32 +153,54 @@ def taker_imbalance(row):
     return 2.0 * ratio - 1.0
 
 
+def _state_meta():
+    return {
+        "protocol_version": PROTOCOL_VERSION,
+        "registry_sha256": REGISTRY_SHA256,
+        "formal_start_utc": FORWARD_START_UTC.isoformat().replace("+00:00", "Z"),
+    }
+
+
+def _new_state():
+    return {
+        "meta": _state_meta(),
+        "events": {},
+        "coverage": {
+            "last_evaluated_1m_ms": None,
+            "last_evaluated_15m_ms": None,
+            "hours": {},
+            "posted_health_ids": [],
+        },
+    }
+
+
 def _load_state(path):
     p = Path(path)
     if not p.exists():
-        return {
-            "events": {},
-            "coverage": {
-                "last_evaluated_1m_ms": None,
-                "last_evaluated_15m_ms": None,
-                "hours": {},
-                "posted_health_ids": [],
-            },
-        }
+        return _new_state()
     try:
         data = json.loads(p.read_text(encoding="utf-8"))
-    except Exception:
-        data = {}
+    except Exception as exc:
+        raise RuntimeError("STATE_FILE_INVALID_RESET_REQUIRED") from exc
+
+    if data.get("meta") != _state_meta():
+        raise RuntimeError("STATE_PROVENANCE_MISMATCH_RESET_REQUIRED")
+
     cov = dict(data.get("coverage") or {})
     cov.setdefault("last_evaluated_1m_ms", None)
     cov.setdefault("last_evaluated_15m_ms", None)
     cov.setdefault("hours", {})
     cov.setdefault("posted_health_ids", [])
-    return {"events": dict(data.get("events") or {}), "coverage": cov}
+    return {
+        "meta": _state_meta(),
+        "events": dict(data.get("events") or {}),
+        "coverage": cov,
+    }
 
 
 def _save_state(path, state):
     p = Path(path)
+    state["meta"] = _state_meta()
     tmp = p.with_suffix(".tmp")
     tmp.write_text(
         json.dumps(state, ensure_ascii=False, separators=(",", ":"), sort_keys=True),
@@ -408,11 +430,17 @@ class ForwardV3Tracker:
         last = cov.get("last_evaluated_1m_ms")
         if last is None:
             last = FORWARD_START_MS - 60_000
+        expected = int(last) + 60_000
 
         for i, row in enumerate(rows_1m):
             decision = row_available_at_ms(row)
             if decision < FORWARD_START_MS or decision <= last:
                 continue
+            if decision < expected:
+                continue
+            if decision > expected:
+                # Fail closed on a gap. Never advance beyond a missing decision.
+                break
 
             _, h = self._hour(decision)
             h["evaluated_1m"] += 1
@@ -430,17 +458,24 @@ class ForwardV3Tracker:
 
             cov["last_evaluated_1m_ms"] = decision
             last = decision
+            expected = decision + 60_000
 
     def _evaluate_15m_decisions(self, rows_15m, session):
         cov = self.state["coverage"]
         last = cov.get("last_evaluated_15m_ms")
         if last is None:
             last = FORWARD_START_MS - 900_000
+        expected = int(last) + 900_000
 
         for i, row in enumerate(rows_15m):
             decision = row_available_at_ms(row)
             if decision < FORWARD_START_MS or decision <= last:
                 continue
+            if decision < expected:
+                continue
+            if decision > expected:
+                # Same continuity contract as 1m: do not skip a missing 15m decision.
+                break
 
             _, h = self._hour(decision)
             h["evaluated_15m"] += 1
@@ -480,6 +515,7 @@ class ForwardV3Tracker:
 
             cov["last_evaluated_15m_ms"] = decision
             last = decision
+            expected = decision + 900_000
 
     @staticmethod
     def _one_minute_map(rows_1m):
@@ -563,6 +599,10 @@ class ForwardV3Tracker:
                     present = [x for x in future if x is not None]
                     source_last = str(present[-1][6]) if present else ""
                     completeness = "INCOMPLETE"
+
+                # Record the finalized status before health is computed. This is
+                # not an acknowledgement; it only makes same-cycle health accounting exact.
+                rec.setdefault("outcome_status", {})[str(horizon)] = completeness
 
                 base = [
                     self._outcome_id(rec["event_id"], horizon),
