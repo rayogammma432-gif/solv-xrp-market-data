@@ -5,7 +5,7 @@ Independent XRP Challenger candidate collector.
 This process is intentionally separate from market_collector.py.
 It owns its state, recovery, health, retries and Google Sheets streams.
 
-It implements the already-frozen XRP_FORWARD_V3_1 research rules through
+It implements the frozen XRP_FORWARD_V3_2 research rules through
 ForwardV3Tracker. It creates research candidates/outcomes only; never SIGNALS,
 orders, Telegram trade alerts or CURRENT-agent decisions.
 """
@@ -36,11 +36,14 @@ DEFAULT_CONFIG = HERE / "config.json"
 DEFAULT_ACTIVATION = HERE / "challenger_activation.json"
 DEFAULT_STATE = HERE / "challenger_forward_state.json"
 DEFAULT_RUNTIME = HERE / "challenger_runtime.json"
+DEFAULT_READY = HERE / "challenger_ready.json"
+DEFAULT_HEARTBEAT = HERE / "challenger_heartbeat.json"
+DEFAULT_PID = HERE / "challenger_collector.pid"
 LOG_DIR = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
-COLLECTOR_VERSION = "XRP_CHALLENGER_COLLECTOR_V1"
-EXPECTED_RECEPTOR_VERSION = "XRP_RECEPTOR_CHALLENGER_V1_R2"
+COLLECTOR_VERSION = "XRP_CHALLENGER_COLLECTOR_V2"
+EXPECTED_RECEPTOR_VERSION = "XRP_RECEPTOR_CHALLENGER_V2_R1"
 EXPECTED_CHALLENGER_SPREADSHEET_ID = "14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA"
 CYCLE_SECOND = 8
 
@@ -150,12 +153,22 @@ def validate_activation(
         errors.append("REGISTRY_SHA_MISMATCH")
     if activation.get("receptor_version") != EXPECTED_RECEPTOR_VERSION:
         errors.append("RECEPTOR_VERSION_MISMATCH")
+    if activation.get("challenger_spreadsheet_id") != EXPECTED_CHALLENGER_SPREADSHEET_ID:
+        errors.append("SPREADSHEET_ID_MISMATCH")
 
-    formal_start = parse_utc(activation.get("formal_start_utc"))
+    try:
+        formal_start = parse_utc(activation.get("formal_start_utc"))
+    except Exception:
+        formal_start = None
+        errors.append("FORMAL_START_INVALID")
     if formal_start != FORWARD_START_UTC:
-        errors.append("FORMAL_START_DOES_NOT_MATCH_FROZEN_V3_1")
+        errors.append("FORMAL_START_DOES_NOT_MATCH_FROZEN_V3_2")
 
-    verified = parse_utc(activation.get("deployment_verified_utc"))
+    try:
+        verified = parse_utc(activation.get("deployment_verified_utc"))
+    except Exception:
+        verified = None
+        errors.append("DEPLOYMENT_VERIFIED_UTC_INVALID")
     if formal_start and (verified is None or verified >= formal_start):
         errors.append("DEPLOYMENT_NOT_VERIFIED_BEFORE_FORMAL_START")
 
@@ -169,11 +182,26 @@ def validate_activation(
     if marker is not None:
         if marker.get("activation_sha256") != sha256_json(activation):
             errors.append("RUNTIME_ACTIVATION_HASH_MISMATCH")
-        first_boot = parse_utc(marker.get("first_boot_utc"))
+        if marker.get("protocol_version") != PROTOCOL_VERSION:
+            errors.append("RUNTIME_PROTOCOL_MISMATCH")
+        if marker.get("registry_sha256") != REGISTRY_SHA256:
+            errors.append("RUNTIME_REGISTRY_MISMATCH")
+        if marker.get("collector_version") != COLLECTOR_VERSION:
+            errors.append("RUNTIME_COLLECTOR_VERSION_MISMATCH")
+        if marker.get("collector_git_sha") != git_sha:
+            errors.append("RUNTIME_COLLECTOR_GIT_SHA_MISMATCH")
+        if marker.get("formal_start_utc") != utc_iso(FORWARD_START_UTC):
+            errors.append("RUNTIME_FORMAL_START_MISMATCH")
+        try:
+            first_boot = parse_utc(marker.get("first_boot_utc"))
+        except Exception:
+            first_boot = None
+            errors.append("RUNTIME_FIRST_BOOT_INVALID")
         if formal_start and (first_boot is None or first_boot >= formal_start):
             errors.append("RUNTIME_FIRST_BOOT_NOT_PRESTART")
-    elif formal_start and now >= formal_start and not state_exists:
-        # Never silently turn a late deployment into a backfilled prospective launch.
+    elif formal_start and now >= formal_start:
+        # State alone never authorizes a late first boot. A valid pre-start
+        # runtime marker is mandatory.
         errors.append("LATE_FIRST_START_BLOCKED_CREATE_NEW_PROTOCOL_START")
 
     return errors
@@ -186,12 +214,16 @@ class ChallengerCollector:
         activation_path=DEFAULT_ACTIVATION,
         state_path=DEFAULT_STATE,
         runtime_path=DEFAULT_RUNTIME,
+        ready_path=DEFAULT_READY,
+        heartbeat_path=DEFAULT_HEARTBEAT,
         now_fn=utc_now,
     ):
         self.cfg = load_xrp_config(config_path)
         self.activation_path = Path(activation_path)
         self.state_path = Path(state_path)
         self.runtime_path = Path(runtime_path)
+        self.ready_path = Path(ready_path)
+        self.heartbeat_path = Path(heartbeat_path)
         self.now_fn = now_fn
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "xrp-challenger-collector/1.0"})
@@ -242,6 +274,35 @@ class ChallengerCollector:
         }
         save_json_atomic(self.runtime_path, marker)
         return marker
+
+    def write_ready_marker(self, activation, receptor_response):
+        marker = {
+            "ready_utc": utc_iso(self.now_fn()),
+            "pid": __import__("os").getpid(),
+            "protocol_version": PROTOCOL_VERSION,
+            "registry_sha256": REGISTRY_SHA256,
+            "formal_start_utc": utc_iso(FORWARD_START_UTC),
+            "collector_version": COLLECTOR_VERSION,
+            "collector_git_sha": self.git_sha,
+            "activation_sha256": sha256_json(activation),
+            "receptor_version": str(receptor_response.get("challengerReceptorVersion") or ""),
+            "challenger_spreadsheet_id": str(receptor_response.get("challengerSpreadsheetId") or ""),
+        }
+        save_json_atomic(self.ready_path, marker)
+        return marker
+
+    def write_heartbeat(self, status, detail=None):
+        payload = {
+            "heartbeat_utc": utc_iso(self.now_fn()),
+            "pid": __import__("os").getpid(),
+            "status": str(status),
+            "protocol_version": PROTOCOL_VERSION,
+            "collector_version": COLLECTOR_VERSION,
+            "collector_git_sha": self.git_sha,
+        }
+        if detail is not None:
+            payload["detail"] = detail
+        save_json_atomic(self.heartbeat_path, payload)
 
     def receptor_recovery(self):
         payload = {
@@ -342,6 +403,10 @@ class ChallengerCollector:
             response = self.receptor_recovery()
             result["receptor_checked"] = True
             result["receptor_version"] = response.get("challengerReceptorVersion")
+            result["receptor_spreadsheet_id"] = response.get("challengerSpreadsheetId")
+            result["receptor_protocol_version"] = response.get("challengerProtocolVersion")
+            result["receptor_registry_sha256"] = response.get("challengerRegistrySha256")
+            result["receptor_collector_version"] = response.get("challengerCollectorVersion")
         return result
 
 
@@ -353,16 +418,115 @@ def sleep_to_cycle_second(now_fn=utc_now):
     time.sleep(max(0.25, (target - now).total_seconds()))
 
 
+def _pid_alive(pid):
+    try:
+        pid = int(pid)
+        if pid <= 0:
+            return False
+        __import__("os").kill(pid, 0)
+        return True
+    except Exception:
+        return False
+
+
+def status_snapshot(
+    activation_path=DEFAULT_ACTIVATION,
+    runtime_path=DEFAULT_RUNTIME,
+    state_path=DEFAULT_STATE,
+    ready_path=DEFAULT_READY,
+    heartbeat_path=DEFAULT_HEARTBEAT,
+    pid_path=DEFAULT_PID,
+):
+    git_sha = current_git_sha()
+    activation = load_json(activation_path)
+    runtime = load_json(runtime_path)
+    ready = load_json(ready_path)
+    heartbeat = load_json(heartbeat_path)
+
+    pid = None
+    try:
+        p = Path(pid_path)
+        if p.exists():
+            pid = int(p.read_text(encoding="utf-8").strip())
+    except Exception:
+        pid = None
+    running = _pid_alive(pid)
+
+    activation_errors = validate_activation(
+        activation,
+        now=utc_now(),
+        git_sha=git_sha,
+        state_exists=Path(state_path).exists(),
+        runtime_marker=runtime,
+    )
+
+    ready_valid = bool(
+        running
+        and isinstance(ready, dict)
+        and int(ready.get("pid") or -1) == int(pid or -2)
+        and isinstance(activation, dict)
+        and ready.get("activation_sha256") == sha256_json(activation)
+        and ready.get("protocol_version") == PROTOCOL_VERSION
+        and ready.get("registry_sha256") == REGISTRY_SHA256
+        and ready.get("collector_version") == COLLECTOR_VERSION
+        and ready.get("collector_git_sha") == git_sha
+        and ready.get("receptor_version") == EXPECTED_RECEPTOR_VERSION
+        and ready.get("challenger_spreadsheet_id") == EXPECTED_CHALLENGER_SPREADSHEET_ID
+        and not activation_errors
+    )
+
+    if running and ready_valid:
+        status = "RUNNING_READY"
+    elif running:
+        status = "RUNNING_NOT_READY"
+    elif pid is not None:
+        status = "STALE_PID"
+    else:
+        status = "STOPPED"
+
+    return {
+        "status": status,
+        "pid": pid,
+        "running": running,
+        "ready": ready_valid,
+        "activation_present": Path(activation_path).exists(),
+        "runtime_marker_present": Path(runtime_path).exists(),
+        "state_present": Path(state_path).exists(),
+        "ready_marker_present": Path(ready_path).exists(),
+        "heartbeat_present": Path(heartbeat_path).exists(),
+        "activation_errors": activation_errors,
+        "protocol_version": PROTOCOL_VERSION,
+        "formal_start_utc": utc_iso(FORWARD_START_UTC),
+        "collector_version": COLLECTOR_VERSION,
+        "collector_git_sha": git_sha,
+        "ready_marker": ready,
+        "heartbeat": heartbeat,
+    }
+
+
 def main():
     ap = argparse.ArgumentParser(description="XRP Challenger independent shadow collector")
     ap.add_argument("--config", default=str(DEFAULT_CONFIG))
     ap.add_argument("--activation", default=str(DEFAULT_ACTIVATION))
     ap.add_argument("--state", default=str(DEFAULT_STATE))
     ap.add_argument("--runtime", default=str(DEFAULT_RUNTIME))
+    ap.add_argument("--ready", default=str(DEFAULT_READY))
+    ap.add_argument("--heartbeat", default=str(DEFAULT_HEARTBEAT))
     ap.add_argument("--once", action="store_true")
     ap.add_argument("--prelaunch-check", action="store_true")
     ap.add_argument("--check-receptor", action="store_true")
+    ap.add_argument("--status-json", action="store_true")
     args = ap.parse_args()
+
+    if args.status_json:
+        print(json.dumps(status_snapshot(
+            activation_path=args.activation,
+            runtime_path=args.runtime,
+            state_path=args.state,
+            ready_path=args.ready,
+            heartbeat_path=args.heartbeat,
+        ), indent=2, sort_keys=True))
+        return 0
 
     try:
         collector = ChallengerCollector(
@@ -370,6 +534,8 @@ def main():
             activation_path=args.activation,
             state_path=args.state,
             runtime_path=args.runtime,
+            ready_path=args.ready,
+            heartbeat_path=args.heartbeat,
         )
 
         if args.prelaunch_check:
@@ -382,10 +548,13 @@ def main():
 
         activation = collector.validate_live_activation()
         collector.ensure_runtime_marker(activation)
-        collector.receptor_recovery()
+        receptor_response = collector.receptor_recovery()
+        collector.write_ready_marker(activation, receptor_response)
+        collector.write_heartbeat("STARTUP_READY")
 
         if args.once:
             result = collector.cycle()
+            collector.write_heartbeat("CYCLE_OK", result)
             logger.info("CHALLENGER ONCE OK: %s", result)
             return 0
 
@@ -399,11 +568,13 @@ def main():
             try:
                 sleep_to_cycle_second()
                 result = collector.cycle()
+                collector.write_heartbeat("CYCLE_OK", result)
                 if result["posted"]:
                     logger.info("CHALLENGER DELTA OK: %s", result)
             except KeyboardInterrupt:
                 raise
             except Exception as exc:
+                collector.write_heartbeat("CYCLE_ERROR", {"error": str(exc)})
                 logger.exception("CHALLENGER ciclo falló: %s", exc)
                 time.sleep(15)
 
@@ -411,6 +582,19 @@ def main():
         logger.info("CHALLENGER detenido por usuario")
         return 0
     except Exception as exc:
+        try:
+            Path(args.ready).unlink(missing_ok=True)
+            save_json_atomic(args.heartbeat, {
+                "heartbeat_utc": utc_iso(),
+                "pid": __import__("os").getpid(),
+                "status": "GLOBAL_ERROR",
+                "protocol_version": PROTOCOL_VERSION,
+                "collector_version": COLLECTOR_VERSION,
+                "collector_git_sha": current_git_sha(),
+                "detail": {"error": str(exc)},
+            })
+        except Exception:
+            pass
         logger.exception("CHALLENGER fallo global: %s", exc)
         return 1
 
