@@ -78,9 +78,11 @@ bash status_collector.sh
 Estado local de deduplicación: `alert_state.json` (ignorado por Git).
 
 
-## SIGNALS / PERFORMANCE — SOLV
+## SIGNALS / PERFORMANCE — SOLV / XRP V3.4
 
-XRP queda pendiente. Esta fase se activa solo para SOLV.
+XRP V3.4 reutiliza esta misma infraestructura. V3.3 está retirado del runtime activo y preservado bajo `archive/xrp-v3.3/` + branch `archive/xrp-v3.3-final`.
+
+Para XRP V3.4, el receptor operativo continúa siendo `apps-script/XRP_Receptor_Incremental.gs`; al activar, se actualiza la versión del Web App existente para conservar la misma URL /exec.
 
 Google Sheet incluye:
 - `SIGNALS`: una fila por señal ACTIVA emitida por el agente.

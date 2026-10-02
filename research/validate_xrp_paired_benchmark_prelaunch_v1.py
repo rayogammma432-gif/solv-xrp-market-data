@@ -21,6 +21,25 @@ def verify_frozen(path,expected,label,errors):
     if actual!=expected:
         errors.append(f"{label}: frozen SHA mismatch actual={actual} registry={expected}")
 
+def verify_historical_snapshot(path,expected_commit,label,errors,archive_path=None):
+    if not path or not expected_commit:
+        errors.append(f"{label}: missing path/SHA")
+        return
+    proc=subprocess.run(
+        ["git","show",f"{expected_commit}:{path}"],
+        cwd=ROOT,capture_output=True
+    )
+    if proc.returncode!=0:
+        errors.append(f"{label}: historical file missing at {expected_commit}:{path}")
+        return
+    if archive_path:
+        ap=ROOT/archive_path
+        if not ap.exists():
+            errors.append(f"{label}: archive copy missing: {archive_path}")
+            return
+        if ap.read_bytes()!=proc.stdout:
+            errors.append(f"{label}: archive copy differs from historical commit")
+
 def main():
     reg=json.loads(REG.read_text(encoding="utf-8"))
     errors=[];blockers=[]
@@ -48,14 +67,26 @@ def main():
     if cha.get("rule_commit_sha") not in protocol_text:
         errors.append("CHALLENGER protocol rule SHA does not match registry")
 
-    verify_frozen(cur.get("rule_file"),cur.get("rule_commit_sha"),"CURRENT rule",errors)
+    verify_historical_snapshot(
+        cur.get("rule_file"),
+        cur.get("rule_commit_sha"),
+        "CURRENT rule",
+        errors,
+        cur.get("archive_rule_file")
+    )
     verify_frozen(cur.get("runner_file"),cur.get("runner_commit_sha"),"CURRENT runner",errors)
     verify_frozen(cha.get("rule_file"),cha.get("rule_commit_sha"),"CHALLENGER rule",errors)
     verify_frozen(cha.get("runner_file"),cha.get("runner_commit_sha"),"CHALLENGER runner",errors)
 
     infra=reg.get("infrastructure") or {}
     verify_frozen(infra.get("collector_file"),infra.get("collector_commit_sha"),"collector",errors)
-    verify_frozen(infra.get("receptor_file"),infra.get("receptor_commit_sha"),"receptor",errors)
+    verify_historical_snapshot(
+        infra.get("receptor_file"),
+        infra.get("receptor_commit_sha"),
+        "receptor",
+        errors,
+        infra.get("archive_receptor_file")
+    )
     verify_frozen(infra.get("protocol_file"),infra.get("protocol_commit_sha"),"benchmark protocol",errors)
     verify_frozen(infra.get("isolation_protocol_file"),infra.get("isolation_protocol_commit_sha"),"isolation protocol",errors)
     verify_frozen(infra.get("evaluator_file"),infra.get("evaluator_commit_sha"),"evaluator",errors)

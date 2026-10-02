@@ -20,7 +20,8 @@
     "rule_file": "agents/XRP_V3_3_MASTER.txt",
     "rule_commit_sha": "b6f62ed220226a10f653c45c5c3680320a0dd7fd",
     "runner_file": "agents/XRP_PAIRED_CURRENT_RUNNER_V1.md",
-    "runner_commit_sha": "2a5982d314f2ae15ebe19b6035f9e404780af9bd"
+    "runner_commit_sha": "2a5982d314f2ae15ebe19b6035f9e404780af9bd",
+    "archive_rule_file": "archive/xrp-v3.3/agents/XRP_V3_3_MASTER.txt"
   },
   "challenger_arm": {
     "agent_name": "XRP CHALLENGER",
@@ -80,8 +81,10 @@
     "isolation_protocol_file": "research/XRP_PAIRED_ISOLATION_PROTOCOL_V1.md",
     "isolation_protocol_commit_sha": "178355de67d6b3b0c0414daf40615c1794484a61",
     "evaluator_file": "research/xrp_paired_benchmark_evaluator_v1.py",
-    "evaluator_commit_sha": "715f9cbee6b26c317b7184dae1d42beb36b2bc87"
+    "evaluator_commit_sha": "715f9cbee6b26c317b7184dae1d42beb36b2bc87",
+    "archive_receptor_file": "archive/xrp-v3.3/apps-script/XRP_Receptor_Incremental.gs"
   },
   "existing_prelaunch_capture_count_frozen": 61,
-  "existing_prelaunch_frozen_utc": "2026-10-01T00:41:45.144Z"
+  "existing_prelaunch_frozen_utc": "2026-10-01T00:41:45.144Z",
+  "migration_note": "V3.3 baseline is reconstructed from immutable historical commits and archive copies; active XRP runtime may advance to V3.4."
 }

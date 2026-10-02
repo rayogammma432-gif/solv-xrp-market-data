@@ -18,9 +18,10 @@ on:
       - "agents/XRP_CHALLENGER_PAIRED_V1.md"
       - "agents/XRP_PAIRED_CHALLENGER_RUNNER_V1.md"
       - "agents/XRP_PAIRED_CURRENT_RUNNER_V1.md"
-      - "agents/XRP_V3_3_MASTER.txt"
+      - "archive/xrp-v3.3/agents/XRP_V3_3_MASTER.txt"
       - "termux/market_collector.py"
       - "apps-script/XRP_Receptor_Incremental.gs"
+      - "archive/xrp-v3.3/apps-script/XRP_Receptor_Incremental.gs"
   pull_request:
     paths:
       - ".github/workflows/xrp-paired-benchmark-prelaunch-v1.yml"
@@ -36,9 +37,10 @@ on:
       - "agents/XRP_CHALLENGER_PAIRED_V1.md"
       - "agents/XRP_PAIRED_CHALLENGER_RUNNER_V1.md"
       - "agents/XRP_PAIRED_CURRENT_RUNNER_V1.md"
-      - "agents/XRP_V3_3_MASTER.txt"
+      - "archive/xrp-v3.3/agents/XRP_V3_3_MASTER.txt"
       - "termux/market_collector.py"
       - "apps-script/XRP_Receptor_Incremental.gs"
+      - "archive/xrp-v3.3/apps-script/XRP_Receptor_Incremental.gs"
 
 jobs:
   prelaunch:
