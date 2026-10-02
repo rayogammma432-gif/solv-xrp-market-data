@@ -4,7 +4,7 @@
 // CHALLENGER_SHARED_SECRET = secret used only by termux challenger config.
 
 const CHALLENGER_SPREADSHEET_ID = '14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA';
-const CHALLENGER_RECEPTOR_VERSION = 'XRP_RECEPTOR_CHALLENGER_V2_R1';
+const CHALLENGER_RECEPTOR_VERSION = 'XRP_RECEPTOR_CHALLENGER_V2_R2';
 const EXPECTED_PROTOCOL_VERSION = 'XRP_FORWARD_V3_2';
 const EXPECTED_REGISTRY_SHA256 = '99c17ecf3c3b376f734dc7469351445c7d6727f96d0cb7d5580ea59b5f9f932a';
 const EXPECTED_COLLECTOR_VERSION = 'XRP_CHALLENGER_COLLECTOR_V2';
@@ -38,12 +38,13 @@ function ensureRows_(sh, neededLastRow) {
 function appendUniqueResearchRows_(sh, rows, baseCols, totalCols) {
   if (!Array.isArray(rows) || !rows.length) return 0;
 
-  const existing = new Set();
+  const existing = new Map();
   const last = sh.getLastRow();
   if (last >= 2) {
-    sh.getRange(2, 1, last - 1, 1).getValues().forEach(function(r) {
+    sh.getRange(2, 1, last - 1, baseCols).getValues().forEach(function(r) {
       const id = String(r[0] || '');
-      if (id) existing.add(id);
+      const payloadHash = String(r[baseCols - 1] || '');
+      if (id) existing.set(id, payloadHash);
     });
   }
 
@@ -58,7 +59,22 @@ function appendUniqueResearchRows_(sh, rows, baseCols, totalCols) {
       );
     }
     const id = String(row[0] || '');
-    if (!id || existing.has(id)) return;
+    if (!id) throw new Error('ID Challenger vacío en ' + sh.getName());
+    const incomingHash = String(row[baseCols - 1] || '');
+    if (!incomingHash) {
+      throw new Error('Payload SHA256 vacío para ' + id);
+    }
+    if (existing.has(id)) {
+      const storedHash = String(existing.get(id) || '');
+      if (storedHash !== incomingHash) {
+        throw new Error(
+          'IDEMPOTENCY_CONFLICT id=' + id +
+          ' stored_hash=' + storedHash +
+          ' incoming_hash=' + incomingHash
+        );
+      }
+      return;
+    }
     const stored = row.slice();
     stored.push(CHALLENGER_RECEPTOR_VERSION);
     stored.push(writeUtc);
@@ -66,7 +82,7 @@ function appendUniqueResearchRows_(sh, rows, baseCols, totalCols) {
       throw new Error('Ancho almacenado Challenger inválido: ' + stored.length);
     }
     out.push(stored);
-    existing.add(id);
+    existing.set(id, incomingHash);
   });
 
   if (!out.length) return 0;
