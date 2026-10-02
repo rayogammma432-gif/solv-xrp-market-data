@@ -76,7 +76,7 @@
     "receptor_file": "apps-script/XRP_Receptor_Incremental.gs",
     "receptor_commit_sha": "dac8e1e9d0280b6bf57f911c7fcdd8ceb11395f2",
     "protocol_file": "research/XRP_PAIRED_BENCHMARK_PROTOCOL_V1.md",
-    "protocol_commit_sha": "acdbdc70f0e121909e22c71be4f88874f6116f2a",
+    "protocol_commit_sha": "4008071dae9010cfdaafbedaf7d4bda5c527e8bd",
     "isolation_protocol_file": "research/XRP_PAIRED_ISOLATION_PROTOCOL_V1.md",
     "isolation_protocol_commit_sha": "178355de67d6b3b0c0414daf40615c1794484a61",
     "evaluator_file": "research/xrp_paired_benchmark_evaluator_v1.py",
