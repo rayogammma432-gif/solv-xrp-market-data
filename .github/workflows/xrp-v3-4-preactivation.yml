@@ -1,6 +1,17 @@
 name: XRP V3.4 preactivation gate
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'agents/XRP_V3_4_MASTER.txt'
+      - 'apps-script/XRP_Receptor_Incremental.gs'
+      - 'termux/analysis_tracker.py'
+      - 'termux/test_analysis_tracker_execution.py'
+      - 'research/XRP_V3_4_EXECUTION_QUALITY.md'
+      - 'research/XRP_V3_4_PREACTIVATION_GATE.md'
+      - 'archive/xrp-v3.3/**'
+      - '.github/workflows/xrp-v3-4-preactivation.yml'
   pull_request:
     branches: [main]
     paths:
