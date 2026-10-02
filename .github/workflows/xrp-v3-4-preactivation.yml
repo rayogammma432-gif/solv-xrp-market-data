@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - 'agents/XRP_V3_4_MASTER.txt'
-      - 'apps-script/XRP_Receptor_V3_4.gs'
+      - 'apps-script/XRP_Receptor_Incremental.gs'
       - 'termux/analysis_tracker.py'
       - 'termux/test_analysis_tracker_execution.py'
       - 'research/XRP_V3_4_EXECUTION_QUALITY.md'
@@ -45,7 +45,7 @@ jobs:
 
       - name: Receptor JavaScript syntax
         run: |
-          cp apps-script/XRP_Receptor_V3_4.gs /tmp/XRP_Receptor_Incremental.js
+          cp apps-script/XRP_Receptor_Incremental.gs /tmp/XRP_Receptor_Incremental.js
           node --check /tmp/XRP_Receptor_Incremental.js
 
       - name: V3.4 schema contract
@@ -53,7 +53,7 @@ jobs:
           python - <<'PY'
           from pathlib import Path
 
-          receptor = Path("apps-script/XRP_Receptor_V3_4.gs").read_text()
+          receptor = Path("apps-script/XRP_Receptor_Incremental.gs").read_text()
           rules = Path("agents/XRP_V3_4_MASTER.txt").read_text()
           tracker = Path("termux/analysis_tracker.py").read_text()
 
@@ -100,5 +100,8 @@ jobs:
       - name: Preserve frozen V3.3 paired baseline
         run: |
           git diff --exit-code origin/main...HEAD -- agents/XRP_PAIRED_CURRENT_RUNNER_V1.md
-          git diff --exit-code origin/main...HEAD -- agents/XRP_V3_3_MASTER.txt
-          git diff --exit-code origin/main...HEAD -- apps-script/XRP_Receptor_Incremental.gs
+          test ! -e agents/XRP_V3_3_MASTER.txt
+          test ! -e apps-script/XRP_Receptor_V3_4.gs
+          test "$(git rev-parse origin/archive/xrp-v3.3-final)" = "eec7aa40512771701182fea54d98d4d8dadd423c"
+          git show eec7aa40512771701182fea54d98d4d8dadd423c:agents/XRP_V3_3_MASTER.txt | cmp - archive/xrp-v3.3/agents/XRP_V3_3_MASTER.txt
+          git show eec7aa40512771701182fea54d98d4d8dadd423c:apps-script/XRP_Receptor_Incremental.gs | cmp - archive/xrp-v3.3/apps-script/XRP_Receptor_Incremental.gs
