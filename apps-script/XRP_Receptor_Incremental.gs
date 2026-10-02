@@ -10,7 +10,7 @@ const ARCHIVE_SPREADSHEET_ID = '12HcIA3AbJcQNTs9WGGNNouyIBpfzpk14MThPdeWMvZc';
 const ASSET_SYMBOL = 'XRPUSDT';
 const ASSET_PREFIX = 'XRP';
 const SIGNAL_COLS = 38; // A:AL
-const ANALYSIS_COLS = 44; // A:AR
+const ANALYSIS_COLS = 129; // A:DY (V3.4 execution audit extends A:DJ)
 const FORWARD_V3_EVENT_BASE_COLS = 27; // A:AA, receptor añade AB:AC
 const FORWARD_V3_EVENT_COLS = 29; // A:AC
 const FORWARD_V3_OUTCOME_BASE_COLS = 19; // A:S, receptor añade T:U
@@ -337,7 +337,20 @@ function getPendingAnalyses_(ss) {
       analysisId: id,
       analysisUtc: String(r[1] || ''),
       overallState: String(r[3] || ''),
+      primaryBias: String(r[4] || ''),
+      scalpBias: String(r[7] || ''),
       markPrice: r[17] === '' ? null : Number(r[17]),
+      entry: r[19] === '' ? null : Number(r[19]),
+      stop: r[20] === '' ? null : Number(r[20]),
+      tp1: r[21] === '' ? null : Number(r[21]),
+      tp2: r[22] === '' ? null : Number(r[22]),
+      ruleVersion: String(r[57] || ''),
+      directionScore: String(r[114] || ''),
+      executionScore: String(r[115] || ''),
+      executionGate: String(r[116] || ''),
+      planDirection: String(r[117] || ''),
+      geometryValid: String(r[118] || ''),
+      thesisId: String(r[119] || ''),
       outcomeStatus: status || 'PENDING'
     });
   });
@@ -396,6 +409,53 @@ function applyAnalysisUpdates_(ss, updates) {
     put(12, 'notes', false);
 
     range.setValues([cur]);
+
+    // V3.4 deterministic plan validation: DN:DO.
+    if (
+      Object.prototype.hasOwnProperty.call(u, 'planDirection') ||
+      Object.prototype.hasOwnProperty.call(u, 'geometryValid')
+    ) {
+      const planRange = sh.getRange(row, 118, 1, 2); // DN:DO
+      const planCur = planRange.getValues()[0];
+      if (Object.prototype.hasOwnProperty.call(u, 'planDirection')) {
+        planCur[0] = u.planDirection == null ? '' : String(u.planDirection);
+      }
+      if (Object.prototype.hasOwnProperty.call(u, 'geometryValid')) {
+        planCur[1] = u.geometryValid == null ? '' : String(u.geometryValid);
+      }
+      planRange.setValues([planCur]);
+    }
+
+    // V3.4 chronological execution audit: DQ:DX.
+    const execKeys = [
+      'entryFilledUtc', 'firstBarrier', 'executionExitUtc', 'realizedR',
+      'minutesToFill', 'minutesInTrade', 'executionAuditStatus', 'executionAuditNotes'
+    ];
+    if (execKeys.some(function(k) { return Object.prototype.hasOwnProperty.call(u, k); })) {
+      const execRange = sh.getRange(row, 121, 1, 8); // DQ:DX
+      const execCur = execRange.getValues()[0];
+      function putExec(idx, key, numeric) {
+        if (!Object.prototype.hasOwnProperty.call(u, key)) return;
+        const v = u[key];
+        if (v === null || typeof v === 'undefined') {
+          execCur[idx] = '';
+        } else if (numeric) {
+          execCur[idx] = Number(v);
+        } else {
+          execCur[idx] = String(v);
+        }
+      }
+      putExec(0, 'entryFilledUtc', false);
+      putExec(1, 'firstBarrier', false);
+      putExec(2, 'executionExitUtc', false);
+      putExec(3, 'realizedR', true);
+      putExec(4, 'minutesToFill', true);
+      putExec(5, 'minutesInTrade', true);
+      putExec(6, 'executionAuditStatus', false);
+      putExec(7, 'executionAuditNotes', false);
+      execRange.setValues([execCur]);
+    }
+
     changed++;
   });
 
