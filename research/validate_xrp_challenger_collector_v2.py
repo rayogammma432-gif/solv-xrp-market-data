@@ -135,6 +135,7 @@ def main():
         "challengerProtocolVersion",
         "challengerRegistrySha256",
         "challengerCollectorVersion",
+        "IDEMPOTENCY_CONFLICT",
     ):
         if marker not in challenger_receptor:
             errors.append(f"dedicated receptor missing marker {marker}")
