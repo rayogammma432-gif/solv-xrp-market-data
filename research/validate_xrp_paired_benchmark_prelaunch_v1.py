@@ -34,6 +34,20 @@ def main():
 
     cur=reg.get("current_arm") or {}
     cha=reg.get("challenger_arm") or {}
+
+    cur_runner_text=(ROOT/cur.get("runner_file","")).read_text(encoding="utf-8") if cur.get("runner_file") else ""
+    cha_runner_text=(ROOT/cha.get("runner_file","")).read_text(encoding="utf-8") if cha.get("runner_file") else ""
+    protocol_text=PROTOCOL.read_text(encoding="utf-8")
+
+    if cur.get("rule_commit_sha") not in cur_runner_text:
+        errors.append("CURRENT runner rule SHA does not match registry")
+    if cha.get("rule_commit_sha") not in cha_runner_text:
+        errors.append("CHALLENGER runner rule SHA does not match registry")
+    if cur.get("rule_commit_sha") not in protocol_text:
+        errors.append("CURRENT protocol rule SHA does not match registry")
+    if cha.get("rule_commit_sha") not in protocol_text:
+        errors.append("CHALLENGER protocol rule SHA does not match registry")
+
     verify_frozen(cur.get("rule_file"),cur.get("rule_commit_sha"),"CURRENT rule",errors)
     verify_frozen(cur.get("runner_file"),cur.get("runner_commit_sha"),"CURRENT runner",errors)
     verify_frozen(cha.get("rule_file"),cha.get("rule_commit_sha"),"CHALLENGER rule",errors)
@@ -83,7 +97,7 @@ def main():
     if not model.get("same_model_id_within_pair") or not model.get("same_run_mode_within_pair"):
         errors.append("model provenance pairing not enforced")
 
-    text=PROTOCOL.read_text(encoding="utf-8")
+    text=protocol_text
     for marker in (
         "two isolated executions",
         "PRELAUNCH / BACKFILL SUPPORTIVE",
