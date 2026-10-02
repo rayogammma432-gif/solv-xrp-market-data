@@ -284,7 +284,9 @@ A finalized hour with any missing 1m or 15m remains visible for review.
 
 Normative evaluation contract:
 - `research/XRP_FORWARD_EVALUATION_CONTRACT_V3_2.md`
+  - frozen file commit: `fa79dba6d75a78907e7e8b0e8e4d2a2303d2abaf`
 - `research/experiments/XRP_FORWARD_EVALUATION_CONTRACT_V3_2.json`
+  - frozen file commit: `a82b66482f3367ce28e45dd5c3711123028767ee`
 
 Earliest common 180-day gate:
 - `2027-03-31T12:00:00Z`
