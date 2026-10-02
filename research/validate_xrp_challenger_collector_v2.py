@@ -277,7 +277,7 @@ def main():
             errors.append(f"evaluation effect floor changed for {cid}")
 
     for marker in (
-        "one-sided p-value",
+        "One-sided p-value",
         "Holm",
         "DATA_QUALITY_BLOCKED",
         "median monthly",
