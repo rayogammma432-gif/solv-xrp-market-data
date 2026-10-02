@@ -59,13 +59,15 @@ Private/ignored:
 
 ## Readiness contract
 
+The collector build is `XRP_CHALLENGER_COLLECTOR_V2_R2` and the dedicated receptor is `XRP_RECEPTOR_CHALLENGER_V2_R3` with build ID `XRP_CHALLENGER_RECEPTOR_BUILD_20261002_R3`.
+
 The collector is `RUNNING_READY` only after:
 - activation validates;
 - runtime marker validates/exists;
 - dedicated receptor recovery succeeds;
 - a ready marker matching PID, activation hash, Git SHA, protocol, registry, collector version, receptor version and storage ID exists.
 
-A live PID without these invariants is `RUNNING_NOT_READY`.
+A live PID without these invariants is `RUNNING_NOT_READY`. A live process whose fresh heartbeat reports `CYCLE_ERROR` is `RUNNING_DEGRADED`; it is never reported as READY merely because the process remains alive.
 
 ## Prelaunch safety window
 
@@ -95,6 +97,22 @@ After reset:
 5. no stale local launch artifacts may exist;
 6. generated activation must pass the collector's validator;
 7. activation is written only with `--write-activation`.
+
+## Recovery completeness
+
+Recovery is based on persistent remote completeness, not on a fixed lookback window.
+
+On startup the receptor returns:
+- every V3.2 candidate still missing at least one required outcome horizon;
+- every V3.2 candidate newer than the latest persisted health checkpoint, even if its outcomes are already complete;
+- existing outcome IDs for those returned candidates;
+- the latest compatible health checkpoint.
+
+This prevents two failure modes after loss of local state:
+- an old pending candidate being forgotten merely because the outage exceeded a time window;
+- a recently persisted complete candidate being regenerated with the same Event ID but a different payload hash before the local cursor is reconstructed.
+
+No candidate is discarded from recovery because of age.
 
 ## Storage
 
