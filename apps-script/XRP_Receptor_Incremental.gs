@@ -1,3 +1,4 @@
+// Receptor principal XRP V3.4. Sustituye operativamente V3.3 desde la activación V3.4.
 // Receptor incremental 1m/5m/15m/1H/4H/1D para XRPUSDT
 // + puente SIGNALS/PERFORMANCE para forward tracking.
 // + XRP_FORWARD_V3 shadow append-only events/outcomes.
@@ -9,8 +10,11 @@ const SPREADSHEET_ID = '1ag0yaE0hcDoG8uED4qejfHGlD2OuXZxvUPYZRUzjqG0';
 const ARCHIVE_SPREADSHEET_ID = '12HcIA3AbJcQNTs9WGGNNouyIBpfzpk14MThPdeWMvZc';
 const ASSET_SYMBOL = 'XRPUSDT';
 const ASSET_PREFIX = 'XRP';
-const SIGNAL_COLS = 38; // A:AL
-const ANALYSIS_COLS = 44; // A:AR
+const XRP_V3_4_RECEPTOR_VERSION = 'XRP_RECEPTOR_V3_4_V1';
+const XRP_V3_4_RULE_VERSION = 'XRP_V3.4';
+const XRP_V3_4_SCHEMA_VERSION = 'XRP_V3_4_SCHEMA_DY_AQ_V1';
+const SIGNAL_COLS = 43; // A:AQ (V3.4 adds Thesis/Rule/D/E/Gate)
+const ANALYSIS_COLS = 129; // A:DY (V3.4 execution audit extends A:DJ)
 const FORWARD_V3_EVENT_BASE_COLS = 27; // A:AA, receptor añade AB:AC
 const FORWARD_V3_EVENT_COLS = 29; // A:AC
 const FORWARD_V3_OUTCOME_BASE_COLS = 19; // A:S, receptor añade T:U
@@ -40,6 +44,19 @@ function jsonOut_(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doGet(e) {
+  return jsonOut_({
+    ok: true,
+    mode: 'HEALTH',
+    receptorVersion: XRP_V3_4_RECEPTOR_VERSION,
+    ruleVersion: XRP_V3_4_RULE_VERSION,
+    schemaVersion: XRP_V3_4_SCHEMA_VERSION,
+    spreadsheetId: SPREADSHEET_ID,
+    signalCols: SIGNAL_COLS,
+    analysisCols: ANALYSIS_COLS
+  });
 }
 
 function sheet_(ss, name) {
@@ -235,7 +252,12 @@ function getOpenSignals_(ss) {
       mae15mR: r[34] === '' ? null : Number(r[34]),
       rsi15m: r[35] === '' ? null : Number(r[35]),
       ema20Side15m: String(r[36] || ''),
-      micro15m: String(r[37] || '')
+      micro15m: String(r[37] || ''),
+      thesisId: String(r[38] || ''),
+      ruleVersion: String(r[39] || ''),
+      directionScore: String(r[40] || ''),
+      executionScore: String(r[41] || ''),
+      executionGate: String(r[42] || '')
     });
   });
 
@@ -337,7 +359,20 @@ function getPendingAnalyses_(ss) {
       analysisId: id,
       analysisUtc: String(r[1] || ''),
       overallState: String(r[3] || ''),
+      primaryBias: String(r[4] || ''),
+      scalpBias: String(r[7] || ''),
       markPrice: r[17] === '' ? null : Number(r[17]),
+      entry: r[19] === '' ? null : Number(r[19]),
+      stop: r[20] === '' ? null : Number(r[20]),
+      tp1: r[21] === '' ? null : Number(r[21]),
+      tp2: r[22] === '' ? null : Number(r[22]),
+      ruleVersion: String(r[57] || ''),
+      directionScore: String(r[114] || ''),
+      executionScore: String(r[115] || ''),
+      executionGate: String(r[116] || ''),
+      planDirection: String(r[117] || ''),
+      geometryValid: String(r[118] || ''),
+      thesisId: String(r[119] || ''),
       outcomeStatus: status || 'PENDING'
     });
   });
@@ -396,6 +431,53 @@ function applyAnalysisUpdates_(ss, updates) {
     put(12, 'notes', false);
 
     range.setValues([cur]);
+
+    // V3.4 deterministic plan validation: DN:DO.
+    if (
+      Object.prototype.hasOwnProperty.call(u, 'planDirection') ||
+      Object.prototype.hasOwnProperty.call(u, 'geometryValid')
+    ) {
+      const planRange = sh.getRange(row, 118, 1, 2); // DN:DO
+      const planCur = planRange.getValues()[0];
+      if (Object.prototype.hasOwnProperty.call(u, 'planDirection')) {
+        planCur[0] = u.planDirection == null ? '' : String(u.planDirection);
+      }
+      if (Object.prototype.hasOwnProperty.call(u, 'geometryValid')) {
+        planCur[1] = u.geometryValid == null ? '' : String(u.geometryValid);
+      }
+      planRange.setValues([planCur]);
+    }
+
+    // V3.4 chronological execution audit: DQ:DX.
+    const execKeys = [
+      'entryFilledUtc', 'firstBarrier', 'executionExitUtc', 'realizedR',
+      'minutesToFill', 'minutesInTrade', 'executionAuditStatus', 'executionAuditNotes'
+    ];
+    if (execKeys.some(function(k) { return Object.prototype.hasOwnProperty.call(u, k); })) {
+      const execRange = sh.getRange(row, 121, 1, 8); // DQ:DX
+      const execCur = execRange.getValues()[0];
+      function putExec(idx, key, numeric) {
+        if (!Object.prototype.hasOwnProperty.call(u, key)) return;
+        const v = u[key];
+        if (v === null || typeof v === 'undefined') {
+          execCur[idx] = '';
+        } else if (numeric) {
+          execCur[idx] = Number(v);
+        } else {
+          execCur[idx] = String(v);
+        }
+      }
+      putExec(0, 'entryFilledUtc', false);
+      putExec(1, 'firstBarrier', false);
+      putExec(2, 'executionExitUtc', false);
+      putExec(3, 'realizedR', true);
+      putExec(4, 'minutesToFill', true);
+      putExec(5, 'minutesInTrade', true);
+      putExec(6, 'executionAuditStatus', false);
+      putExec(7, 'executionAuditNotes', false);
+      execRange.setValues([execCur]);
+    }
+
     changed++;
   });
 
@@ -1087,6 +1169,9 @@ function doPost(e) {
       openSignals: getOpenSignals_(ss),
       pendingAnalyses: getPendingAnalyses_(ss),
       receptorVersion: FORWARD_V3_RECEPTOR_VERSION,
+      xrpV34ReceptorVersion: XRP_V3_4_RECEPTOR_VERSION,
+      xrpV34RuleVersion: XRP_V3_4_RULE_VERSION,
+      xrpV34SchemaVersion: XRP_V3_4_SCHEMA_VERSION,
       forwardV3Recovery: recovery
     });
 
