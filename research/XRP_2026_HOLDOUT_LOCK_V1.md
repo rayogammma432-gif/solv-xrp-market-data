@@ -62,7 +62,7 @@ Ese periodo:
 
 ## Consecuencia metodológica
 
-Si V3 se adapta después de observar datos forward posteriores a 2026-10-01T06:00:00Z:
+Si V3.2 se adapta después de observar datos forward posteriores a 2026-10-02T12:00:00Z:
 - esos datos dejan de ser confirmatorios para la siguiente versión;
 - el holdout histórico 2026 continúa sin tocar hasta un gate explícito.
 
