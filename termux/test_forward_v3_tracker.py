@@ -356,6 +356,31 @@ def test_incomplete_outcome_visible_to_same_cycle_health_state():
         assert tr.state["events"][eid]["outcome_status"]["5"]=="INCOMPLETE"
 
 
+def test_feature_windows_require_exact_continuity():
+    # 21 rows are not enough when one of the preceding bars is missing.
+    rows=[]
+    base=FORWARD_START_MS-21*60_000
+    for i in range(22):
+        if i == 10:
+            continue
+        k=raw_kline(base+i*60_000,1.0,volume=100.0,taker_ratio=0.8)
+        rows.append(row_from_raw(k))
+
+    with tempfile.TemporaryDirectory() as td:
+        tr=ForwardV3Tracker(
+            state_path=Path(td)/"state.json",
+            now_fn=lambda: FORWARD_START_UTC+timedelta(minutes=2),
+        )
+        tr.state["coverage"]["last_evaluated_1m_ms"]=FORWARD_START_MS-60_000
+        # The decision bar exists, but its 20-bar rel-volume history crosses a gap.
+        decision_row=row_from_raw(raw_kline(FORWARD_START_MS-60_000,1.0,volume=300.0,taker_ratio=0.8))
+        history=[r for r in rows if row_available_at_ms(r) < FORWARD_START_MS] + [decision_row]
+        tr._evaluate_1m_decisions(history)
+        hour=tr.state["coverage"]["hours"].get(iso_ms((FORWARD_START_MS//3_600_000)*3_600_000))
+        assert hour is not None
+        assert hour["events_a"] == 0, hour
+
+
 def main():
     test_pre_start_gate()
     test_paginated_catchup_and_all_new_minutes()
@@ -365,8 +390,9 @@ def main():
     test_state_provenance_fail_closed()
     test_decision_cursors_stop_at_first_gap()
     test_incomplete_outcome_visible_to_same_cycle_health_state()
+    test_feature_windows_require_exact_continuity()
     print("PASS XRP_FORWARD_V3_2_CAPTURE_PARITY_RECOVERY")
-    print("pre_start=PASS catchup=PASS pagination=PASS resample_parity=PASS feature_parity=PASS recovery=PASS health=PASS git_cleanliness=PASS state_provenance=PASS gap_stop=PASS incomplete_health_state=PASS")
+    print("pre_start=PASS catchup=PASS pagination=PASS resample_parity=PASS feature_parity=PASS recovery=PASS health=PASS git_cleanliness=PASS state_provenance=PASS gap_stop=PASS incomplete_health_state=PASS feature_window_continuity=PASS")
 
 
 if __name__=="__main__":
