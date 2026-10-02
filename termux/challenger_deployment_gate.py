@@ -193,8 +193,8 @@ def local_artifact_paths(activation_path=DEFAULT_ACTIVATION):
     ]
 
 
-def _pid_alive_from_file(pid_path=DEFAULT_PID):
-    p = Path(pid_path)
+def _pid_alive_from_file(pid_path=None):
+    p = Path(DEFAULT_PID if pid_path is None else pid_path)
     if not p.exists():
         return False
     try:
