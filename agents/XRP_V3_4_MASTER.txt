@@ -200,7 +200,16 @@ Si cualquiera falla, no escribir SIGNAL.
 
 Campos existentes se conservan:
 A ID; B UTC; C MOTOR; D Direction; E Setup; F Entry; G Stop; H TP1; I TP2; J Risk%; K score de compatibilidad; L OPEN.
-K no debe interpretarse como probabilidad. En Notes registrar D-SCORE, E-SCORE y Thesis ID.
+K no debe interpretarse como probabilidad. En Notes registrar resumen legible.
+
+Columnas V3.4 adicionales en SIGNALS:
+AM Thesis ID
+AN Rule Version
+AO Direction Score
+AP Execution Score
+AQ Execution Gate
+
+Toda SIGNAL V3.4 debe escribir AM:AQ. Thesis ID es obligatorio para ACTIVE/SIGNAL; si no puede construirse de forma estable, Execution Gate=BLOCK.
 
 ANALYSES
 En cada ANALIZA añadir fila y conservar columnas históricas A:DJ.
