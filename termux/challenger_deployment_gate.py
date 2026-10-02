@@ -15,6 +15,7 @@ from xrp_challenger_collector import (
     DEFAULT_READY,
     DEFAULT_RUNTIME,
     DEFAULT_STATE,
+    COLLECTOR_VERSION,
     EXPECTED_CHALLENGER_SPREADSHEET_ID,
     EXPECTED_RECEPTOR_VERSION,
     EXPECTED_RECEPTOR_BUILD_ID,
@@ -144,7 +145,6 @@ def probe_receptor(session, cfg, now):
         raise RuntimeError(
             f"RECEPTOR_REGISTRY_MISMATCH recibido={registry!r} esperado={REGISTRY_SHA256!r}"
         )
-    from xrp_challenger_collector import COLLECTOR_VERSION
     if collector != COLLECTOR_VERSION:
         raise RuntimeError(
             f"RECEPTOR_COLLECTOR_MISMATCH recibido={collector!r} esperado={COLLECTOR_VERSION!r}"
