@@ -165,7 +165,7 @@ def main():
     assert 'tail -n' not in status_src
 
     for marker_text in (
-        "XRP_RECEPTOR_CHALLENGER_V2_R1",
+        "XRP_RECEPTOR_CHALLENGER_V2_R2",
         "XRP_FORWARD_V3_2",
         "XRP_CHALLENGER_COLLECTOR_V2",
         "99c17ecf3c3b376f734dc7469351445c7d6727f96d0cb7d5580ea59b5f9f932a",
@@ -177,7 +177,7 @@ def main():
         assert marker_text in receptor_src, marker_text
 
     for forbidden in (
-        "XRP_RECEPTOR_CHALLENGER_V2_R1",
+        "XRP_RECEPTOR_CHALLENGER_V2_R2",
         "challenger_recovery",
         "challenger_incremental",
         "challengerCandidates",
