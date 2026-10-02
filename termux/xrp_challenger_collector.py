@@ -15,6 +15,7 @@ import argparse
 import hashlib
 import json
 import logging
+import os
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 import sys
@@ -46,6 +47,7 @@ COLLECTOR_VERSION = "XRP_CHALLENGER_COLLECTOR_V2"
 EXPECTED_RECEPTOR_VERSION = "XRP_RECEPTOR_CHALLENGER_V2_R1"
 EXPECTED_CHALLENGER_SPREADSHEET_ID = "14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA"
 CYCLE_SECOND = 8
+HEARTBEAT_STALE_SECONDS = 180
 
 logger = logging.getLogger("xrp_challenger_collector")
 logger.setLevel(logging.INFO)
@@ -278,7 +280,7 @@ class ChallengerCollector:
     def write_ready_marker(self, activation, receptor_response):
         marker = {
             "ready_utc": utc_iso(self.now_fn()),
-            "pid": __import__("os").getpid(),
+            "pid": os.getpid(),
             "protocol_version": PROTOCOL_VERSION,
             "registry_sha256": REGISTRY_SHA256,
             "formal_start_utc": utc_iso(FORWARD_START_UTC),
@@ -294,7 +296,7 @@ class ChallengerCollector:
     def write_heartbeat(self, status, detail=None):
         payload = {
             "heartbeat_utc": utc_iso(self.now_fn()),
-            "pid": __import__("os").getpid(),
+            "pid": os.getpid(),
             "status": str(status),
             "protocol_version": PROTOCOL_VERSION,
             "collector_version": COLLECTOR_VERSION,
@@ -304,6 +306,31 @@ class ChallengerCollector:
             payload["detail"] = detail
         save_json_atomic(self.heartbeat_path, payload)
 
+    @staticmethod
+    def validate_receptor_identity(response):
+        received = {
+            "receptor_version": str(response.get("challengerReceptorVersion") or ""),
+            "spreadsheet_id": str(response.get("challengerSpreadsheetId") or ""),
+            "protocol_version": str(response.get("challengerProtocolVersion") or ""),
+            "registry_sha256": str(response.get("challengerRegistrySha256") or ""),
+            "collector_version": str(response.get("challengerCollectorVersion") or ""),
+        }
+        expected = {
+            "receptor_version": EXPECTED_RECEPTOR_VERSION,
+            "spreadsheet_id": EXPECTED_CHALLENGER_SPREADSHEET_ID,
+            "protocol_version": PROTOCOL_VERSION,
+            "registry_sha256": REGISTRY_SHA256,
+            "collector_version": COLLECTOR_VERSION,
+        }
+        mismatches = [
+            f"{key}={received[key]!r} expected={expected[key]!r}"
+            for key in expected
+            if received[key] != expected[key]
+        ]
+        if mismatches:
+            raise RuntimeError("RECEPTOR_IDENTITY_MISMATCH: " + "; ".join(mismatches))
+        return received
+
     def receptor_recovery(self):
         payload = {
             "secret": self.cfg["shared_secret"],
@@ -312,18 +339,7 @@ class ChallengerCollector:
             "challengerRecoveryRequest": True,
         }
         response = post_json(self.session, self.cfg["web_app_url"], payload)
-        version = str(response.get("challengerReceptorVersion") or "")
-        if version != EXPECTED_RECEPTOR_VERSION:
-            raise RuntimeError(
-                f"Receptor Challenger inesperado: {version!r}; "
-                f"esperado={EXPECTED_RECEPTOR_VERSION}"
-            )
-        storage_id = str(response.get("challengerSpreadsheetId") or "")
-        if storage_id != EXPECTED_CHALLENGER_SPREADSHEET_ID:
-            raise RuntimeError(
-                f"Storage Challenger inesperado: {storage_id!r}; "
-                f"esperado={EXPECTED_CHALLENGER_SPREADSHEET_ID}"
-            )
+        self.validate_receptor_identity(response)
         self.tracker.reconcile_remote(response.get("challengerRecovery"))
         return response
 
@@ -350,18 +366,7 @@ class ChallengerCollector:
             payload["challengerHealth"] = health
 
         response = post_json(self.session, self.cfg["web_app_url"], payload)
-        version = str(response.get("challengerReceptorVersion") or "")
-        if version != EXPECTED_RECEPTOR_VERSION:
-            raise RuntimeError(
-                f"Receptor Challenger inesperado: {version!r}; "
-                f"esperado={EXPECTED_RECEPTOR_VERSION}"
-            )
-        storage_id = str(response.get("challengerSpreadsheetId") or "")
-        if storage_id != EXPECTED_CHALLENGER_SPREADSHEET_ID:
-            raise RuntimeError(
-                f"Storage Challenger inesperado: {storage_id!r}; "
-                f"esperado={EXPECTED_CHALLENGER_SPREADSHEET_ID}"
-            )
+        self.validate_receptor_identity(response)
 
         self.tracker.ack(
             event_rows=candidates,
@@ -423,10 +428,52 @@ def _pid_alive(pid):
         pid = int(pid)
         if pid <= 0:
             return False
-        __import__("os").kill(pid, 0)
+        os.kill(pid, 0)
         return True
     except Exception:
         return False
+
+
+def find_live_collector_pids():
+    """Find long-running collector processes even if the PID file is missing."""
+    found = []
+    proc = Path("/proc")
+    if not proc.exists():
+        return found
+    own = os.getpid()
+    for entry in proc.iterdir():
+        if not entry.name.isdigit():
+            continue
+        pid = int(entry.name)
+        if pid == own:
+            continue
+        try:
+            raw = (entry / "cmdline").read_bytes()
+            cmd = raw.replace(b"\x00", b" ").decode("utf-8", errors="ignore")
+        except Exception:
+            continue
+        if "xrp_challenger_collector.py" not in cmd:
+            continue
+        # Status and prelaunch probes are not the long-running collector.
+        if "--status-json" in cmd or "--prelaunch-check" in cmd:
+            continue
+        if _pid_alive(pid):
+            found.append(pid)
+    return sorted(set(found))
+
+
+def _heartbeat_is_fresh(heartbeat, now=None):
+    if not isinstance(heartbeat, dict):
+        return False
+    try:
+        ts = parse_utc(heartbeat.get("heartbeat_utc"))
+    except Exception:
+        return False
+    if ts is None:
+        return False
+    now = utc_now() if now is None else now
+    age = (now - ts).total_seconds()
+    return -5 <= age <= HEARTBEAT_STALE_SECONDS
 
 
 def status_snapshot(
@@ -451,6 +498,8 @@ def status_snapshot(
     except Exception:
         pid = None
     running = _pid_alive(pid)
+    discovered_pids = find_live_collector_pids()
+    unregistered_pids = [x for x in discovered_pids if x != pid]
 
     activation_errors = validate_activation(
         activation,
@@ -460,8 +509,15 @@ def status_snapshot(
         runtime_marker=runtime,
     )
 
+    heartbeat_fresh = _heartbeat_is_fresh(heartbeat)
+    heartbeat_ok = bool(
+        heartbeat_fresh
+        and int((heartbeat or {}).get("pid") or -1) == int(pid or -2)
+        and str((heartbeat or {}).get("status") or "") not in {"GLOBAL_ERROR"}
+    )
     ready_valid = bool(
         running
+        and not unregistered_pids
         and isinstance(ready, dict)
         and int(ready.get("pid") or -1) == int(pid or -2)
         and isinstance(activation, dict)
@@ -472,10 +528,13 @@ def status_snapshot(
         and ready.get("collector_git_sha") == git_sha
         and ready.get("receptor_version") == EXPECTED_RECEPTOR_VERSION
         and ready.get("challenger_spreadsheet_id") == EXPECTED_CHALLENGER_SPREADSHEET_ID
+        and heartbeat_ok
         and not activation_errors
     )
 
-    if running and ready_valid:
+    if unregistered_pids:
+        status = "UNREGISTERED_RUNNING"
+    elif running and ready_valid:
         status = "RUNNING_READY"
     elif running:
         status = "RUNNING_NOT_READY"
@@ -488,7 +547,10 @@ def status_snapshot(
         "status": status,
         "pid": pid,
         "running": running,
+        "discovered_live_pids": discovered_pids,
+        "unregistered_live_pids": unregistered_pids,
         "ready": ready_valid,
+        "heartbeat_fresh": heartbeat_fresh,
         "activation_present": Path(activation_path).exists(),
         "runtime_marker_present": Path(runtime_path).exists(),
         "state_present": Path(state_path).exists(),
@@ -547,8 +609,10 @@ def main():
             return 0
 
         activation = collector.validate_live_activation()
-        collector.ensure_runtime_marker(activation)
+        # A runtime marker proves a full pre-start handshake, not merely that
+        # Python started. Receptor identity/recovery must succeed first.
         receptor_response = collector.receptor_recovery()
+        collector.ensure_runtime_marker(activation)
         collector.write_ready_marker(activation, receptor_response)
         collector.write_heartbeat("STARTUP_READY")
 
@@ -586,7 +650,7 @@ def main():
             Path(args.ready).unlink(missing_ok=True)
             save_json_atomic(args.heartbeat, {
                 "heartbeat_utc": utc_iso(),
-                "pid": __import__("os").getpid(),
+                "pid": os.getpid(),
                 "status": "GLOBAL_ERROR",
                 "protocol_version": PROTOCOL_VERSION,
                 "collector_version": COLLECTOR_VERSION,
