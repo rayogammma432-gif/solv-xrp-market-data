@@ -191,7 +191,7 @@ def main():
         EXPECTED_START,
         "2027-03-31T12:00:00Z",
         "2026-12-31T12:00:00Z",
-        "stop at the gap",
+        "evaluation stops at the gap",
     ):
         if marker not in forward_protocol:
             errors.append(f"forward protocol missing marker {marker}")
