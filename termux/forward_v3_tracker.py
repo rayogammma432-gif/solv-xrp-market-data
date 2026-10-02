@@ -115,7 +115,7 @@ def current_git_sha():
         )
         sha = p.stdout.strip()
         dirty = subprocess.run(
-            ["git", "status", "--porcelain", "--untracked-files=no"],
+            ["git", "-c", "core.fileMode=false", "status", "--porcelain", "--untracked-files=no"],
             cwd=str(REPO_ROOT),
             check=True,
             capture_output=True,
