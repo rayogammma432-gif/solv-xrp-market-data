@@ -1,0 +1,132 @@
+name: XRP Challenger V2 Clean Relaunch Prelaunch
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/xrp-challenger-v2-prelaunch.yml"
+      - "termux/forward_v3_2_tracker.py"
+      - "termux/xrp_challenger_collector_v2.py"
+      - "termux/challenger_deployment_gate_v2.py"
+      - "termux/start_challenger_collector_v2.sh"
+      - "termux/status_challenger_collector_v2.sh"
+      - "termux/stop_challenger_collector_v2.sh"
+      - "termux/test_forward_v3_2_tracker.py"
+      - "termux/test_xrp_challenger_collector_v2.py"
+      - "termux/test_challenger_deployment_gate_v2.py"
+      - "termux/challenger_v2_activation.example.json"
+      - "apps-script/XRP_Challenger_Receptor.gs"
+      - "research/XRP_FORWARD_RESEARCH_PROTOCOL_V3_2.md"
+      - "research/XRP_CHALLENGER_COLLECTOR_PROTOCOL_V2.md"
+      - "research/experiments/XRP_FORWARD_REGISTRY_V3_2.jsonl"
+      - "research/experiments/XRP_CHALLENGER_COLLECTOR_REGISTRY_V2.json"
+      - "research/validate_xrp_challenger_collector_v2.py"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python syntax
+        run: |
+          python -m py_compile \
+            termux/forward_v3_2_tracker.py \
+            termux/xrp_challenger_collector_v2.py \
+            termux/challenger_deployment_gate_v2.py \
+            termux/test_forward_v3_2_tracker.py \
+            termux/test_xrp_challenger_collector_v2.py \
+            termux/test_challenger_deployment_gate_v2.py \
+            research/validate_xrp_challenger_collector_v2.py
+
+      - name: Shell syntax
+        run: |
+          bash -n termux/start_challenger_collector_v2.sh
+          bash -n termux/status_challenger_collector_v2.sh
+          bash -n termux/stop_challenger_collector_v2.sh
+
+      - name: Apps Script syntax
+        run: |
+          cp apps-script/XRP_Challenger_Receptor.gs /tmp/xrp_challenger_receptor_v2.js
+          node --check /tmp/xrp_challenger_receptor_v2.js
+
+      - name: Verify V3.2 registry hash
+        run: |
+          python - <<'PY'
+          import hashlib
+          from pathlib import Path
+          p=Path("research/experiments/XRP_FORWARD_REGISTRY_V3_2.jsonl")
+          got=hashlib.sha256(p.read_bytes()).hexdigest()
+          exp="94babcf11323827e1ec7e77cc4c64977c5a656794cef0b1e2c2056c0cc2f34f9"
+          print("registry_sha256="+got)
+          assert got==exp,(got,exp)
+          PY
+
+      - name: V3.2 rule-engine parity and recovery
+        env:
+          PYTHONPATH: termux:research
+        run: python termux/test_forward_v3_2_tracker.py
+
+      - name: Challenger V2 activation regressions
+        env:
+          PYTHONPATH: termux
+        run: python termux/test_xrp_challenger_collector_v2.py
+
+      - name: Challenger V2 deployment-gate regressions
+        env:
+          PYTHONPATH: termux
+        run: python termux/test_challenger_deployment_gate_v2.py
+
+      - name: Validate source separation and frozen start
+        run: python research/validate_xrp_challenger_collector_v2.py
+
+      - name: Build V2 deployment manifest
+        run: |
+          python - <<'PY'
+          import hashlib,json,os,subprocess
+          from pathlib import Path
+          def sha256(p): return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+          def file_commit(p):
+              return subprocess.check_output(["git","log","-1","--format=%H","--",p],text=True).strip()
+          out=Path("challenger-v2-prelaunch")
+          out.mkdir(exist_ok=True)
+          manifest={
+            "status":"READY_FOR_DEVICE_DEPLOYMENT_NOT_ACTIVATED",
+            "deploy_head_sha":os.environ["GITHUB_SHA"],
+            "formal_start_utc":"2026-10-02T12:00:00Z",
+            "formal_start_guatemala":"2026-10-02T06:00:00-06:00",
+            "protocol_version":"XRP_FORWARD_V3_2",
+            "registry_sha256":"94babcf11323827e1ec7e77cc4c64977c5a656794cef0b1e2c2056c0cc2f34f9",
+            "collector_version":"XRP_CHALLENGER_COLLECTOR_V2",
+            "collector_file":"termux/xrp_challenger_collector_v2.py",
+            "collector_sha256":sha256("termux/xrp_challenger_collector_v2.py"),
+            "collector_file_commit":file_commit("termux/xrp_challenger_collector_v2.py"),
+            "tracker_file":"termux/forward_v3_2_tracker.py",
+            "tracker_sha256":sha256("termux/forward_v3_2_tracker.py"),
+            "deployment_gate_file":"termux/challenger_deployment_gate_v2.py",
+            "deployment_gate_sha256":sha256("termux/challenger_deployment_gate_v2.py"),
+            "receptor_file":"apps-script/XRP_Challenger_Receptor.gs",
+            "receptor_sha256":sha256("apps-script/XRP_Challenger_Receptor.gs"),
+            "receptor_file_commit":file_commit("apps-script/XRP_Challenger_Receptor.gs"),
+            "receptor_version":"XRP_RECEPTOR_CHALLENGER_V2_R1",
+            "challenger_spreadsheet_id":"14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA",
+            "activation_file":"termux/challenger_v2_activation.json",
+            "runtime_file":"termux/challenger_v2_runtime.json",
+            "state_file":"termux/challenger_v2_forward_state.json",
+            "heartbeat_file":"termux/challenger_v2_heartbeat.json",
+            "activation_enabled":False
+          }
+          (out/"XRP_CHALLENGER_V2_DEPLOYMENT_MANIFEST.json").write_text(
+              json.dumps(manifest,indent=2)+"\n",encoding="utf-8"
+          )
+          print(json.dumps(manifest,indent=2))
+          PY
+
+      - name: Upload V2 validation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrp-challenger-v2-prelaunch
+          path: |
+            challenger-v2-prelaunch/
+            challenger-collector-prelaunch-v2/
