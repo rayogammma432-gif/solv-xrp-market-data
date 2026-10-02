@@ -7,6 +7,15 @@ READY_FILE="$HERE/challenger_ready.json"
 HEARTBEAT_FILE="$HERE/challenger_heartbeat.json"
 mkdir -p "$LOG_DIR"
 
+# A missing/stale PID file is not proof that no collector exists.
+# Discover any live collector first to prevent duplicate independent processes.
+DISCOVERY_JSON="$(cd "$HERE/.." && python termux/xrp_challenger_collector.py --status-json 2>/dev/null || true)"
+if printf '%s\n' "$DISCOVERY_JSON" | grep -Eq '"status": "(UNREGISTERED_RUNNING|RUNNING_READY|RUNNING_NOT_READY)"'; then
+  echo "BLOQUEADO: ya existe un proceso Challenger vivo o no registrado."
+  printf '%s\n' "$DISCOVERY_JSON"
+  exit 2
+fi
+
 if [ -f "$PID_FILE" ]; then
   PID="$(cat "$PID_FILE" 2>/dev/null || true)"
   if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
