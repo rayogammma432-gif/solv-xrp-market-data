@@ -47,7 +47,7 @@
   },
   "receptor": {
     "file": "apps-script/XRP_Challenger_Receptor.gs",
-    "version": "XRP_RECEPTOR_CHALLENGER_V2_R1",
+    "version": "XRP_RECEPTOR_CHALLENGER_V2_R2",
     "script_property": "CHALLENGER_SHARED_SECRET",
     "config_block": "challenger",
     "shared_with_current": false,
