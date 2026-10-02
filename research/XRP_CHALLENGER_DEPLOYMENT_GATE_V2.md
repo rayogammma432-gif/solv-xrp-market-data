@@ -25,8 +25,9 @@ The gate changes deployment mechanics only. Scientific rules remain those frozen
    - `python termux/challenger_deployment_gate.py`
 10. Require `PASS_DEPLOYMENT_GATE` and verify:
    - protocol `XRP_FORWARD_V3_2`;
-   - receptor `XRP_RECEPTOR_CHALLENGER_V2_R2`;
-   - collector `XRP_CHALLENGER_COLLECTOR_V2`;
+   - receptor `XRP_RECEPTOR_CHALLENGER_V2_R3`;
+   - collector `XRP_CHALLENGER_COLLECTOR_V2_R2`;
+   - receptor build `XRP_CHALLENGER_RECEPTOR_BUILD_20261002_R3`;
    - registry SHA `99c17ecf3c3b376f734dc7469351445c7d6727f96d0cb7d5580ea59b5f9f932a`;
    - spreadsheet ID `14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA`;
    - start `2026-10-02T12:00:00Z`.
@@ -63,7 +64,7 @@ It does **not** modify:
 
 Reset is refused:
 - while a Challenger PID is alive;
-- within the final 10-minute safety window.
+- within the final 30-minute safety window.
 
 ## Git cleanliness contract
 
@@ -82,9 +83,10 @@ The gate requires the deployed receptor to return all of:
 - dedicated spreadsheet ID;
 - expected protocol version;
 - expected registry SHA;
-- expected collector version.
+- expected collector version;
+- expected receptor build ID.
 
-A stale Apps Script deployment therefore fails even if it still answers HTTP requests.
+A stale Apps Script deployment therefore fails even if it still answers HTTP requests. The build ID is an operational deployment fingerprint: it does not claim self-hashing of Apps Script source, but it prevents an older frozen build from satisfying the V3.2 gate.
 
 ## Stale artifacts
 
@@ -112,7 +114,7 @@ The start script waits for the READY state and kills the process if readiness ne
 ## Fail-closed cases
 
 Do not launch if any of the following occurs:
-- fewer than 10 minutes remain before start;
+- fewer than 30 minutes remain before start;
 - tracked worktree is dirty;
 - CURRENT XRP URL/secret are unavailable, so isolation cannot be proven;
 - Challenger URL/secret are missing, placeholders, or equal CURRENT;
