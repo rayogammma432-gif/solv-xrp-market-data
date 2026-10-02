@@ -58,12 +58,15 @@ jobs:
           tracker = Path("termux/analysis_tracker.py").read_text()
 
           required_receptor = [
+              "const SIGNAL_COLS = 43;",
               "const ANALYSIS_COLS = 129;",
               "const planRange = sh.getRange(row, 118, 1, 2); // DN:DO",
               "const execRange = sh.getRange(row, 121, 1, 8); // DQ:DX",
               "primaryBias: String(r[4] || '')",
               "entry: r[19] === '' ? null : Number(r[19])",
               "tp2: r[22] === '' ? null : Number(r[22])",
+              "thesisId: String(r[38] || '')",
+              "executionGate: String(r[42] || '')",
           ]
           required_rules = [
               "AGENTE XRPUSDT — XRP_V3.4",
