@@ -10,7 +10,7 @@ mkdir -p "$LOG_DIR"
 # A missing/stale PID file is not proof that no collector exists.
 # Discover any live collector first to prevent duplicate independent processes.
 DISCOVERY_JSON="$(cd "$HERE/.." && python termux/xrp_challenger_collector.py --status-json 2>/dev/null || true)"
-if printf '%s\n' "$DISCOVERY_JSON" | grep -Eq '"status": "(UNREGISTERED_RUNNING|RUNNING_READY|RUNNING_NOT_READY)"'; then
+if printf '%s\n' "$DISCOVERY_JSON" | grep -Eq '"status": "(UNREGISTERED_RUNNING|RUNNING_READY|RUNNING_NOT_READY|RUNNING_DEGRADED)"'; then
   echo "BLOQUEADO: ya existe un proceso Challenger vivo o no registrado."
   printf '%s\n' "$DISCOVERY_JSON"
   exit 2
