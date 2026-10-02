@@ -5,3 +5,10 @@ termux/challenger_runtime.json
 termux/challenger_forward_state.json
 termux/challenger_collector.pid
 termux/logs/
+
+# Challenger V2 local activation/runtime
+termux/challenger_v2_activation.json
+termux/challenger_v2_runtime.json
+termux/challenger_v2_forward_state.json
+termux/challenger_v2_heartbeat.json
+termux/challenger_v2_collector.pid
