@@ -72,9 +72,9 @@
   "formal_launch": false,
   "infrastructure": {
     "collector_file": "termux/market_collector.py",
-    "collector_commit_sha": "fc27fe20340c1d9fd6f047b5a42adc549079839d",
+    "collector_commit_sha": "656dedc63fc154aff53cef4c58b3f1f34d51ee2c",
     "receptor_file": "apps-script/XRP_Receptor_Incremental.gs",
-    "receptor_commit_sha": "dac8e1e9d0280b6bf57f911c7fcdd8ceb11395f2",
+    "receptor_commit_sha": "345e1bf60129e169d0eb22945e135e91c167d7f3",
     "protocol_file": "research/XRP_PAIRED_BENCHMARK_PROTOCOL_V1.md",
     "protocol_commit_sha": "4008071dae9010cfdaafbedaf7d4bda5c527e8bd",
     "isolation_protocol_file": "research/XRP_PAIRED_ISOLATION_PROTOCOL_V1.md",
