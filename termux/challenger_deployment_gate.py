@@ -19,6 +19,7 @@ from xrp_challenger_collector import (
     EXPECTED_RECEPTOR_VERSION,
     FORWARD_START_UTC,
     PROTOCOL_VERSION,
+    find_live_collector_pids,
     REGISTRY_SHA256,
     validate_activation,
 )
@@ -219,8 +220,12 @@ def reset_local_prelaunch(activation_path=DEFAULT_ACTIVATION, now_fn=utc_now):
             "RESET_BLOCKED_INSUFFICIENT_PRESTART_MARGIN: quedan "
             f"{max(0, int(seconds_left))}s; minimo={MIN_ACTIVATION_LEAD_SECONDS}s"
         )
-    if _pid_alive_from_file():
-        raise RuntimeError("RESET_BLOCKED_CHALLENGER_PROCESS_IS_RUNNING")
+    live_pids = find_live_collector_pids()
+    if _pid_alive_from_file() or live_pids:
+        raise RuntimeError(
+            "RESET_BLOCKED_CHALLENGER_PROCESS_IS_RUNNING: "
+            + ",".join(str(x) for x in live_pids)
+        )
 
     stamp = now.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     archive = ARCHIVE_ROOT / stamp
