@@ -41,11 +41,14 @@ function appendUniqueResearchRows_(sh, rows, baseCols, totalCols) {
   const existing = new Map();
   const last = sh.getLastRow();
   if (last >= 2) {
-    sh.getRange(2, 1, last - 1, baseCols).getValues().forEach(function(r) {
-      const id = String(r[0] || '');
-      const payloadHash = String(r[baseCols - 1] || '');
+    const n = last - 1;
+    const ids = sh.getRange(2, 1, n, 1).getValues();
+    const hashes = sh.getRange(2, baseCols, n, 1).getValues();
+    for (let i = 0; i < n; i++) {
+      const id = String(ids[i][0] || '');
+      const payloadHash = String(hashes[i][0] || '');
       if (id) existing.set(id, payloadHash);
-    });
+    }
   }
 
   const writeUtc = new Date().toISOString();
