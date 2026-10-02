@@ -331,6 +331,26 @@ class ChallengerCollector:
             raise RuntimeError("RECEPTOR_IDENTITY_MISMATCH: " + "; ".join(mismatches))
         return received
 
+    def validate_runtime_integrity(self):
+        live_git = current_git_sha()
+        if live_git != self.git_sha:
+            raise RuntimeError(
+                f"COLLECTOR_SOURCE_CHANGED_DURING_RUNTIME: boot={self.git_sha} live={live_git}"
+            )
+        act = self.activation()
+        errors = validate_activation(
+            act,
+            now=self.now_fn(),
+            git_sha=live_git,
+            state_exists=self.state_path.exists(),
+            runtime_marker=self.runtime_marker(),
+        )
+        if errors:
+            raise RuntimeError(
+                "RUNTIME_INTEGRITY_BLOCKED: " + ", ".join(errors)
+            )
+        return act
+
     def receptor_recovery(self):
         payload = {
             "secret": self.cfg["shared_secret"],
@@ -344,6 +364,7 @@ class ChallengerCollector:
         return response
 
     def cycle(self):
+        self.validate_runtime_integrity()
         candidates, outcomes, health = self.tracker.evaluate(self.session)
         if not (candidates or outcomes or health):
             return {
