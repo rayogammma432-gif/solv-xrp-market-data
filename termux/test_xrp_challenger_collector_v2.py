@@ -166,6 +166,7 @@ def main():
     assert 'RUNNING_READY' in start_src
     assert 'UNREGISTERED_RUNNING' in start_src
     assert 'RUNNING_NOT_READY' in start_src
+    assert 'RUNNING_DEGRADED' in start_src
     assert '--status-json' in start_src
     assert '--status-json' in status_src
     assert 'tail -n' not in status_src
