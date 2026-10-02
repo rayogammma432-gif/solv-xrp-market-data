@@ -282,24 +282,31 @@ A finalized hour with any missing 1m or 15m remains visible for review.
 
 ## Statistical gate
 
+Normative evaluation contract:
+- `research/XRP_FORWARD_EVALUATION_CONTRACT_V3_2.md`
+- `research/experiments/XRP_FORWARD_EVALUATION_CONTRACT_V3_2.json`
+
 Earliest common 180-day gate:
 - `2027-03-31T12:00:00Z`
 
-At that gate:
-1. primary effect for A/B/C;
-2. UTC-day block bootstrap, 2,000 replicates;
-3. one-sided p per candidate;
-4. Holm across the three primary p-values;
-5. CI95 lower > 0;
-6. candidate-specific effect floor;
-7. candidate-specific sample minimum;
-8. preregistered temporal stability.
+The frozen evaluation contract defines exactly:
+1. eligible primary rows and maturity cutoff;
+2. candidate-specific primary effects;
+3. UTC-day block bootstrap with 2,000 replicates and deterministic seed;
+4. one-sided bootstrap p per candidate;
+5. Holm across all three primary p-values;
+6. percentile CI95 lower > 0;
+7. candidate-specific effect and sample floors;
+8. temporal stability: monthly median > 0 for A, quarterly median > 0 for B/C;
+9. fail-closed handling of primary INCOMPLETE outcomes and provenance failures.
 
-A informational 90-day checkpoint:
+An informational 90-day checkpoint:
 - `2026-12-31T12:00:00Z`
 - cannot promote or retune A.
 
 ## Immutability
+
+The evaluation contract is part of the frozen scientific specification.
 
 From `2026-10-02T12:00:00Z`:
 - thresholds do not change;
