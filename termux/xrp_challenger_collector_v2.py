@@ -399,11 +399,12 @@ def main():
         )
 
         if args.prelaunch_check:
-            print(json.dumps(
-                collector.prelaunch_check(check_receptor=args.check_receptor),
-                indent=2,
-                sort_keys=True,
-            ))
+            result = collector.prelaunch_check(check_receptor=args.check_receptor)
+            print(json.dumps(result, indent=2, sort_keys=True))
+            if result.get("activation_errors"):
+                return 2
+            if args.check_receptor and not result.get("receptor_checked"):
+                return 2
             return 0
 
         activation = collector.validate_live_activation()
