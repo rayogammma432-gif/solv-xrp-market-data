@@ -381,6 +381,32 @@ def test_feature_windows_require_exact_continuity():
         assert hour["events_a"] == 0, hour
 
 
+def test_oi_asof_age_matches_historical_contract():
+    decision = FORWARD_START_MS + 60 * 60_000
+    # Latest available row is 15 minutes old at decision time: historical
+    # FEATURES_V1 max-age=10m must reject it even if t-15m exists.
+    cur_source = decision - 20 * 60_000  # available at decision-15m
+    prev_source = cur_source - 15 * 60_000
+    oi = [
+        {"timestamp": prev_source, "sumOpenInterest": "1000"},
+        {"timestamp": cur_source, "sumOpenInterest": "1010"},
+    ]
+    value, available = ForwardV3Tracker._get_oi_feature(FakeSession([], oi), decision)
+    assert value is None
+    assert available == iso_ms(cur_source + 300_000)
+
+    # A row whose available_at is exactly 10m old is still allowed.
+    cur_source = decision - 15 * 60_000  # available at decision-10m
+    prev_source = cur_source - 15 * 60_000
+    oi = [
+        {"timestamp": prev_source, "sumOpenInterest": "1000"},
+        {"timestamp": cur_source, "sumOpenInterest": "1010"},
+    ]
+    value, available = ForwardV3Tracker._get_oi_feature(FakeSession([], oi), decision)
+    assert abs(value - 0.01) < 1e-12
+    assert available == iso_ms(cur_source + 300_000)
+
+
 def main():
     test_pre_start_gate()
     test_paginated_catchup_and_all_new_minutes()
@@ -391,8 +417,9 @@ def main():
     test_decision_cursors_stop_at_first_gap()
     test_incomplete_outcome_visible_to_same_cycle_health_state()
     test_feature_windows_require_exact_continuity()
+    test_oi_asof_age_matches_historical_contract()
     print("PASS XRP_FORWARD_V3_2_CAPTURE_PARITY_RECOVERY")
-    print("pre_start=PASS catchup=PASS pagination=PASS resample_parity=PASS feature_parity=PASS recovery=PASS health=PASS git_cleanliness=PASS state_provenance=PASS gap_stop=PASS incomplete_health_state=PASS feature_window_continuity=PASS")
+    print("pre_start=PASS catchup=PASS pagination=PASS resample_parity=PASS feature_parity=PASS recovery=PASS health=PASS git_cleanliness=PASS state_provenance=PASS gap_stop=PASS incomplete_health_state=PASS feature_window_continuity=PASS oi_age_parity=PASS")
 
 
 if __name__=="__main__":
