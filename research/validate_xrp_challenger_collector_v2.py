@@ -4,6 +4,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,6 +41,17 @@ def sha256_file(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def latest_file_commit(path):
+    rel = str(Path(path).resolve().relative_to(ROOT.resolve()))
+    return subprocess.run(
+        ["git", "log", "-1", "--format=%H", "--", rel],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
 def main():
     errors = []
     upstream_sha = sha256_file(UPSTREAM)
@@ -61,6 +73,18 @@ def main():
     start = START.read_text(encoding="utf-8")
     status = STATUS.read_text(encoding="utf-8")
     gitignore = GITIGNORE.read_text(encoding="utf-8")
+
+    protocol_commit = latest_file_commit(FORWARD_PROTOCOL)
+    evaluation_protocol_commit = latest_file_commit(EVALUATION_PROTOCOL)
+    evaluation_contract_commit = latest_file_commit(EVALUATION_CONTRACT)
+    if f'PROTOCOL_COMMIT_SHA = "{protocol_commit}"' not in tracker:
+        errors.append(
+            f"tracker protocol provenance stale: tracker must pin {protocol_commit}"
+        )
+    if evaluation_protocol_commit not in forward_protocol:
+        errors.append("forward protocol does not pin current evaluation MD commit")
+    if evaluation_contract_commit not in forward_protocol:
+        errors.append("forward protocol does not pin current evaluation JSON commit")
 
     if upstream_sha != EXPECTED_REGISTRY_SHA:
         errors.append(f"upstream V3.2 registry SHA changed: {upstream_sha}")
