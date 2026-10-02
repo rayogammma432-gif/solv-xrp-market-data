@@ -48,4 +48,16 @@ Do not conclude that one agent is better solely because it has:
 
 when the populations, risk or costs differ.
 
-The exact comparison design will be frozen only after a V3.1 research candidate clears the execution-economics gate.
+## Two comparison layers
+
+A **paired decision-quality benchmark** may be frozen and run prospectively before a Forward candidate clears the execution-economics gate, provided it:
+- uses the same frozen captures for both arms;
+- remains isolated from paired outcomes before each decision;
+- uses a normalized common cost only as a benchmark convention;
+- makes no claim of account-level deployability or independent opportunity discovery.
+
+That research benchmark is defined by `XRP_PAIRED_BENCHMARK_PROTOCOL_V1.md`.
+
+An **operational/economic comparison for deployment** remains blocked until a Forward research candidate clears the separate execution-economics gate. Only that later comparison may support claims about executable strategy economics.
+
+Thus the paired benchmark does not supersede the execution-economics requirement; it answers a narrower question about decision quality on a common opportunity universe.
