@@ -4,10 +4,11 @@
 // CHALLENGER_SHARED_SECRET = secret used only by termux challenger config.
 
 const CHALLENGER_SPREADSHEET_ID = '14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA';
-const CHALLENGER_RECEPTOR_VERSION = 'XRP_RECEPTOR_CHALLENGER_V2_R2';
+const CHALLENGER_RECEPTOR_VERSION = 'XRP_RECEPTOR_CHALLENGER_V2_R3';
+const CHALLENGER_RECEPTOR_BUILD_ID = 'XRP_CHALLENGER_RECEPTOR_BUILD_20261002_R3';
 const EXPECTED_PROTOCOL_VERSION = 'XRP_FORWARD_V3_2';
 const EXPECTED_REGISTRY_SHA256 = '99c17ecf3c3b376f734dc7469351445c7d6727f96d0cb7d5580ea59b5f9f932a';
-const EXPECTED_COLLECTOR_VERSION = 'XRP_CHALLENGER_COLLECTOR_V2';
+const EXPECTED_COLLECTOR_VERSION = 'XRP_CHALLENGER_COLLECTOR_V2_R2';
 
 const EVENT_BASE_COLS = 27;
 const EVENT_COLS = 29;
@@ -157,36 +158,45 @@ function appendAudit_(ss, rows) {
   return out.length;
 }
 
+function requiredHorizons_(candidateId) {
+  if (candidateId === 'XRP-FWD-V3-A-TAKER-EXHAUSTION') return [5, 15, 30];
+  if (candidateId === 'XRP-FWD-V3-B-OI-MODERATOR') return [60];
+  if (candidateId === 'XRP-FWD-V3-C-MOMENTUM-EXHAUSTION') return [15, 60, 240];
+  return [];
+}
+
+function fetchRowsByNumbers_(sh, rowNumbers, width) {
+  if (!rowNumbers.length) return [];
+  const rows = [];
+  let start = rowNumbers[0];
+  let prev = start;
+
+  function flush_(a, b) {
+    const vals = sh.getRange(a, 1, b - a + 1, width).getValues();
+    vals.forEach(function(row) { rows.push(row); });
+  }
+
+  for (let i = 1; i < rowNumbers.length; i++) {
+    const n = rowNumbers[i];
+    if (n === prev + 1) {
+      prev = n;
+      continue;
+    }
+    flush_(start, prev);
+    start = n;
+    prev = n;
+  }
+  flush_(start, prev);
+  return rows;
+}
+
 function recovery_(ss) {
   const eventsSh = sheet_(ss, 'CHALLENGER_CANDIDATES');
   const outcomesSh = sheet_(ss, 'CHALLENGER_OUTCOMES');
   const healthSh = sheet_(ss, 'CHALLENGER_HEALTH');
 
-  const eventCount = Math.max(0, eventsSh.getLastRow() - 1);
-  const eventTake = Math.min(eventCount, 1200);
-  const events = eventTake
-    ? eventsSh.getRange(
-        eventsSh.getLastRow() - eventTake + 1,
-        1,
-        eventTake,
-        EVENT_COLS
-      ).getValues()
-    : [];
-
-  const outcomeCount = Math.max(0, outcomesSh.getLastRow() - 1);
-  const outcomeTake = Math.min(outcomeCount, 9000);
-  const outcomeIds = outcomeTake
-    ? outcomesSh.getRange(
-        outcomesSh.getLastRow() - outcomeTake + 1,
-        1,
-        outcomeTake,
-        1
-      ).getValues().map(function(r) {
-        return String(r[0] || '');
-      }).filter(Boolean)
-    : [];
-
   let latestHealth = null;
+  let recoveryFloor = '';
   if (healthSh.getLastRow() >= 2) {
     latestHealth = healthSh.getRange(
       healthSh.getLastRow(),
@@ -194,10 +204,68 @@ function recovery_(ss) {
       1,
       HEALTH_COLS
     ).getValues()[0];
+
+    const last1 = String(latestHealth[16] || '');
+    const last15 = String(latestHealth[17] || '');
+    if (last1 && last15) recoveryFloor = last1 < last15 ? last1 : last15;
+    else recoveryFloor = last1 || last15 || '';
   }
+
+  const outcomesByEvent = new Map();
+  const outcomeIdByEventHorizon = new Map();
+  const outcomeCount = Math.max(0, outcomesSh.getLastRow() - 1);
+  if (outcomeCount) {
+    const outcomeMeta = outcomesSh.getRange(2, 1, outcomeCount, 5).getValues();
+    outcomeMeta.forEach(function(row) {
+      const outcomeId = String(row[0] || '');
+      const eventId = String(row[1] || '');
+      const horizon = Number(row[4]);
+      if (!eventId || !Number.isFinite(horizon)) return;
+      if (!outcomesByEvent.has(eventId)) outcomesByEvent.set(eventId, new Set());
+      outcomesByEvent.get(eventId).add(horizon);
+      outcomeIdByEventHorizon.set(eventId + '|' + horizon, outcomeId);
+    });
+  }
+
+  const selectedRows = [];
+  const selectedEventIds = new Set();
+  const eventCount = Math.max(0, eventsSh.getLastRow() - 1);
+  if (eventCount) {
+    const eventMeta = eventsSh.getRange(2, 1, eventCount, 6).getValues();
+    eventMeta.forEach(function(row, i) {
+      const eventId = String(row[0] || '');
+      const protocol = String(row[1] || '');
+      const candidateId = String(row[2] || '');
+      const decisionTime = String(row[5] || '');
+      if (!eventId || protocol !== EXPECTED_PROTOCOL_VERSION) return;
+
+      const required = requiredHorizons_(candidateId);
+      if (!required.length) return;
+      const have = outcomesByEvent.get(eventId) || new Set();
+      const pending = required.some(function(h) { return !have.has(h); });
+      const newerThanCheckpoint = !recoveryFloor || (decisionTime && decisionTime > recoveryFloor);
+
+      if (pending || newerThanCheckpoint) {
+        selectedRows.push(i + 2);
+        selectedEventIds.add(eventId);
+      }
+    });
+  }
+
+  const events = fetchRowsByNumbers_(eventsSh, selectedRows, EVENT_COLS);
+  const outcomeIds = [];
+  selectedEventIds.forEach(function(eventId) {
+    const have = outcomesByEvent.get(eventId) || new Set();
+    have.forEach(function(h) {
+      const oid = outcomeIdByEventHorizon.get(eventId + '|' + h);
+      if (oid) outcomeIds.push(oid);
+    });
+  });
 
   return {
     receptorVersion: CHALLENGER_RECEPTOR_VERSION,
+    recoveryMode: 'PENDING_OUTCOMES_PLUS_POST_CHECKPOINT',
+    recoveryFloorUtc: recoveryFloor,
     events: events,
     outcomeIds: outcomeIds,
     latestHealth: latestHealth
@@ -290,6 +358,7 @@ function doPost(e) {
         updatedAtUtc: payload.generatedAtUtc || new Date().toISOString(),
         rows: counts,
         challengerReceptorVersion: CHALLENGER_RECEPTOR_VERSION,
+        challengerReceptorBuildId: CHALLENGER_RECEPTOR_BUILD_ID,
         challengerSpreadsheetId: CHALLENGER_SPREADSHEET_ID,
         challengerProtocolVersion: EXPECTED_PROTOCOL_VERSION,
         challengerRegistrySha256: EXPECTED_REGISTRY_SHA256,
