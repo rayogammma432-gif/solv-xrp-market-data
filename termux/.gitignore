@@ -6,3 +6,9 @@ __pycache__/
 *.pyc
 alert_state.json
 alert_events.json
+
+challenger_v2_activation.json
+challenger_v2_runtime.json
+challenger_v2_forward_state.json
+challenger_v2_heartbeat.json
+challenger_v2_collector.pid
