@@ -270,6 +270,13 @@ def run(config_path, activation_path, write_activation=False, now_fn=utc_now, se
     if git_tracked_dirty():
         raise RuntimeError("GIT_TRACKED_WORKTREE_DIRTY")
 
+    live_pids = find_live_collector_pids()
+    if live_pids:
+        raise RuntimeError(
+            "CHALLENGER_PROCESS_ALREADY_RUNNING: "
+            + ",".join(str(x) for x in live_pids)
+        )
+
     stale = stale_local_artifacts(activation_path)
     if stale:
         raise RuntimeError(
