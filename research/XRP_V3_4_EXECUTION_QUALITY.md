@@ -100,3 +100,18 @@ The live `SIGNALS` sheet is extended from A:AL to A:AQ:
 - AQ Execution Gate
 
 V3.4 signals must persist these fields at creation time. The V3.4 receptor reads them back for deterministic open-thesis visibility. V3.3 receptor behavior remains unchanged because it still reads only A:AL.
+
+
+## Read-only deployment probe
+
+`apps-script/XRP_Receptor_V3_4.gs` exposes a GET health response so the new Web App can be deployed and verified without mutating Sheets.
+
+Required pre-activation response:
+- `receptorVersion=XRP_RECEPTOR_V3_4_V1`
+- `ruleVersion=XRP_V3.4`
+- `schemaVersion=XRP_V3_4_SCHEMA_DY_AQ_V1`
+- `signalCols=43`
+- `analysisCols=129`
+- the XRP Market Data spreadsheet ID
+
+The operational Termux XRP endpoint must remain on V3.3 until activation.
