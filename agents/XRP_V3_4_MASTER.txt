@@ -260,22 +260,24 @@ Reportar por separado:
 No tratar análisis correlacionados de una misma tesis como observaciones independientes.
 
 COMPATIBILIDAD
-Receptor V3.4: apps-script/XRP_Receptor_V3_4.gs.
-NO modificar ni desplegar apps-script/XRP_Receptor_Incremental.gs como parte de V3.4; ese archivo permanece congelado para V3.3 y el paired benchmark.
-V3.4 debe desplegarse como Web App separado y cambiar el endpoint operativo solo durante la activación explícita.
-Antes de activación, verificar por GET/health:
+Ruta operativa del receptor: apps-script/XRP_Receptor_Incremental.gs.
+V3.4 reutiliza el mismo proyecto/Web App, Spreadsheet, collector, scheduler, SIGNALS, ANALYSES y secret de producción salvo rotación explícita.
+V3.3 queda retirado de producción. Su snapshot final vive en:
+- branch archive/xrp-v3.3-final
+- archive/xrp-v3.3/
+No modificar retroactivamente filas, estados, señales ni scores V3.3.
+La separación histórica se conserva con Rule Version y commits Git.
+V3.4 comienza solo desde una activación explícita y futura.
+La muestra usada para diseñar V3.4 no prueba su rentabilidad; validar prospectivamente.
+
+HEALTH PRE-ACTIVACIÓN
+El receptor principal V3.4 expone GET/health de solo lectura y debe reportar:
 - receptorVersion=XRP_RECEPTOR_V3_4_V1
 - ruleVersion=XRP_V3.4
 - schemaVersion=XRP_V3_4_SCHEMA_DY_AQ_V1
 - signalCols=43
 - analysisCols=129
-- spreadsheetId coincide con XRP_Market_Data.
-El health probe no escribe datos.
-XRP_V3.3 queda congelado y no se reescribe.
-No modificar retroactivamente estados, señales ni scores históricos.
-V3.4 comienza solo desde una activación explícita y futura.
-La muestra usada para diseñar V3.4 no prueba su rentabilidad; validar prospectivamente.
-
+- spreadsheetId correcto.
 SALIDA COMPACTA
 ESTADO
 DIRECTION SCORE
