@@ -10,11 +10,13 @@ from xrp_challenger_collector import (
     COLLECTOR_VERSION,
     EXPECTED_CHALLENGER_SPREADSHEET_ID,
     EXPECTED_RECEPTOR_VERSION,
+    EXPECTED_RECEPTOR_BUILD_ID,
     FORWARD_START_UTC,
     PROTOCOL_VERSION,
     REGISTRY_SHA256,
     sha256_json,
     validate_activation,
+    _heartbeat_allows_ready,
 )
 
 
@@ -30,6 +32,7 @@ def activation(git_sha):
         "collector_commit_sha": git_sha,
         "receptor_commit_sha": "b" * 40,
         "receptor_version": EXPECTED_RECEPTOR_VERSION,
+        "receptor_build_id": EXPECTED_RECEPTOR_BUILD_ID,
         "challenger_spreadsheet_id": EXPECTED_CHALLENGER_SPREADSHEET_ID,
     }
 
@@ -168,9 +171,10 @@ def main():
     assert 'tail -n' not in status_src
 
     for marker_text in (
-        "XRP_RECEPTOR_CHALLENGER_V2_R2",
+        "XRP_RECEPTOR_CHALLENGER_V2_R3",
+        "XRP_CHALLENGER_RECEPTOR_BUILD_20261002_R3",
         "XRP_FORWARD_V3_2",
-        "XRP_CHALLENGER_COLLECTOR_V2",
+        "XRP_CHALLENGER_COLLECTOR_V2_R2",
         "99c17ecf3c3b376f734dc7469351445c7d6727f96d0cb7d5580ea59b5f9f932a",
         "LockService.getScriptLock",
         "challengerProtocolVersion",
@@ -191,13 +195,18 @@ def main():
         assert forbidden not in operational_receptor_src, forbidden
 
     assert "challenger" in config_example
-    assert COLLECTOR_VERSION == "XRP_CHALLENGER_COLLECTOR_V2"
+    assert COLLECTOR_VERSION == "XRP_CHALLENGER_COLLECTOR_V2_R2"
     assert PROTOCOL_VERSION == "XRP_FORWARD_V3_2"
+
+    assert _heartbeat_allows_ready({"status": "STARTUP_READY"}) is True
+    assert _heartbeat_allows_ready({"status": "CYCLE_OK"}) is True
+    assert _heartbeat_allows_ready({"status": "CYCLE_ERROR"}) is False
+    assert _heartbeat_allows_ready({"status": "GLOBAL_ERROR"}) is False
 
     print("PASS XRP_CHALLENGER_INDEPENDENT_COLLECTOR_V2")
     print(
         "activation_guard=PASS late_start=PASS runtime_binding=PASS "
-        "git_semantics=PASS readiness=PASS heartbeat=PASS process_discovery=PASS runtime_revalidation=PASS receptor_identity=PASS receptor_lock=PASS isolation=PASS"
+        "git_semantics=PASS readiness=PASS heartbeat=PASS process_discovery=PASS runtime_revalidation=PASS degraded_cycle_readiness=PASS receptor_identity=PASS receptor_build=PASS receptor_lock=PASS isolation=PASS"
     )
 
 
