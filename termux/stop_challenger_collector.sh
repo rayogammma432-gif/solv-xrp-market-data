@@ -2,10 +2,14 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 PID_FILE="$HERE/challenger_collector.pid"
+READY_FILE="$HERE/challenger_ready.json"
+
 if [ ! -f "$PID_FILE" ]; then
-  echo "XRP Challenger collector no tiene PID registrado."
+  rm -f "$READY_FILE"
+  echo "XRP Challenger collector no tiene PID registrado; estado listo limpiado."
   exit 0
 fi
+
 PID="$(cat "$PID_FILE" 2>/dev/null || true)"
 if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
   kill "$PID"
@@ -17,5 +21,6 @@ if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
     kill -9 "$PID"
   fi
 fi
-rm -f "$PID_FILE"
+
+rm -f "$PID_FILE" "$READY_FILE"
 echo "XRP Challenger collector detenido."
