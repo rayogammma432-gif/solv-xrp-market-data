@@ -168,7 +168,8 @@ Semantics remain identical to V3.1:
 - taker_imbalance = 2 * taker_buy_base / volume - 1;
 - invalid taker ratio fails closed;
 - OI timestamp t is usable only at t+5m;
-- oi_chg_15m requires exact t-15m;
+- the latest OI metric used by a decision must have available_at age <=10 minutes, matching HISTORICAL_FEATURE_CONTRACT_V1;
+- oi_chg_15m requires exact source timestamp t-15m relative to that selected metric row;
 - no future-nearest and no interpolation.
 
 ## Continuity and catch-up
