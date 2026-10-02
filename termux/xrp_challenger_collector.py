@@ -504,6 +504,12 @@ def _heartbeat_is_fresh(heartbeat, now=None):
     return -5 <= age <= HEARTBEAT_STALE_SECONDS
 
 
+def _heartbeat_allows_ready(heartbeat):
+    if not isinstance(heartbeat, dict):
+        return False
+    return str(heartbeat.get("status") or "") in {"STARTUP_READY", "CYCLE_OK"}
+
+
 def status_snapshot(
     activation_path=DEFAULT_ACTIVATION,
     runtime_path=DEFAULT_RUNTIME,
@@ -542,7 +548,7 @@ def status_snapshot(
     heartbeat_ok = bool(
         heartbeat_fresh
         and int((heartbeat or {}).get("pid") or -1) == int(pid or -2)
-        and heartbeat_status in {"STARTUP_READY", "CYCLE_OK"}
+        and _heartbeat_allows_ready(heartbeat)
     )
     ready_valid = bool(
         running
