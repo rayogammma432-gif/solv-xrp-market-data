@@ -11,6 +11,10 @@ UPSTREAM = ROOT / "research/experiments/XRP_FORWARD_REGISTRY_V3_2.jsonl"
 REG = ROOT / "research/experiments/XRP_CHALLENGER_COLLECTOR_REGISTRY_V2.json"
 PROTOCOL = ROOT / "research/XRP_CHALLENGER_COLLECTOR_PROTOCOL_V2.md"
 FORWARD_PROTOCOL = ROOT / "research/XRP_FORWARD_RESEARCH_PROTOCOL_V3_2.md"
+EVALUATION_PROTOCOL = ROOT / "research/XRP_FORWARD_EVALUATION_CONTRACT_V3_2.md"
+EVALUATION_CONTRACT = ROOT / "research/experiments/XRP_FORWARD_EVALUATION_CONTRACT_V3_2.json"
+HOLDOUT_LOCK = ROOT / "research/XRP_2026_HOLDOUT_LOCK_V1.md"
+DEPLOYMENT_RUNBOOK = ROOT / "research/XRP_CHALLENGER_DEPLOYMENT_GATE_V2.md"
 COLLECTOR = ROOT / "termux/xrp_challenger_collector.py"
 TRACKER = ROOT / "termux/forward_v3_tracker.py"
 DEPLOYMENT_GATE = ROOT / "termux/challenger_deployment_gate.py"
@@ -43,6 +47,10 @@ def main():
     activation = json.loads(ACTIVATION_EXAMPLE.read_text(encoding="utf-8"))
     protocol = PROTOCOL.read_text(encoding="utf-8")
     forward_protocol = FORWARD_PROTOCOL.read_text(encoding="utf-8")
+    evaluation_protocol = EVALUATION_PROTOCOL.read_text(encoding="utf-8")
+    evaluation_contract = json.loads(EVALUATION_CONTRACT.read_text(encoding="utf-8"))
+    holdout_lock = HOLDOUT_LOCK.read_text(encoding="utf-8")
+    deployment_runbook = DEPLOYMENT_RUNBOOK.read_text(encoding="utf-8")
     collector = COLLECTOR.read_text(encoding="utf-8")
     tracker = TRACKER.read_text(encoding="utf-8")
     deployment_gate = DEPLOYMENT_GATE.read_text(encoding="utf-8")
@@ -194,10 +202,61 @@ def main():
         "Git cleanliness semantics",
         "cursor",
         "READY",
+        "RUNNING_DEGRADED",
+        "Recovery is based on persistent remote completeness",
         "30 minutes",
     ):
         if marker not in protocol:
             errors.append(f"collector protocol missing marker {marker}")
+
+    if evaluation_contract.get("version") != "XRP_FORWARD_EVALUATION_CONTRACT_V3_2":
+        errors.append("evaluation contract version mismatch")
+    if evaluation_contract.get("protocol_version") != EXPECTED_PROTOCOL:
+        errors.append("evaluation contract protocol mismatch")
+    if evaluation_contract.get("registry_sha256") != EXPECTED_REGISTRY_SHA:
+        errors.append("evaluation contract registry mismatch")
+    if evaluation_contract.get("forward_start_utc") != EXPECTED_START:
+        errors.append("evaluation contract start mismatch")
+    if evaluation_contract.get("formal_family_gate_utc") != "2027-03-31T12:00:00Z":
+        errors.append("evaluation contract family gate mismatch")
+    if (evaluation_contract.get("bootstrap") or {}).get("replicates") != 2000:
+        errors.append("evaluation bootstrap replicates changed")
+    if (evaluation_contract.get("family_multiplicity") or {}).get("method") != "HOLM":
+        errors.append("evaluation multiplicity must remain HOLM")
+    incomplete_policy = (evaluation_contract.get("common_inclusion") or {}).get("incomplete_primary_policy", "")
+    if "DATA_QUALITY_BLOCKED" not in incomplete_policy:
+        errors.append("evaluation contract does not fail closed on primary INCOMPLETE")
+
+    rules = evaluation_contract.get("candidate_rules") or {}
+    expected_floors = {
+        "XRP-FWD-V3-A-TAKER-EXHAUSTION": 0.00010,
+        "XRP-FWD-V3-B-OI-MODERATOR": 0.00040,
+        "XRP-FWD-V3-C-MOMENTUM-EXHAUSTION": 0.00043,
+    }
+    for cid, floor in expected_floors.items():
+        if (rules.get(cid) or {}).get("effect_floor") != floor:
+            errors.append(f"evaluation effect floor changed for {cid}")
+
+    for marker in (
+        "one-sided p-value",
+        "Holm",
+        "DATA_QUALITY_BLOCKED",
+        "median monthly",
+        "median informative-quarter",
+        "deterministic",
+    ):
+        if marker not in evaluation_protocol:
+            errors.append(f"evaluation protocol missing marker {marker}")
+
+    if EXPECTED_PROTOCOL not in holdout_lock or EXPECTED_START not in holdout_lock:
+        errors.append("holdout lock not amended to V3.2")
+    if "ABORTED PRELAUNCH / NO VALID FORMAL COLLECTION" not in holdout_lock:
+        errors.append("holdout lock does not preserve V3.1 aborted status")
+
+    if "30-minute safety window" not in deployment_runbook:
+        errors.append("deployment runbook missing 30-minute safety window")
+    if "10-minute safety window" in deployment_runbook or "fewer than 10 minutes" in deployment_runbook:
+        errors.append("deployment runbook still contains obsolete 10-minute launch rule")
 
     for marker in (
         EXPECTED_PROTOCOL,
@@ -205,6 +264,7 @@ def main():
         "2027-03-31T12:00:00Z",
         "2026-12-31T12:00:00Z",
         "evaluation stops at the gap",
+        "XRP_FORWARD_EVALUATION_CONTRACT_V3_2",
     ):
         if marker not in forward_protocol:
             errors.append(f"forward protocol missing marker {marker}")
