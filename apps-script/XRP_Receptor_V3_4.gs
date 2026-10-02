@@ -10,7 +10,7 @@ const SPREADSHEET_ID = '1ag0yaE0hcDoG8uED4qejfHGlD2OuXZxvUPYZRUzjqG0';
 const ARCHIVE_SPREADSHEET_ID = '12HcIA3AbJcQNTs9WGGNNouyIBpfzpk14MThPdeWMvZc';
 const ASSET_SYMBOL = 'XRPUSDT';
 const ASSET_PREFIX = 'XRP';
-const SIGNAL_COLS = 38; // A:AL
+const SIGNAL_COLS = 43; // A:AQ (V3.4 adds Thesis/Rule/D/E/Gate)
 const ANALYSIS_COLS = 129; // A:DY (V3.4 execution audit extends A:DJ)
 const FORWARD_V3_EVENT_BASE_COLS = 27; // A:AA, receptor añade AB:AC
 const FORWARD_V3_EVENT_COLS = 29; // A:AC
@@ -236,7 +236,12 @@ function getOpenSignals_(ss) {
       mae15mR: r[34] === '' ? null : Number(r[34]),
       rsi15m: r[35] === '' ? null : Number(r[35]),
       ema20Side15m: String(r[36] || ''),
-      micro15m: String(r[37] || '')
+      micro15m: String(r[37] || ''),
+      thesisId: String(r[38] || ''),
+      ruleVersion: String(r[39] || ''),
+      directionScore: String(r[40] || ''),
+      executionScore: String(r[41] || ''),
+      executionGate: String(r[42] || '')
     });
   });
 
