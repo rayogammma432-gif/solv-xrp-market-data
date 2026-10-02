@@ -174,8 +174,8 @@ def main():
 
     if "RUNNING_READY" not in start:
         errors.append("start script does not wait for readiness")
-    if "UNREGISTERED_RUNNING" not in start or "RUNNING_NOT_READY" not in start:
-        errors.append("start script does not block discovered duplicate/unready collector")
+    if "UNREGISTERED_RUNNING" not in start or "RUNNING_NOT_READY" not in start or "RUNNING_DEGRADED" not in start:
+        errors.append("start script does not block discovered duplicate/unready/degraded collector")
     if "--status-json" not in status or "tail -n" in status:
         errors.append("status script is not authoritative machine-readable status")
 
