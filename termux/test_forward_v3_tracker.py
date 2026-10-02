@@ -245,6 +245,30 @@ def test_recovery_and_health():
         assert target[0][8]==0
 
 
+def test_recovery_has_no_arbitrary_age_cutoff():
+    decision = FORWARD_START_MS + 15 * 60_000
+    eid = f"XRP-FWD-V3-C-MOMENTUM-EXHAUSTION|{iso_ms(decision)}"
+    event = [
+        eid, PROTOCOL_VERSION, "XRP-FWD-V3-C-MOMENTUM-EXHAUSTION", "XRPUSDT",
+        "PRIMARY_15M_RESAMPLED_1M", iso_ms(decision), iso_ms(decision - 900_000), "SHORT", 1.2,
+        0.02, 2.0, "", "", json.dumps(CANDIDATES["XRP-FWD-V3-C-MOMENTUM-EXHAUSTION"]["params"]),
+        json.dumps({"xrp_ret_12": 0.02, "xrp_rel_volume20": 2.0}),
+        "FEATURES_V1_LIVE_EQUIV_V1", "LIVE_BINANCE_NORMALIZATION_EQUIV_V1", iso_ms(decision), "",
+        "registry", "sha", "protocol", "protocolsha", "collector", iso_ms(decision), "git", "payload",
+        "receptor", iso_ms(decision)
+    ]
+    recovery = {"events": [event], "outcomeIds": [f"{eid}|H15"], "latestHealth": None}
+
+    with tempfile.TemporaryDirectory() as td:
+        tr = ForwardV3Tracker(
+            state_path=Path(td) / "state.json",
+            now_fn=lambda: FORWARD_START_UTC + timedelta(days=30),
+        )
+        tr.reconcile_remote(recovery)
+        assert eid in tr.state["events"], "old pending event was dropped by recovery age"
+        assert tr.state["events"][eid]["posted_horizons"] == [15]
+
+
 def test_git_cleanliness_ignores_untracked_but_detects_tracked():
     with tempfile.TemporaryDirectory() as td:
         root=Path(td)
@@ -412,6 +436,7 @@ def main():
     test_paginated_catchup_and_all_new_minutes()
     test_resample_and_feature_parity()
     test_recovery_and_health()
+    test_recovery_has_no_arbitrary_age_cutoff()
     test_git_cleanliness_ignores_untracked_but_detects_tracked()
     test_state_provenance_fail_closed()
     test_decision_cursors_stop_at_first_gap()
@@ -419,7 +444,7 @@ def main():
     test_feature_windows_require_exact_continuity()
     test_oi_asof_age_matches_historical_contract()
     print("PASS XRP_FORWARD_V3_2_CAPTURE_PARITY_RECOVERY")
-    print("pre_start=PASS catchup=PASS pagination=PASS resample_parity=PASS feature_parity=PASS recovery=PASS health=PASS git_cleanliness=PASS state_provenance=PASS gap_stop=PASS incomplete_health_state=PASS feature_window_continuity=PASS oi_age_parity=PASS")
+    print("pre_start=PASS catchup=PASS pagination=PASS resample_parity=PASS feature_parity=PASS recovery=PASS recovery_no_age_cutoff=PASS health=PASS git_cleanliness=PASS state_provenance=PASS gap_stop=PASS incomplete_health_state=PASS feature_window_continuity=PASS oi_age_parity=PASS")
 
 
 if __name__=="__main__":
