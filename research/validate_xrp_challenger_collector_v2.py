@@ -76,6 +76,12 @@ def main():
         errors.append("collector registry activation must be false")
     if reg.get("formal_collection_started") is not False:
         errors.append("formal collection must not be marked started")
+    if (reg.get("process") or {}).get("collector_version") != EXPECTED_COLLECTOR:
+        errors.append("collector registry process version mismatch")
+    if (reg.get("receptor") or {}).get("version") != EXPECTED_RECEPTOR:
+        errors.append("collector registry receptor version mismatch")
+    if (reg.get("receptor") or {}).get("build_id") != EXPECTED_RECEPTOR_BUILD:
+        errors.append("collector registry receptor build mismatch")
     if reg.get("current_collector_dependency") is not False:
         errors.append("CURRENT collector dependency must be false")
     if reg.get("signals") is not False or reg.get("orders") is not False or reg.get("telegram") is not False:
