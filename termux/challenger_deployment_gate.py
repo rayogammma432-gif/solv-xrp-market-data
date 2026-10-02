@@ -17,6 +17,7 @@ from xrp_challenger_collector import (
     DEFAULT_STATE,
     EXPECTED_CHALLENGER_SPREADSHEET_ID,
     EXPECTED_RECEPTOR_VERSION,
+    EXPECTED_RECEPTOR_BUILD_ID,
     FORWARD_START_UTC,
     PROTOCOL_VERSION,
     find_live_collector_pids,
@@ -119,9 +120,14 @@ def probe_receptor(session, cfg, now):
         raise RuntimeError(f"Receptor Challenger respondió error: {data}")
     version = str(data.get("challengerReceptorVersion") or "")
     storage = str(data.get("challengerSpreadsheetId") or "")
+    build_id = str(data.get("challengerReceptorBuildId") or "")
     if version != EXPECTED_RECEPTOR_VERSION:
         raise RuntimeError(
             f"RECEPTOR_VERSION_MISMATCH recibido={version!r} esperado={EXPECTED_RECEPTOR_VERSION!r}"
+        )
+    if build_id != EXPECTED_RECEPTOR_BUILD_ID:
+        raise RuntimeError(
+            f"RECEPTOR_BUILD_ID_MISMATCH recibido={build_id!r} esperado={EXPECTED_RECEPTOR_BUILD_ID!r}"
         )
     if storage != EXPECTED_CHALLENGER_SPREADSHEET_ID:
         raise RuntimeError(
@@ -145,6 +151,7 @@ def probe_receptor(session, cfg, now):
         )
     return {
         "version": version,
+        "build_id": build_id,
         "spreadsheet_id": storage,
         "protocol_version": protocol,
         "registry_sha256": registry,
@@ -163,6 +170,7 @@ def build_activation(now, head, receptor_commit):
         "collector_commit_sha": head,
         "receptor_commit_sha": receptor_commit,
         "receptor_version": EXPECTED_RECEPTOR_VERSION,
+        "receptor_build_id": EXPECTED_RECEPTOR_BUILD_ID,
         "challenger_spreadsheet_id": EXPECTED_CHALLENGER_SPREADSHEET_ID,
         "notes": (
             "Generated locally only after dedicated receptor/storage probe passed. "
@@ -323,6 +331,7 @@ def run(config_path, activation_path, write_activation=False, now_fn=utc_now, se
         "protocol_version": PROTOCOL_VERSION,
         "registry_sha256": REGISTRY_SHA256,
         "receptor_version": receptor["version"],
+        "receptor_build_id": receptor["build_id"],
         "receptor_protocol_version": receptor["protocol_version"],
         "receptor_registry_sha256": receptor["registry_sha256"],
         "receptor_collector_version": receptor["collector_version"],
