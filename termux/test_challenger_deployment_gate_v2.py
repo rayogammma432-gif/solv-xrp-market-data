@@ -82,6 +82,59 @@ def test_git_cleanliness_semantics():
 def test_minimum_lead():
     assert MIN_ACTIVATION_LEAD_SECONDS == 30 * 60
 
+class FakeResp:
+    def __init__(self, data):
+        self._data = data
+
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        return self._data
+
+
+class FakeProbeSession:
+    def __init__(self, data):
+        self.data = data
+        self.headers = {}
+
+    def post(self, *args, **kwargs):
+        return FakeResp(self.data)
+
+
+def test_receptor_build_identity():
+    base = {
+        "ok": True,
+        "challengerReceptorVersion": gate.EXPECTED_RECEPTOR_VERSION,
+        "challengerReceptorBuildId": gate.EXPECTED_RECEPTOR_BUILD_ID,
+        "challengerSpreadsheetId": gate.EXPECTED_CHALLENGER_SPREADSHEET_ID,
+        "challengerProtocolVersion": gate.PROTOCOL_VERSION,
+        "challengerRegistrySha256": gate.REGISTRY_SHA256,
+        "challengerCollectorVersion": gate.COLLECTOR_VERSION,
+        "challengerRecovery": {},
+    }
+    cfg_data = cfg()
+    result = gate.probe_receptor(
+        FakeProbeSession(base),
+        cfg_data,
+        FORWARD_START_UTC - timedelta(hours=1),
+    )
+    assert result["build_id"] == gate.EXPECTED_RECEPTOR_BUILD_ID
+
+    bad = dict(base)
+    bad["challengerReceptorBuildId"] = "STALE_BUILD"
+    try:
+        gate.probe_receptor(
+            FakeProbeSession(bad),
+            cfg_data,
+            FORWARD_START_UTC - timedelta(hours=1),
+        )
+    except RuntimeError as exc:
+        assert "RECEPTOR_BUILD_ID_MISMATCH" in str(exc)
+    else:
+        raise AssertionError("stale receptor build must fail deployment probe")
+
+
 def test_safe_prelaunch_reset():
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)
@@ -159,9 +212,10 @@ def main():
     test_config_isolation()
     test_git_cleanliness_semantics()
     test_minimum_lead()
+    test_receptor_build_identity()
     test_safe_prelaunch_reset()
     print("PASS XRP_CHALLENGER_DEPLOYMENT_GATE_V2")
-    print("url_isolation=PASS secret_isolation=PASS current_presence=PASS chmod_noise=IGNORED tracked_content=BLOCKED lead_30m=PASS safe_reset=PASS")
+    print("url_isolation=PASS secret_isolation=PASS current_presence=PASS chmod_noise=IGNORED tracked_content=BLOCKED lead_30m=PASS receptor_build=PASS safe_reset=PASS")
 
 
 if __name__ == "__main__":
