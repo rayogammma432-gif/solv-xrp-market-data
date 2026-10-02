@@ -1,11 +1,12 @@
 {
   "enabled": false,
-  "protocol_version": "XRP_FORWARD_V3_1",
-  "registry_sha256": "4905aa1e94cbf2fe9318c761942d440a298ba5655d78e8e3a80bfc5cb85caded",
-  "formal_start_utc": "2026-10-01T06:00:00Z",
+  "protocol_version": "XRP_FORWARD_V3_2",
+  "registry_sha256": "99c17ecf3c3b376f734dc7469351445c7d6727f96d0cb7d5580ea59b5f9f932a",
+  "formal_start_utc": "2026-10-02T12:00:00Z",
   "deployment_verified_utc": null,
   "collector_commit_sha": "<FILL_WITH_DEPLOYED_GIT_SHA>",
   "receptor_commit_sha": "<FILL_WITH_DEPLOYED_RECEPTOR_GIT_SHA>",
-  "receptor_version": "XRP_RECEPTOR_CHALLENGER_V1_R2",
-  "notes": "Example only. Do not rename to challenger_activation.json until deployment is verified before formal_start_utc."
+  "receptor_version": "XRP_RECEPTOR_CHALLENGER_V2_R1",
+  "challenger_spreadsheet_id": "14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA",
+  "notes": "Example only. Generate the real activation only with challenger_deployment_gate.py --write-activation after a clean V3.2 prelaunch reset."
 }
