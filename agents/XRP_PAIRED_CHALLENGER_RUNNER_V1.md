@@ -13,7 +13,7 @@ Rule file:
 - `agents/XRP_CHALLENGER_PAIRED_V1.md`
 
 Required rule commit:
-- `5ff3f938245a547b5b4e16ff6bc9ce366a98609b`
+- `bb6605e06066fc42d8b440954ec92a9f401d99bf`
 
 Before every batch:
 1. fetch this exact master revision;
