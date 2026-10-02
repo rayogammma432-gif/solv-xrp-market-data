@@ -305,6 +305,9 @@ def main():
         "2027-03-31T12:00:00Z",
         "2026-12-31T12:00:00Z",
         "evaluation stops at the gap",
+        "Recovery is completeness-based",
+        "RUNNING_DEGRADED",
+        "build ID",
         "XRP_FORWARD_EVALUATION_CONTRACT_V3_2",
     ):
         if marker not in forward_protocol:
