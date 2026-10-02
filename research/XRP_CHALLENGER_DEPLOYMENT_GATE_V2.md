@@ -25,7 +25,7 @@ The gate changes deployment mechanics only. Scientific rules remain those frozen
    - `python termux/challenger_deployment_gate.py`
 10. Require `PASS_DEPLOYMENT_GATE` and verify:
    - protocol `XRP_FORWARD_V3_2`;
-   - receptor `XRP_RECEPTOR_CHALLENGER_V2_R1`;
+   - receptor `XRP_RECEPTOR_CHALLENGER_V2_R2`;
    - collector `XRP_CHALLENGER_COLLECTOR_V2`;
    - registry SHA `99c17ecf3c3b376f734dc7469351445c7d6727f96d0cb7d5580ea59b5f9f932a`;
    - spreadsheet ID `14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA`;
