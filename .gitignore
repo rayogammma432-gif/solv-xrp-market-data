@@ -5,3 +5,8 @@ termux/challenger_runtime.json
 termux/challenger_forward_state.json
 termux/challenger_collector.pid
 termux/logs/
+termux/challenger_ready.json
+termux/challenger_heartbeat.json
+termux/prelaunch_archive/
+termux/config.json.backup
+termux/config.json.*
