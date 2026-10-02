@@ -122,7 +122,7 @@ Any baseline rule change creates a new benchmark version.
 Formal launch requires:
 The frozen research challenger is:
 - rule file: `agents/XRP_CHALLENGER_PAIRED_V1.md`
-- rule commit: `5ff3f938245a547b5b4e16ff6bc9ce366a98609b`
+- rule commit: `bb6605e06066fc42d8b440954ec92a9f401d99bf`
 
 It was derived only from pre-existing V2/V3.1 research and frozen before paired outcomes were opened.
 
