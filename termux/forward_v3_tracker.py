@@ -378,6 +378,10 @@ class ForwardV3Tracker:
             return None, None
         rows.sort(key=lambda x: x["source_ts"])
         cur = rows[-1]
+        # Historical FEATURES_V1 uses an as-of lookup with max metric age 10m.
+        # A stale-but-valid older OI observation must not silently substitute.
+        if decision_time_ms - cur["available_at"] > 10 * 60_000:
+            return None, iso_ms(cur["available_at"])
         by_ts = {x["source_ts"]: x for x in rows}
         prev = by_ts.get(cur["source_ts"] - 900_000)
         if prev is None or prev["oi"] <= 0 or cur["oi"] <= 0:
