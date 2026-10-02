@@ -10,6 +10,9 @@ const SPREADSHEET_ID = '1ag0yaE0hcDoG8uED4qejfHGlD2OuXZxvUPYZRUzjqG0';
 const ARCHIVE_SPREADSHEET_ID = '12HcIA3AbJcQNTs9WGGNNouyIBpfzpk14MThPdeWMvZc';
 const ASSET_SYMBOL = 'XRPUSDT';
 const ASSET_PREFIX = 'XRP';
+const XRP_V3_4_RECEPTOR_VERSION = 'XRP_RECEPTOR_V3_4_V1';
+const XRP_V3_4_RULE_VERSION = 'XRP_V3.4';
+const XRP_V3_4_SCHEMA_VERSION = 'XRP_V3_4_SCHEMA_DY_AQ_V1';
 const SIGNAL_COLS = 43; // A:AQ (V3.4 adds Thesis/Rule/D/E/Gate)
 const ANALYSIS_COLS = 129; // A:DY (V3.4 execution audit extends A:DJ)
 const FORWARD_V3_EVENT_BASE_COLS = 27; // A:AA, receptor añade AB:AC
@@ -41,6 +44,19 @@ function jsonOut_(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doGet(e) {
+  return jsonOut_({
+    ok: true,
+    mode: 'HEALTH',
+    receptorVersion: XRP_V3_4_RECEPTOR_VERSION,
+    ruleVersion: XRP_V3_4_RULE_VERSION,
+    schemaVersion: XRP_V3_4_SCHEMA_VERSION,
+    spreadsheetId: SPREADSHEET_ID,
+    signalCols: SIGNAL_COLS,
+    analysisCols: ANALYSIS_COLS
+  });
 }
 
 function sheet_(ss, name) {
@@ -1153,6 +1169,9 @@ function doPost(e) {
       openSignals: getOpenSignals_(ss),
       pendingAnalyses: getPendingAnalyses_(ss),
       receptorVersion: FORWARD_V3_RECEPTOR_VERSION,
+      xrpV34ReceptorVersion: XRP_V3_4_RECEPTOR_VERSION,
+      xrpV34RuleVersion: XRP_V3_4_RULE_VERSION,
+      xrpV34SchemaVersion: XRP_V3_4_SCHEMA_VERSION,
       forwardV3Recovery: recovery
     });
 
