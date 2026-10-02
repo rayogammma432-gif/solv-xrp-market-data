@@ -26,8 +26,9 @@ GITIGNORE = ROOT / ".gitignore"
 EXPECTED_REGISTRY_SHA = "99c17ecf3c3b376f734dc7469351445c7d6727f96d0cb7d5580ea59b5f9f932a"
 EXPECTED_START = "2026-10-02T12:00:00Z"
 EXPECTED_PROTOCOL = "XRP_FORWARD_V3_2"
-EXPECTED_COLLECTOR = "XRP_CHALLENGER_COLLECTOR_V2"
-EXPECTED_RECEPTOR = "XRP_RECEPTOR_CHALLENGER_V2_R2"
+EXPECTED_COLLECTOR = "XRP_CHALLENGER_COLLECTOR_V2_R2"
+EXPECTED_RECEPTOR = "XRP_RECEPTOR_CHALLENGER_V2_R3"
+EXPECTED_RECEPTOR_BUILD = "XRP_CHALLENGER_RECEPTOR_BUILD_20261002_R3"
 EXPECTED_SHEET = "14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA"
 
 
@@ -82,6 +83,8 @@ def main():
         errors.append("activation example registry mismatch")
     if activation.get("receptor_version") != EXPECTED_RECEPTOR:
         errors.append("activation example receptor mismatch")
+    if activation.get("receptor_build_id") != EXPECTED_RECEPTOR_BUILD:
+        errors.append("activation example receptor build mismatch")
     if activation.get("challenger_spreadsheet_id") != EXPECTED_SHEET:
         errors.append("activation example sheet mismatch")
 
@@ -108,6 +111,7 @@ def main():
         "challenger_ready.json",
         "challenger_heartbeat.json",
         "RUNNING_READY",
+        "RUNNING_DEGRADED",
         "RUNTIME_COLLECTOR_GIT_SHA_MISMATCH",
         "LATE_FIRST_START_BLOCKED_CREATE_NEW_PROTOCOL_START",
     ):
@@ -128,6 +132,7 @@ def main():
 
     for marker in (
         EXPECTED_RECEPTOR,
+        EXPECTED_RECEPTOR_BUILD,
         EXPECTED_PROTOCOL,
         EXPECTED_REGISTRY_SHA,
         EXPECTED_COLLECTOR,
@@ -159,6 +164,7 @@ def main():
         "RESET_BLOCKED_INSUFFICIENT_PRESTART_MARGIN",
         "core.fileMode=false",
         "MIN_ACTIVATION_LEAD_SECONDS = 30 * 60",
+        "RECEPTOR_BUILD_ID_MISMATCH",
         "RECEPTOR_PROTOCOL_MISMATCH",
         "RECEPTOR_REGISTRY_MISMATCH",
         "RECEPTOR_COLLECTOR_MISMATCH",
@@ -188,6 +194,7 @@ def main():
         "Git cleanliness semantics",
         "cursor",
         "READY",
+        "30 minutes",
     ):
         if marker not in protocol:
             errors.append(f"collector protocol missing marker {marker}")
