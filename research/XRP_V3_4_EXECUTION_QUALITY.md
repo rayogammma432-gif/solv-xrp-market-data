@@ -87,3 +87,16 @@ V3.4 uses `apps-script/XRP_Receptor_V3_4.gs` as a separate deployment artifact.
 The existing `apps-script/XRP_Receptor_Incremental.gs` remains byte-for-byte unchanged from `main` so the frozen V3.3 paired benchmark keeps its receptor provenance.
 
 Pre-activation may prepare the new Web App, but the operational XRP endpoint/secret must not switch until the explicit V3.4 activation timestamp.
+
+
+## SIGNALS provenance and deduplication
+
+The live `SIGNALS` sheet is extended from A:AL to A:AQ:
+
+- AM Thesis ID
+- AN Rule Version
+- AO Direction Score
+- AP Execution Score
+- AQ Execution Gate
+
+V3.4 signals must persist these fields at creation time. The V3.4 receptor reads them back for deterministic open-thesis visibility. V3.3 receptor behavior remains unchanged because it still reads only A:AL.
