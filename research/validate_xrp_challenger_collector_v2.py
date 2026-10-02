@@ -121,6 +121,7 @@ def main():
         "--untracked-files=no",
         "Fail closed on a gap",
         "same-cycle health accounting exact",
+        "core.fileMode=false",
     ):
         if marker not in tracker:
             errors.append(f"tracker missing hardening marker {marker}")
@@ -156,6 +157,8 @@ def main():
         "STALE_LOCAL_ARTIFACTS_PRESENT_RUN_RESET_FIRST",
         "--reset-local-prelaunch",
         "RESET_BLOCKED_INSUFFICIENT_PRESTART_MARGIN",
+        "core.fileMode=false",
+        "MIN_ACTIVATION_LEAD_SECONDS = 30 * 60",
         "RECEPTOR_PROTOCOL_MISMATCH",
         "RECEPTOR_REGISTRY_MISMATCH",
         "RECEPTOR_COLLECTOR_MISMATCH",
