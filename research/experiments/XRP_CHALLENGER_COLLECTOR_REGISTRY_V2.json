@@ -14,7 +14,7 @@
     "ready_file": "termux/challenger_ready.json",
     "heartbeat_file": "termux/challenger_heartbeat.json",
     "pid_file": "termux/challenger_collector.pid",
-    "collector_version": "XRP_CHALLENGER_COLLECTOR_V2"
+    "collector_version": "XRP_CHALLENGER_COLLECTOR_V2_R2"
   },
   "candidates": {
     "XRP-FWD-V3-A-TAKER-EXHAUSTION": {
@@ -47,7 +47,8 @@
   },
   "receptor": {
     "file": "apps-script/XRP_Challenger_Receptor.gs",
-    "version": "XRP_RECEPTOR_CHALLENGER_V2_R2",
+    "version": "XRP_RECEPTOR_CHALLENGER_V2_R3",
+    "build_id": "XRP_CHALLENGER_RECEPTOR_BUILD_20261002_R3",
     "script_property": "CHALLENGER_SHARED_SECRET",
     "config_block": "challenger",
     "shared_with_current": false,
