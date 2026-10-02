@@ -173,6 +173,7 @@ def main():
         "challengerProtocolVersion",
         "challengerRegistrySha256",
         "challengerCollectorVersion",
+        "IDEMPOTENCY_CONFLICT",
     ):
         assert marker_text in receptor_src, marker_text
 
