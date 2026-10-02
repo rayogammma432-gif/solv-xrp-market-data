@@ -22,7 +22,7 @@ Upstream registry SHA256:
 The V1/V3.1 launch attempt is classified as **ABORTED PRELAUNCH / NO VALID FORMAL COLLECTION**.
 
 Root causes corrected in V2:
-1. Git cleanliness semantics are identical in gate and collector: tracked changes only. Ignored/untracked local config backups cannot change collector Git identity.
+1. Git cleanliness semantics are identical in gate and collector: only tracked **content** changes invalidate provenance. Untracked/ignored runtime files and chmod-only executable-bit changes are ignored; this avoids Android/Termux file-mode noise while still failing closed on source edits.
 2. State is protocol-bound. A state file from another protocol/start fails closed.
 3. First boot after the formal start is forbidden unless a valid pre-start runtime marker exists, regardless of whether a state file exists.
 4. Runtime marker validation binds activation hash, protocol, registry, formal start, collector version and Git SHA.
@@ -66,6 +66,10 @@ The collector is `RUNNING_READY` only after:
 - a ready marker matching PID, activation hash, Git SHA, protocol, registry, collector version, receptor version and storage ID exists.
 
 A live PID without these invariants is `RUNNING_NOT_READY`.
+
+## Prelaunch safety window
+
+Deployment verification, reset, and activation require at least **30 minutes** before the frozen start. The margin is fail-closed; it is never relaxed to rescue a late launch.
 
 ## Prelaunch reset
 
