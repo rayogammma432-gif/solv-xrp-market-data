@@ -1,0 +1,22 @@
+{
+  "version": "XRP_V3_4_ACTIVATION_FREEZE_V1",
+  "status": "FROZEN_NOT_ACTIVATED",
+  "rule_version": "XRP_V3.4",
+  "receptor_version": "XRP_RECEPTOR_V3_4_V1",
+  "schema_version": "XRP_V3_4_SCHEMA_DY_AQ_V1",
+  "spreadsheet_id": "1ag0yaE0hcDoG8uED4qejfHGlD2OuXZxvUPYZRUzjqG0",
+  "activation_utc": "2026-10-04T00:00:00Z",
+  "activation_guatemala": "2026-10-03T18:00:00-06:00",
+  "preactivation_readiness_cutoff_utc": "2026-10-03T23:30:00Z",
+  "preactivation_readiness_cutoff_guatemala": "2026-10-03T17:30:00-06:00",
+  "minimum_readiness_margin_minutes": 30,
+  "preactivation_observation_check": {
+    "analyses_rule_version_xrp_v3_4_rows": 0,
+    "signals_rule_version_xrp_v3_4_rows": 0,
+    "verified_before_freeze": true
+  },
+  "scientific_rule_changes": false,
+  "historical_relabeling_allowed": false,
+  "performance_claims_begin_at_or_after_activation_utc": true,
+  "late_activation_policy": "If the deployment is not fully verified by the readiness cutoff, do not backfill or activate late under this T0; freeze a new future activation timestamp instead."
+}
