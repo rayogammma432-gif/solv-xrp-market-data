@@ -18,10 +18,10 @@ Sigue `RESEARCH_BACKFILL_AGENT_V2.md` para fuente histórica, sync histórico, d
 En BACKFILL, la fila histórica de `ALERT_RESEARCH`/Context JSON sustituye deliberadamente MARKET/LIVE_STATE actual. Las reglas LIVE de frescura/fuente del master no se aplican al snapshot histórico. Esta excepción no modifica los agentes Current.
 
 TRAZABILIDAD
-Antes de crear análisis nuevos, obtén el commit SHA completo de:
+Antes de crear análisis nuevos, obtén el **Git commit SHA completo (40 caracteres)** del último commit que modificó:
 - `agents/RESEARCH_BACKFILL_AGENT_V2.md`
 - el master V3.4 del activo usado.
-Guárdalos en las columnas de procedencia del protocolo. Si GitHub, archivo o SHA no pueden verificarse, no generes análisis.
+No confundas `commit SHA` con `blob/content SHA` de GitHub Contents. Resuelve el commit por el historial del path exacto (`commits?path=<archivo>&per_page=1`). Solo el Git commit SHA se guarda en las columnas `Rule Commit SHA` y `Backfill Agent Commit SHA`. Si no puede verificarse, no generes análisis.
 
 DATOS
 Google Sheets:
