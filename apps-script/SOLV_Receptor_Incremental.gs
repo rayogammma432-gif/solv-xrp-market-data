@@ -8,8 +8,11 @@ const SPREADSHEET_ID = '1H6oLPDHQKX3zpKVvWS_FhE3lUNnNtE0uEwLSIFZYPY8';
 const ARCHIVE_SPREADSHEET_ID = '1_GlUrC_n1-q0juk0-28dQ6ZdIdGFTutbrglYhKlpIIk';
 const ASSET_SYMBOL = 'SOLVUSDT';
 const ASSET_PREFIX = 'SOLV';
-const SIGNAL_COLS = 38; // A:AL
-const ANALYSIS_COLS = 44; // A:AR
+const SOLV_V3_4_RECEPTOR_VERSION = 'SOLV_RECEPTOR_V3_4_V1';
+const SOLV_V3_4_RULE_VERSION = 'SOLV_V3.4';
+const SOLV_V3_4_SCHEMA_VERSION = 'SOLV_V3_4_SCHEMA_EC_AQ_V1';
+const SIGNAL_COLS = 43; // A:AQ
+const ANALYSIS_COLS = 133; // A:EC
 const MAX_RESEARCH_ROWS = 3000;
 
 const MAX_ROWS = {
@@ -26,6 +29,19 @@ function jsonOut_(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doGet(e) {
+  return jsonOut_({
+    ok: true,
+    mode: 'HEALTH',
+    receptorVersion: SOLV_V3_4_RECEPTOR_VERSION,
+    ruleVersion: SOLV_V3_4_RULE_VERSION,
+    schemaVersion: SOLV_V3_4_SCHEMA_VERSION,
+    spreadsheetId: SPREADSHEET_ID,
+    signalCols: SIGNAL_COLS,
+    analysisCols: ANALYSIS_COLS
+  });
 }
 
 function sheet_(ss, name) {
@@ -221,7 +237,12 @@ function getOpenSignals_(ss) {
       mae15mR: r[34] === '' ? null : Number(r[34]),
       rsi15m: r[35] === '' ? null : Number(r[35]),
       ema20Side15m: String(r[36] || ''),
-      micro15m: String(r[37] || '')
+      micro15m: String(r[37] || ''),
+      thesisId: String(r[38] || ''),
+      ruleVersion: String(r[39] || ''),
+      liveMode: String(r[40] || ''),
+      executionGate: String(r[41] || ''),
+      thesisExpiresUtc: String(r[42] || '')
     });
   });
 
@@ -323,7 +344,22 @@ function getPendingAnalyses_(ss) {
       analysisId: id,
       analysisUtc: String(r[1] || ''),
       overallState: String(r[3] || ''),
+      primaryBias: String(r[4] || ''),
+      scalpBias: String(r[7] || ''),
       markPrice: r[17] === '' ? null : Number(r[17]),
+      entry: r[19] === '' ? null : Number(r[19]),
+      stop: r[20] === '' ? null : Number(r[20]),
+      tp1: r[21] === '' ? null : Number(r[21]),
+      tp2: r[22] === '' ? null : Number(r[22]),
+      ruleVersion: String(r[57] || ''),
+      liveMode: String(r[114] || ''),
+      executionGate: String(r[115] || ''),
+      planDirection: String(r[116] || ''),
+      geometryValid: String(r[117] || ''),
+      thesisId: String(r[118] || ''),
+      thesisExpiresUtc: String(r[119] || ''),
+      thesisLifecycle: String(r[120] || ''),
+      shadowTp1OneR: r[130] === '' ? null : Number(r[130]),
       outcomeStatus: status || 'PENDING'
     });
   });
@@ -380,8 +416,71 @@ function applyAnalysisUpdates_(ss, updates) {
     put(10, 'mae240mPct', true);
     put(11, 'outcomeStatus', false);
     put(12, 'notes', false);
-
     range.setValues([cur]);
+
+    if (
+      Object.prototype.hasOwnProperty.call(u, 'planDirection') ||
+      Object.prototype.hasOwnProperty.call(u, 'geometryValid')
+    ) {
+      const planRange = sh.getRange(row, 117, 1, 2); // DM:DN
+      const planCur = planRange.getValues()[0];
+      if (Object.prototype.hasOwnProperty.call(u, 'planDirection')) {
+        planCur[0] = u.planDirection == null ? '' : String(u.planDirection);
+      }
+      if (Object.prototype.hasOwnProperty.call(u, 'geometryValid')) {
+        planCur[1] = u.geometryValid == null ? '' : String(u.geometryValid);
+      }
+      planRange.setValues([planCur]);
+    }
+
+    const execKeys = [
+      'entryFilledUtc', 'firstBarrier', 'executionExitUtc', 'realizedR',
+      'minutesToFill', 'minutesInTrade', 'executionAuditStatus', 'executionAuditNotes'
+    ];
+    if (execKeys.some(function(k) { return Object.prototype.hasOwnProperty.call(u, k); })) {
+      const execRange = sh.getRange(row, 122, 1, 8); // DR:DY
+      const execCur = execRange.getValues()[0];
+      function putExec(idx, key, numeric) {
+        if (!Object.prototype.hasOwnProperty.call(u, key)) return;
+        const v = u[key];
+        if (v === null || typeof v === 'undefined') {
+          execCur[idx] = '';
+        } else if (numeric) {
+          execCur[idx] = Number(v);
+        } else {
+          execCur[idx] = String(v);
+        }
+      }
+      putExec(0, 'entryFilledUtc', false);
+      putExec(1, 'firstBarrier', false);
+      putExec(2, 'executionExitUtc', false);
+      putExec(3, 'realizedR', true);
+      putExec(4, 'minutesToFill', true);
+      putExec(5, 'minutesInTrade', true);
+      putExec(6, 'executionAuditStatus', false);
+      putExec(7, 'executionAuditNotes', false);
+      execRange.setValues([execCur]);
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(u, 'shadowTp1OneR') ||
+      Object.prototype.hasOwnProperty.call(u, 'shadowTp1FirstBarrier') ||
+      Object.prototype.hasOwnProperty.call(u, 'shadowTp1RealizedR')
+    ) {
+      const shadowRange = sh.getRange(row, 131, 1, 3); // EA:EC
+      const shadowCur = shadowRange.getValues()[0];
+      if (Object.prototype.hasOwnProperty.call(u, 'shadowTp1OneR')) {
+        shadowCur[0] = u.shadowTp1OneR == null ? '' : Number(u.shadowTp1OneR);
+      }
+      if (Object.prototype.hasOwnProperty.call(u, 'shadowTp1FirstBarrier')) {
+        shadowCur[1] = u.shadowTp1FirstBarrier == null ? '' : String(u.shadowTp1FirstBarrier);
+      }
+      if (Object.prototype.hasOwnProperty.call(u, 'shadowTp1RealizedR')) {
+        shadowCur[2] = u.shadowTp1RealizedR == null ? '' : Number(u.shadowTp1RealizedR);
+      }
+      shadowRange.setValues([shadowCur]);
+    }
+
     changed++;
   });
 
