@@ -22,7 +22,7 @@ on:
       - "research/experiments/XRP_FORWARD_EVALUATION_CONTRACT_V3_2_R1.json"
       - "research/experiments/XRP_CHALLENGER_COLLECTOR_REGISTRY_V2.json"
       - "research/experiments/XRP_CHALLENGER_COLLECTOR_REGISTRY_V3.json"
-      - "research/validate_xrp_challenger_collector_v3.py"
+      - "research/validate_xrp_challenger_collector_v2.py"
       - "research/validate_xrp_challenger_collector_v3.py"
       - ".gitignore"
       - ".github/workflows/xrp-challenger-independent-collector-v1.yml"
@@ -61,7 +61,7 @@ jobs:
           fetch-depth: 0
 
       - name: Python syntax
-        run: python -m py_compile termux/forward_v3_tracker.py termux/xrp_challenger_collector.py termux/challenger_deployment_gate.py termux/market_collector.py termux/test_forward_v3_tracker.py termux/test_xrp_challenger_collector_v2.py termux/test_challenger_deployment_gate_v2.py research/validate_xrp_challenger_collector_v2.py
+        run: python -m py_compile termux/forward_v3_tracker.py termux/xrp_challenger_collector.py termux/challenger_deployment_gate.py termux/market_collector.py termux/test_forward_v3_tracker.py termux/test_xrp_challenger_collector_v2.py termux/test_challenger_deployment_gate_v2.py research/validate_xrp_challenger_collector_v3.py
 
       - name: Shell syntax
         run: bash -n termux/start_challenger_collector.sh && bash -n termux/stop_challenger_collector.sh && bash -n termux/status_challenger_collector.sh
