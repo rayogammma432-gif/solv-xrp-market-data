@@ -64,7 +64,14 @@ MFE/MAE remains descriptive and is not used to infer barrier order.
 
 ## Prospective validation boundary
 
-V3.4 should begin from an explicit future activation timestamp. Do not relabel old V3.3 rows as V3.4.
+Frozen activation:
+- `2026-10-04T00:00:00Z`
+- `2026-10-03 18:00:00 America/Guatemala`
+
+Machine-readable source:
+- `research/experiments/XRP_V3_4_ACTIVATION_FREEZE_V1.json`
+
+Do not relabel old V3.3 rows as V3.4. No V3.4 analysis or signal may be accepted with a timestamp before the frozen activation boundary.
 
 Review V3.4 using:
 - expectancy in R;
@@ -78,6 +85,8 @@ Review V3.4 using:
 - execution blockers.
 
 Any parameter changes after activation create a new rule version rather than silently changing V3.4.
+
+If deployment is not fully ready by 2026-10-03T23:30:00Z (17:30 Guatemala), this activation boundary is abandoned rather than started late; a new future T0 must be frozen.
 
 
 ## Receptor isolation
