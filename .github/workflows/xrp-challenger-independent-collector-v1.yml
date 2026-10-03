@@ -85,7 +85,7 @@ jobs:
         run: python termux/test_challenger_deployment_gate_v2.py
 
       - name: Validate preregistration and separation
-        run: python research/validate_xrp_challenger_collector_v2.py
+        run: python research/validate_xrp_challenger_collector_v3.py
 
       - name: Upload validation report
         uses: actions/upload-artifact@v4
