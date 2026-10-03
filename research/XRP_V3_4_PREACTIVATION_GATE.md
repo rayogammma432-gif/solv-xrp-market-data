@@ -1,7 +1,21 @@
 # XRP V3.4 — Pre-Activation / In-Place Migration
 
-Date: 2026-10-02
-Status: SOFTWARE MIGRATION GATE
+Date: 2026-10-03
+Status: ACTIVATION SCHEDULE FROZEN / NOT YET ACTIVATED
+
+Frozen activation:
+- `V3.4_ACTIVATION_UTC = 2026-10-04T00:00:00Z`
+- Guatemala: `2026-10-03 18:00:00 America/Guatemala`
+
+Readiness cutoff:
+- `2026-10-03T23:30:00Z`
+- Guatemala: `2026-10-03 17:30:00 America/Guatemala`
+- minimum margin: 30 minutes
+
+Machine-readable freeze:
+- `research/experiments/XRP_V3_4_ACTIVATION_FREEZE_V1.json`
+
+If deployment/readiness is not fully verified by the cutoff, do not activate late and do not backfill. Freeze a new future activation timestamp instead.
 
 ## Goal
 
@@ -73,12 +87,13 @@ Before activation, the deployed receptor must answer GET with:
 5. Keep the existing `SHARED_SECRET` unless intentionally rotating it.
 6. Deploy a new version of the EXISTING Web App deployment so the /exec URL remains stable.
 7. Verify GET health contract.
-8. Freeze `V3.4_ACTIVATION_UTC`.
-9. Switch the agent rule to `agents/XRP_V3_4_MASTER.txt`.
+8. Verify the machine-readable freeze still equals `2026-10-04T00:00:00Z` and that the readiness cutoff has not passed.
+9. At the scheduled T0, switch the agent rule to `agents/XRP_V3_4_MASTER.txt`.
 10. Start collector.
 11. Require one successful XRP bootstrap/incremental cycle.
 12. Confirm new ANALYSES rows use BF=XRP_V3.4 (without the space; literal expected value is XRP_V3.4) and populate V3.4 fields.
-13. If any identity/schema check fails, restore the archived V3.3 receptor/rule and redeploy the previous Apps Script version.
+13. Confirm no V3.4 row has Analysis UTC earlier than `2026-10-04T00:00:00Z`.
+14. If any identity/schema/time-boundary check fails, restore the archived V3.3 receptor/rule and redeploy the previous Apps Script version.
 
 ## Scientific boundary
 
