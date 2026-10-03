@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-XRP_FORWARD_V3_2 forward-only shadow tracker.
+XRP_FORWARD_V3_2_R1 forward-only shadow tracker.
 
 Properties:
-- hard start at 2026-10-02T12:00:00Z
+- hard start at 2026-10-04T00:00:00Z
 - fetches/catches up every missed XRP 1m decision in chronological order
 - reconstructs PRIMARY_15M from exact 1m bars, matching HIST_NORM_V1 resampling semantics
 - fixed V3.2 candidate rules; no CURRENT-agent decisions
@@ -20,18 +20,18 @@ import subprocess
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
-FORWARD_START_UTC = datetime(2026, 10, 2, 12, 0, 0, tzinfo=timezone.utc)
+FORWARD_START_UTC = datetime(2026, 10, 4, 0, 0, 0, tzinfo=timezone.utc)
 FORWARD_START_MS = int(FORWARD_START_UTC.timestamp() * 1000)
-PROTOCOL_VERSION = "XRP_FORWARD_V3_2"
-PROTOCOL_FILE = "research/XRP_FORWARD_RESEARCH_PROTOCOL_V3_2.md"
-PROTOCOL_COMMIT_SHA = "8d180d1e02915652ad8c22085382920b14296a0d"
-REGISTRY_FILE = "research/experiments/XRP_FORWARD_REGISTRY_V3_2.jsonl"
-REGISTRY_SHA256 = "99c17ecf3c3b376f734dc7469351445c7d6727f96d0cb7d5580ea59b5f9f932a"
+PROTOCOL_VERSION = "XRP_FORWARD_V3_2_R1"
+PROTOCOL_FILE = "research/XRP_FORWARD_RESEARCH_PROTOCOL_V3_2_R1.md"
+PROTOCOL_COMMIT_SHA = "1897f1a9732f2db3fdfb2916475b87bcb4235976"
+REGISTRY_FILE = "research/experiments/XRP_FORWARD_REGISTRY_V3_2_R1.jsonl"
+REGISTRY_SHA256 = "5caac1ec957545af503d18775a46d38363f7dadb8403b2ad3a34f5dbde5151bc"
 
 FEATURE_SET_VERSION = "FEATURES_V1_LIVE_EQUIV_V1"
 NORMALIZATION_VERSION = "LIVE_BINANCE_NORMALIZATION_EQUIV_V1"
-COLLECTOR_VERSION = "XRP_FORWARD_V3_2_COLLECTOR_V1"
-OUTCOME_ENGINE_VERSION = "XRP_FORWARD_V3_2_OUTCOME_V1"
+COLLECTOR_VERSION = "XRP_FORWARD_V3_2_R1_COLLECTOR_V1"
+OUTCOME_ENGINE_VERSION = "XRP_FORWARD_V3_2_R1_OUTCOME_V1"
 
 BASE_URL = "https://fapi.binance.com"
 WARMUP_MINUTES = 360
@@ -728,7 +728,7 @@ class ForwardV3Tracker:
         outcome_ids = set(str(x) for x in (recovery.get("outcomeIds") or []))
 
         # Recovery is driven by remote completeness, not by an arbitrary age
-        # window. The receptor returns every V3.2 event that is still missing
+        # window. The receptor returns every V3.2 R1 event that is still missing
         # any required outcome plus all events newer than the latest persisted
         # health checkpoint, so even a long local outage cannot orphan an event.
         for row in recovery.get("events") or []:
