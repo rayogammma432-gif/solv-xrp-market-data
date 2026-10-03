@@ -28,7 +28,7 @@ fi
 
 if [ ! -f "$HERE/challenger_activation.json" ]; then
   echo "BLOQUEADO: falta $HERE/challenger_activation.json"
-  echo "Ejecuta primero el deployment gate V3.2 con --write-activation."
+  echo "Ejecuta primero el deployment gate V3.2 R1 con --write-activation."
   exit 2
 fi
 
