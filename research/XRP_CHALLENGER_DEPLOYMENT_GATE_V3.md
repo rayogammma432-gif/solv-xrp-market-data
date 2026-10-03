@@ -18,7 +18,7 @@ The gate changes deployment mechanics/provenance only. Scientific rules remain t
 
 ## Fresh-start sequence
 
-1. Pull the validated V3.2 deployment commit on Motorola.
+1. Pull the validated V3.2 R1 deployment commit on Motorola.
 2. Update the dedicated Apps Script project with the exact current `apps-script/XRP_Challenger_Receptor.gs`.
 3. Deploy a **new Web App version** from that source.
 4. Keep the dedicated `CHALLENGER_SHARED_SECRET`; it must remain different from XRP CURRENT.
@@ -92,7 +92,7 @@ The gate requires the deployed receptor to return all of:
 - expected collector version;
 - expected receptor build ID.
 
-A stale Apps Script deployment therefore fails even if it still answers HTTP requests. The build ID is an operational deployment fingerprint: it does not claim self-hashing of Apps Script source, but it prevents an older frozen build from satisfying the V3.2 gate.
+A stale Apps Script deployment therefore fails even if it still answers HTTP requests. The build ID is an operational deployment fingerprint: it does not claim self-hashing of Apps Script source, but it prevents an older frozen build from satisfying the V3.2 R1 gate.
 
 ## Stale artifacts
 
@@ -103,7 +103,7 @@ This prevents accidental mixing of:
 - V3.1 runtime marker;
 - V3.1 state;
 - stale PID/readiness state;
-with the V3.2 launch.
+with the V3.2 R1 launch.
 
 ## Readiness vs liveness
 
@@ -129,7 +129,7 @@ Do not launch if any of the following occurs:
 - activation validation fails;
 - process is alive but not READY.
 
-If these cannot be corrected before the safety cutoff, V3.2 is not backfilled. A new future protocol/start is required.
+If these cannot be corrected before the safety cutoff, V3.2 R1 is not backfilled. A new future protocol/start is required.
 
 ## Scientific boundary
 
