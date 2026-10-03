@@ -77,7 +77,7 @@ class AnalysisTracker:
         updates = []
         for item in pending_analyses or []:
             try:
-                u = self._evaluate_one(item, rows_1m)
+                u = self._evaluate_one(item, rows_1m, key=key)
                 if u:
                     updates.append(u)
             except Exception:
@@ -226,7 +226,72 @@ class AnalysisTracker:
             audit["executionAuditNotes"] = ";".join(notes)
         return audit
 
-    def _evaluate_one(self, item, rows_1m):
+    def _shadow_one_r_audit(self, item, rows_1m, analysis_dt, latest_dt):
+        entry = _num(item.get("entry"))
+        stop = _num(item.get("stop"))
+        tp1 = _num(item.get("tp1"))
+        tp2 = _num(item.get("tp2"))
+        if None in (entry, stop, tp1, tp2):
+            return {}
+
+        direction = _plan_direction(entry, stop, tp1, tp2)
+        if direction not in ("LONG", "SHORT"):
+            return {}
+
+        risk = abs(entry - stop)
+        if risk <= 0:
+            return {}
+
+        target_1r = entry + risk if direction == "LONG" else entry - risk
+        out = {"shadowTp1OneR": round(target_1r, 12)}
+        start_open = _ceil_minute(analysis_dt)
+        horizon = analysis_dt + timedelta(minutes=EXECUTION_HORIZON_MINUTES)
+        window = []
+        for r in rows_1m or []:
+            open_dt = _dt(r[0])
+            close_dt = _dt(r[6])
+            if open_dt is None or close_dt is None:
+                continue
+            if open_dt >= start_open and close_dt <= horizon:
+                window.append((open_dt, close_dt, r))
+
+        if not window:
+            return out
+
+        filled = False
+        for open_dt, close_dt, row in window:
+            if not filled:
+                if not _touches(row, entry):
+                    continue
+                filled = True
+                stop_same = _touches(row, stop)
+                one_r_same = _touches(row, target_1r)
+                if stop_same or one_r_same:
+                    out["shadowTp1FirstBarrier"] = "AMBIGUOUS_ENTRY_BAR"
+                    return out
+                continue
+
+            stop_hit = _touches(row, stop)
+            one_r_hit = _touches(row, target_1r)
+            if stop_hit and one_r_hit:
+                out["shadowTp1FirstBarrier"] = "AMBIGUOUS_SAME_1M"
+                return out
+            if one_r_hit:
+                out["shadowTp1FirstBarrier"] = "TP1_1R"
+                out["shadowTp1RealizedR"] = 1.0
+                return out
+            if stop_hit:
+                out["shadowTp1FirstBarrier"] = "STOP"
+                out["shadowTp1RealizedR"] = -1.0
+                return out
+
+        if latest_dt >= horizon:
+            out["shadowTp1FirstBarrier"] = "OPEN_240M" if filled else "NO_FILL"
+        else:
+            out["shadowTp1FirstBarrier"] = "OPEN" if filled else "WAITING_ENTRY"
+        return out
+
+    def _evaluate_one(self, item, rows_1m, key=""):
         analysis_id = str(item.get("analysisId") or "")
         analysis_dt = _dt(item.get("analysisUtc"))
         base = _num(item.get("markPrice"))
@@ -266,6 +331,8 @@ class AnalysisTracker:
             any_metric = True
 
         update.update(self._execution_audit(item, rows_1m, analysis_dt, latest_dt))
+        if str(key or "").lower() == "solv":
+            update.update(self._shadow_one_r_audit(item, rows_1m, analysis_dt, latest_dt))
 
         if latest_dt >= analysis_dt + timedelta(minutes=240):
             update["outcomeStatus"] = "COMPLETE"
