@@ -48,21 +48,22 @@ Mientras V3 sea forward-only:
 
 ## Forward data permitido
 
-La única cohorte prospectiva confirmatoria activa es V3.2:
+La única cohorte prospectiva confirmatoria autorizada para el próximo arranque es V3.2 R1:
 
-- protocol = `XRP_FORWARD_V3_2`
-- forward_start = `2026-10-02T12:00:00Z`
+- protocol = `XRP_FORWARD_V3_2_R1`
+- forward_start = `2026-10-04T00:00:00Z`
+- Guatemala = `2026-10-03 18:00:00 America/Guatemala`
 
 Ese periodo:
 - no es parte del holdout histórico;
-- solo puede usar decisiones en o después del forward_start congelado;
-- puede alimentar shadow research V3.2 bajo sus reglas preregistradas;
+- solo puede usar decisiones en o después del nuevo forward_start congelado;
+- puede alimentar shadow research V3.2 R1 bajo sus reglas preregistradas;
 - no convierte enero-agosto 2026 en datos de entrenamiento;
-- no incorpora la ventana abortada V3.1 como evidencia prospectiva.
+- no incorpora las ventanas abortadas V3.1 o V3.2 como evidencia prospectiva.
 
 ## Consecuencia metodológica
 
-Si V3.2 se adapta después de observar datos forward posteriores a 2026-10-02T12:00:00Z:
+Si V3.2 R1 se adapta después de observar datos forward posteriores a 2026-10-04T00:00:00Z:
 - esos datos dejan de ser confirmatorios para la siguiente versión;
 - el holdout histórico 2026 continúa sin tocar hasta un gate explícito.
 
@@ -73,7 +74,8 @@ Si V3.2 se adapta después de observar datos forward posteriores a 2026-10-02T12
 - Validated challenger: none
 - 2026 historical holdout: LOCKED
 - V3.1: ABORTED PRELAUNCH / NO VALID FORMAL COLLECTION
-- V3.2: FROZEN FORWARD-ONLY / NOT YET ACTIVATED
+- V3.2: ABORTED PRELAUNCH / NO PROSPECTIVE EVIDENCE
+- V3.2 R1: FROZEN FORWARD-ONLY / NOT YET ACTIVATED
 
 ## Amendment pre-launch — V3.1
 
@@ -92,5 +94,22 @@ Antes de observar resultados V3.2, el relanzamiento se congeló para:
 - `2026-10-02 06:00:00 America/Guatemala`
 
 Las reglas científicas permanecen sin cambios respecto de V3.1. Las modificaciones V3.2 son de captura, deployment, runtime, provenance y evaluación preregistrada.
+
+El histórico 2026-01-01 → 2026-08-31 continúa **LOCKED / DO NOT OPEN**.
+
+
+## Amendment pre-launch — V3.2 R1
+
+El inicio congelado de V3.2 (`2026-10-02T12:00:00Z`) transcurrió sin que existiera una activación/runtime-ready válida. La verificación previa a este amendment confirmó que CHALLENGER_CANDIDATES, CHALLENGER_OUTCOMES y CHALLENGER_HEALTH seguían sin filas de datos. Por ello V3.2 queda clasificado como **ABORTED PRELAUNCH / NO PROSPECTIVE EVIDENCE** y no se rellena retrospectivamente.
+
+Se crea una nueva cohorte prospectiva, sin cambios científicos:
+
+- protocol = `XRP_FORWARD_V3_2_R1`
+- forward_start = `2026-10-04T00:00:00Z`
+- Guatemala = `2026-10-03 18:00:00 America/Guatemala`
+- informational A checkpoint = `2027-01-02T00:00:00Z`
+- formal common family gate = `2027-04-02T00:00:00Z`
+
+No cambian thresholds, direcciones, horizontes, floors, bootstrap, Holm, reglas de estabilidad temporal ni tratamiento de INCOMPLETE.
 
 El histórico 2026-01-01 → 2026-08-31 continúa **LOCKED / DO NOT OPEN**.

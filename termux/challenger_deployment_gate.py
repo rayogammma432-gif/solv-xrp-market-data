@@ -279,7 +279,7 @@ def run(config_path, activation_path, write_activation=False, now_fn=utc_now, se
         raise RuntimeError(
             "INSUFFICIENT_PRESTART_MARGIN: quedan "
             f"{max(0, int(seconds_left))}s; mínimo={MIN_ACTIVATION_LEAD_SECONDS}s. "
-            "No activar V3.2; crear nueva versión/start."
+            "No activar V3.2 R1; crear nueva versión/start."
         )
 
     if git_tracked_dirty():

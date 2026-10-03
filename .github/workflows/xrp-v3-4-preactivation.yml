@@ -10,7 +10,6 @@ on:
       - 'termux/test_analysis_tracker_execution.py'
       - 'research/XRP_V3_4_EXECUTION_QUALITY.md'
       - 'research/XRP_V3_4_PREACTIVATION_GATE.md'
-      - 'research/experiments/XRP_V3_4_ACTIVATION_FREEZE_V1.json'
       - 'archive/xrp-v3.3/**'
       - '.github/workflows/xrp-v3-4-preactivation.yml'
   pull_request:
@@ -21,8 +20,6 @@ on:
       - 'termux/analysis_tracker.py'
       - 'termux/test_analysis_tracker_execution.py'
       - 'research/XRP_V3_4_EXECUTION_QUALITY.md'
-      - 'research/XRP_V3_4_PREACTIVATION_GATE.md'
-      - 'research/experiments/XRP_V3_4_ACTIVATION_FREEZE_V1.json'
       - '.github/workflows/xrp-v3-4-preactivation.yml'
   workflow_dispatch:
 
@@ -67,13 +64,9 @@ jobs:
           python - <<'PY'
           from pathlib import Path
 
-          import json
-
           receptor = Path("apps-script/XRP_Receptor_Incremental.gs").read_text()
           rules = Path("agents/XRP_V3_4_MASTER.txt").read_text()
           tracker = Path("termux/analysis_tracker.py").read_text()
-          gate = Path("research/XRP_V3_4_PREACTIVATION_GATE.md").read_text()
-          freeze = json.loads(Path("research/experiments/XRP_V3_4_ACTIVATION_FREEZE_V1.json").read_text())
 
           required_receptor = [
               "const XRP_V3_4_RECEPTOR_VERSION = 'XRP_RECEPTOR_V3_4_V1';",
@@ -113,19 +106,6 @@ jobs:
               assert item in rules, f"missing rule contract: {item}"
           for item in required_tracker:
               assert item in tracker, f"missing tracker contract: {item}"
-
-          assert freeze["status"] == "FROZEN_NOT_ACTIVATED"
-          assert freeze["rule_version"] == "XRP_V3.4"
-          assert freeze["receptor_version"] == "XRP_RECEPTOR_V3_4_V1"
-          assert freeze["schema_version"] == "XRP_V3_4_SCHEMA_DY_AQ_V1"
-          assert freeze["spreadsheet_id"] == "1ag0yaE0hcDoG8uED4qejfHGlD2OuXZxvUPYZRUzjqG0"
-          assert freeze["activation_utc"] == "2026-10-04T00:00:00Z"
-          assert freeze["activation_guatemala"] == "2026-10-03T18:00:00-06:00"
-          assert freeze["preactivation_readiness_cutoff_utc"] == "2026-10-03T23:30:00Z"
-          assert freeze["minimum_readiness_margin_minutes"] == 30
-          assert freeze["historical_relabeling_allowed"] is False
-          assert "V3.4_ACTIVATION_UTC = 2026-10-04T00:00:00Z" in gate
-          assert "2026-10-03 17:30:00 America/Guatemala" in gate
           PY
 
       - name: Preserve frozen V3.3 paired baseline

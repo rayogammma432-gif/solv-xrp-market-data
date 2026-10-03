@@ -214,7 +214,7 @@ def main():
     test_minimum_lead()
     test_receptor_build_identity()
     test_safe_prelaunch_reset()
-    print("PASS XRP_CHALLENGER_DEPLOYMENT_GATE_V2")
+    print("PASS XRP_CHALLENGER_DEPLOYMENT_GATE_V3")
     print("url_isolation=PASS secret_isolation=PASS current_presence=PASS chmod_noise=IGNORED tracked_content=BLOCKED lead_30m=PASS receptor_build=PASS safe_reset=PASS")
 
 

@@ -1,21 +1,7 @@
 # XRP V3.4 — Pre-Activation / In-Place Migration
 
-Date: 2026-10-03
-Status: ACTIVATION SCHEDULE FROZEN / NOT YET ACTIVATED
-
-Frozen activation:
-- `V3.4_ACTIVATION_UTC = 2026-10-04T00:00:00Z`
-- Guatemala: `2026-10-03 18:00:00 America/Guatemala`
-
-Readiness cutoff:
-- `2026-10-03T23:30:00Z`
-- Guatemala: `2026-10-03 17:30:00 America/Guatemala`
-- minimum margin: 30 minutes
-
-Machine-readable freeze:
-- `research/experiments/XRP_V3_4_ACTIVATION_FREEZE_V1.json`
-
-If deployment/readiness is not fully verified by the cutoff, do not activate late and do not backfill. Freeze a new future activation timestamp instead.
+Date: 2026-10-02
+Status: SOFTWARE MIGRATION GATE
 
 ## Goal
 
@@ -80,44 +66,19 @@ Before activation, the deployed receptor must answer GET with:
 
 ## Activation procedure
 
-### Phase A — preparation before the cutover
-
-1. Pull the exact validated `main` SHA on Motorola/Termux and require a clean tracked worktree.
-2. Keep the current collector running during preparation; do **not** stop it hours before T0.
-3. Confirm the operational sheet still contains zero `XRP_V3.4` rows in ANALYSES Rule Version and SIGNALS Rule Version.
-4. Prepare the current `apps-script/XRP_Receptor_Incremental.gs` in the EXISTING XRP Apps Script project, but do not create any V3.4 analysis before T0.
-5. Keep the existing `SHARED_SECRET` and `/exec` URL unless intentionally rotating them.
-
-### Phase B — brief receptor cutover, completed by the readiness cutoff
-
-Complete this phase before:
-- `2026-10-03T23:30:00Z`
-- `2026-10-03 17:30:00 America/Guatemala`
-
-6. Stop the collector only for the short receptor deployment window.
-7. Replace Code.gs with the current `apps-script/XRP_Receptor_Incremental.gs`.
-8. Deploy a new version of the EXISTING Web App deployment so the `/exec` URL remains stable.
-9. Verify the GET health contract exactly.
-10. Verify the machine-readable activation freeze still equals `2026-10-04T00:00:00Z`.
-11. Restart the collector after receptor health passes; V3.3 remains the active agent rule until T0.
-12. Require one successful normal XRP market-data/bootstrap or incremental cycle before the cutoff.
-
-If any Phase B check fails or Phase B is not complete by 17:30 Guatemala:
-- keep/restore V3.3;
-- do not start V3.4 at 18:00;
-- freeze a new future T0.
-
-### Phase C — exact activation at T0
-
-At:
-- `2026-10-04T00:00:00Z`
-- `2026-10-03 18:00:00 America/Guatemala`
-
-13. Switch the agent rule to `agents/XRP_V3_4_MASTER.txt`.
-14. Do not relabel any earlier V3.3 row.
-15. Require the first post-T0 V3.4 analysis to persist `BF=XRP_V3.4` and populate the V3.4 fields.
-16. Confirm no V3.4 ANALYSES or SIGNALS row has a timestamp earlier than T0.
-17. If any rule/schema/time-boundary check fails, stop V3.4 use and restore the archived V3.3 rule/receptor state before generating further analyses.
+1. Merge the V3.4 migration PR.
+2. Pull exact main SHA on Motorola/Termux.
+3. Stop collector.
+4. In the EXISTING XRP Apps Script project, replace Code.gs with current `apps-script/XRP_Receptor_Incremental.gs`.
+5. Keep the existing `SHARED_SECRET` unless intentionally rotating it.
+6. Deploy a new version of the EXISTING Web App deployment so the /exec URL remains stable.
+7. Verify GET health contract.
+8. Freeze `V3.4_ACTIVATION_UTC`.
+9. Switch the agent rule to `agents/XRP_V3_4_MASTER.txt`.
+10. Start collector.
+11. Require one successful XRP bootstrap/incremental cycle.
+12. Confirm new ANALYSES rows use BF=XRP_V3.4 (without the space; literal expected value is XRP_V3.4) and populate V3.4 fields.
+13. If any identity/schema check fails, restore the archived V3.3 receptor/rule and redeploy the previous Apps Script version.
 
 ## Scientific boundary
 

@@ -443,7 +443,7 @@ def main():
     test_incomplete_outcome_visible_to_same_cycle_health_state()
     test_feature_windows_require_exact_continuity()
     test_oi_asof_age_matches_historical_contract()
-    print("PASS XRP_FORWARD_V3_2_CAPTURE_PARITY_RECOVERY")
+    print("PASS XRP_FORWARD_V3_2_R1_CAPTURE_PARITY_RECOVERY")
     print("pre_start=PASS catchup=PASS pagination=PASS resample_parity=PASS feature_parity=PASS recovery=PASS recovery_no_age_cutoff=PASS health=PASS git_cleanliness=PASS state_provenance=PASS gap_stop=PASS incomplete_health_state=PASS feature_window_continuity=PASS oi_age_parity=PASS")
 
 

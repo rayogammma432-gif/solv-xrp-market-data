@@ -172,11 +172,11 @@ def main():
     assert 'tail -n' not in status_src
 
     for marker_text in (
-        "XRP_RECEPTOR_CHALLENGER_V2_R3",
-        "XRP_CHALLENGER_RECEPTOR_BUILD_20261002_R3",
-        "XRP_FORWARD_V3_2",
-        "XRP_CHALLENGER_COLLECTOR_V2_R2",
-        "99c17ecf3c3b376f734dc7469351445c7d6727f96d0cb7d5580ea59b5f9f932a",
+        "XRP_RECEPTOR_CHALLENGER_V2_R4",
+        "XRP_CHALLENGER_RECEPTOR_BUILD_20261003_R4",
+        "XRP_FORWARD_V3_2_R1",
+        "XRP_CHALLENGER_COLLECTOR_V2_R3",
+        "5caac1ec957545af503d18775a46d38363f7dadb8403b2ad3a34f5dbde5151bc",
         "LockService.getScriptLock",
         "challengerProtocolVersion",
         "challengerRegistrySha256",
@@ -196,15 +196,15 @@ def main():
         assert forbidden not in operational_receptor_src, forbidden
 
     assert "challenger" in config_example
-    assert COLLECTOR_VERSION == "XRP_CHALLENGER_COLLECTOR_V2_R2"
-    assert PROTOCOL_VERSION == "XRP_FORWARD_V3_2"
+    assert COLLECTOR_VERSION == "XRP_CHALLENGER_COLLECTOR_V2_R3"
+    assert PROTOCOL_VERSION == "XRP_FORWARD_V3_2_R1"
 
     assert _heartbeat_allows_ready({"status": "STARTUP_READY"}) is True
     assert _heartbeat_allows_ready({"status": "CYCLE_OK"}) is True
     assert _heartbeat_allows_ready({"status": "CYCLE_ERROR"}) is False
     assert _heartbeat_allows_ready({"status": "GLOBAL_ERROR"}) is False
 
-    print("PASS XRP_CHALLENGER_INDEPENDENT_COLLECTOR_V2")
+    print("PASS XRP_CHALLENGER_INDEPENDENT_COLLECTOR_V3")
     print(
         "activation_guard=PASS late_start=PASS runtime_binding=PASS "
         "git_semantics=PASS readiness=PASS heartbeat=PASS process_discovery=PASS runtime_revalidation=PASS degraded_cycle_readiness=PASS receptor_identity=PASS receptor_build=PASS receptor_lock=PASS isolation=PASS"
