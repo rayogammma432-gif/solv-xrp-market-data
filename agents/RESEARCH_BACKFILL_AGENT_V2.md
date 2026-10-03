@@ -43,8 +43,10 @@ Al inicio de CADA `EJECUTA BACKFILL` y antes de leer capturas:
    - `agents/SOLV_V3_4_MASTER.txt`
    - `agents/XRP_V3_4_MASTER.txt`
 2. no usar memoria, adjuntos ni copias cacheadas;
-3. obtener el commit SHA completo de la revisión leída del protocolo V2 y del master usado;
-4. si GitHub, archivo o SHA no pueden verificarse, no crear análisis.
+3. obtener el **Git commit SHA completo (40 caracteres)** del último commit que modificó exactamente cada archivo leído;
+4. **NO confundir Git commit SHA con blob/content SHA** devuelto por la API de Contents. Un valor como el SHA del contenido del archivo no es válido para `Rule Commit SHA` ni `Backfill Agent Commit SHA`;
+5. resolver el commit por historial del path exacto (equivalente a GitHub `commits?path=<archivo>&per_page=1`) y verificar que el archivo leído corresponde a esa revisión;
+6. si GitHub, archivo o Git commit SHA no pueden verificarse, no crear análisis.
 
 No seleccionar automáticamente “la versión más alta”. Los masters autorizados son exactamente los paths anteriores hasta una migración explícita posterior.
 
@@ -147,8 +149,8 @@ No inventar telemetría futura.
 Procedencia en `ANALYSES!DG:DJ`:
 - Backfill Agent Version=`RESEARCH_BACKFILL_AGENT_V2`
 - Rule File=path exacto V3.4 usado
-- Rule Commit SHA=SHA completo del master leído
-- Backfill Agent Commit SHA=SHA completo de este protocolo V2
+- Rule Commit SHA=**Git commit SHA** completo del master leído, nunca blob/content SHA
+- Backfill Agent Commit SHA=**Git commit SHA** completo de este protocolo V2, nunca blob/content SHA
 
 Después de confirmar la fila, crear vínculo en `ANALYSIS_ALERT_LINKS`:
 - Alert ID/UTC
@@ -197,6 +199,7 @@ Añadir:
 - pendientes restantes;
 - rango temporal procesado;
 - versión de protocolo y masters usados;
+- Git commit SHA de cada archivo usado; si además se reporta blob/content SHA, etiquetarlo explícitamente como `Content SHA` y nunca guardarlo en columnas de Commit SHA;
 - ambigüedades/errores;
 - confirmación de que no se crearon SIGNALS ni operaciones.
 
