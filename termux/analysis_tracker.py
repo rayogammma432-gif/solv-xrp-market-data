@@ -52,6 +52,28 @@ def _touches(row, price):
     return low <= price <= high
 
 
+def _thesis_expiry(item, analysis_dt):
+    explicit = _dt(item.get("thesisExpiresUtc"))
+    if explicit is not None:
+        return explicit
+
+    thesis_id = str(item.get("thesisId") or "").strip()
+    parts = thesis_id.split("|") if thesis_id else []
+    if len(parts) < 7:
+        return None
+
+    motor = parts[0].strip().upper()
+    created = _dt(parts[-1].strip())
+    if created is None:
+        return None
+
+    if motor == "PRIMARY_1H":
+        return created + timedelta(hours=2)
+    if motor == "SCALP_15M_1M":
+        return created + timedelta(minutes=45)
+    return None
+
+
 class AnalysisTracker:
     """
     Shadow tracker de TODOS los ANALIZA de SOLV/XRP.
@@ -120,7 +142,7 @@ class AnalysisTracker:
 
         start_open = _ceil_minute(analysis_dt)
         target = analysis_dt + timedelta(minutes=EXECUTION_HORIZON_MINUTES)
-        thesis_expiry = _dt(item.get("thesisExpiresUtc"))
+        thesis_expiry = _thesis_expiry(item, analysis_dt)
         fill_deadline = min(target, thesis_expiry) if thesis_expiry is not None else target
         window = []
         for r in rows_1m or []:
@@ -256,7 +278,7 @@ class AnalysisTracker:
         out = {"shadowTp1OneR": round(target_1r, 12)}
         start_open = _ceil_minute(analysis_dt)
         horizon = analysis_dt + timedelta(minutes=EXECUTION_HORIZON_MINUTES)
-        thesis_expiry = _dt(item.get("thesisExpiresUtc"))
+        thesis_expiry = _thesis_expiry(item, analysis_dt)
         fill_deadline = min(horizon, thesis_expiry) if thesis_expiry is not None else horizon
         window = []
         for r in rows_1m or []:
