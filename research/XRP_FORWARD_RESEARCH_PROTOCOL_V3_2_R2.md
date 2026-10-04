@@ -336,7 +336,7 @@ From `2026-10-05T00:00:00Z`:
 - validated operational challenger: NONE
 
 
-## R1 preregistration identity
+## R2 preregistration identity
 
 - protocol version: `XRP_FORWARD_V3_2_R2`
 - registry file: `research/experiments/XRP_FORWARD_REGISTRY_V3_2_R2.jsonl`
