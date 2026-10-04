@@ -5,7 +5,7 @@ Independent XRP Challenger candidate collector.
 This process is intentionally separate from market_collector.py.
 It owns its state, recovery, health, retries and Google Sheets streams.
 
-It implements the frozen XRP_FORWARD_V3_2_R1 research rules through
+It implements the frozen XRP_FORWARD_V3_2_R2 research rules through
 ForwardV3Tracker. It creates research candidates/outcomes only; never SIGNALS,
 orders, Telegram trade alerts or CURRENT-agent decisions.
 """
@@ -43,9 +43,9 @@ DEFAULT_PID = HERE / "challenger_collector.pid"
 LOG_DIR = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
-COLLECTOR_VERSION = "XRP_CHALLENGER_COLLECTOR_V2_R3"
-EXPECTED_RECEPTOR_VERSION = "XRP_RECEPTOR_CHALLENGER_V2_R4"
-EXPECTED_RECEPTOR_BUILD_ID = "XRP_CHALLENGER_RECEPTOR_BUILD_20261003_R4"
+COLLECTOR_VERSION = "XRP_CHALLENGER_COLLECTOR_V2_R4"
+EXPECTED_RECEPTOR_VERSION = "XRP_RECEPTOR_CHALLENGER_V2_R5"
+EXPECTED_RECEPTOR_BUILD_ID = "XRP_CHALLENGER_RECEPTOR_BUILD_20261004_R5"
 EXPECTED_CHALLENGER_SPREADSHEET_ID = "14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA"
 CYCLE_SECOND = 8
 HEARTBEAT_STALE_SECONDS = 180
