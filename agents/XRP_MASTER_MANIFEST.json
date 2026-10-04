@@ -5,7 +5,7 @@
   "asset": "XRPUSDT",
   "rule_version": "XRP_V3.5",
   "master_path": "agents/XRP_V3_5_MASTER.txt",
-  "master_git_blob_sha": "a9f59fb6437e482be3ba96872dd1ee12217e1895",
+  "master_git_blob_sha": "63edc20d5f3333cbe88929022822a87a024658ab",
   "status_path": "research/XRP_SYSTEM_STATUS.md",
   "schema_version": "XRP_V3_4_SCHEMA_DY_AQ_V1",
   "receptor_version": "XRP_RECEPTOR_V3_4_V1",
