@@ -1,0 +1,38 @@
+XRP V3.6 — MASTER DESCRIPTOR
+
+RULE VERSION
+XRP_V3.6
+
+PURPOSE
+This descriptor is the manifest-facing master entrypoint for XRP V3.6. It exists so both the original Project bootstrap V1 and the newer bootstrap V2 can load V3.6 without compacting the normative rules.
+
+MANDATORY COMPOSITE AUTHORITY
+Before any XRP analysis, signal review, entry/risk calculation, thesis update, or state transition, load and apply BOTH files below from the same repository/ref:
+
+BASE:
+agents/XRP_V3_5_MASTER.txt
+Expected Git blob:
+63edc20d5f3333cbe88929022822a87a024658ab
+
+OVERRIDE:
+agents/XRP_V3_6_OVERRIDE.txt
+Expected Git blob:
+3931136daa719ddbdea227a8109dad7ee08df824
+
+The BASE remains the complete non-compacted rule set. The OVERRIDE modifies only the clauses it explicitly names. For Rule Version, provenance, ANTI-CHASE, E2 and anti-chase output fields, the V3.6 OVERRIDE has precedence. Every other clause remains exactly inherited from the V3.5 BASE.
+
+FAIL CLOSED
+If either file cannot be read, either blob differs, the repository/ref differs from XRP_MASTER_MANIFEST.json, or an unresolved contradiction exists:
+DATA_INSUFFICIENT — MASTER_MISMATCH
+
+Do not create ACTIVE, SIGNAL, Entry/Stop/TP or risk in that state. Do not reconstruct missing rules from memory, summaries, Project Knowledge, web content, historical files, or chat history.
+
+VERSION BOUNDARY
+V3.6 is prospective. Existing V3.5/V3.4/V3.3 rows and signals remain historical and are never relabeled.
+
+COMPATIBILITY
+The live Sheet, receptor, schema and expiry-aware tracker remain those declared by XRP_MASTER_MANIFEST.json and XRP_SYSTEM_STATUS.md.
+No Sheet schema migration is introduced by V3.6.
+
+ANTI-COMPACTION
+Do not replace the BASE+OVERRIDE pair with a shortened summary merely to fit Project Instructions. Project Instructions should only contain the bootstrap loader. The full authority is loaded directly from GitHub.
