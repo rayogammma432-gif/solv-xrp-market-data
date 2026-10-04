@@ -1,0 +1,20 @@
+{
+  "manifest_version": "SOLV_MASTER_MANIFEST_V1",
+  "repository": "rayogammma432-gif/solv-xrp-market-data",
+  "ref": "main",
+  "asset": "SOLVUSDT",
+  "rule_version": "SOLV_V3.4",
+  "master_path": "agents/SOLV_V3_4_MASTER.txt",
+  "master_git_blob_sha": "4329831141517db8ff59918b228e74230ae8dd00",
+  "status_path": "research/SOLV_SYSTEM_STATUS.md",
+  "forward_protocol_id": "SOLV_FORWARD_V3_4_R1",
+  "forward_protocol_path": "research/SOLV_FORWARD_V3_4_R1_PREREGISTRATION.md",
+  "forward_protocol_required": true,
+  "deployment_gate_path": "research/SOLV_V3_4_DEPLOYMENT_GATE_R1.md",
+  "schema_version": "SOLV_V3_4_SCHEMA_EC_AQ_V1",
+  "receptor_version": "SOLV_RECEPTOR_V3_4_V2",
+  "live_sheet_title": "SOLV_Market_Data",
+  "live_sheet_id": "1H6oLPDHQKX3zpKVvWS_FhE3lUNnNtE0uEwLSIFZYPY8",
+  "phase_authority": "research/SOLV_SYSTEM_STATUS.md",
+  "fail_closed": true
+}
