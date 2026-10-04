@@ -1,0 +1,83 @@
+XRP V3.6 — NORMATIVE OVERRIDE
+
+STATUS
+Rule Version operativa: XRP_V3.6.
+Este archivo NO reemplaza ni compacta el master completo V3.5. La autoridad V3.6 es el compuesto exacto:
+1) agents/XRP_V3_5_MASTER.txt con el blob fijado por XRP_MASTER_MANIFEST.json; y
+2) este override con el blob fijado por el mismo manifest.
+El bootstrap debe cargar ambos. Si falta cualquiera, el blob no coincide o existe contradicción no resuelta => DATA_INSUFFICIENT — MASTER_MISMATCH.
+V3.6 sustituye prospectivamente a V3.5. Filas/señales V3.5, V3.4 y V3.3 permanecen históricas y nunca se relabelan.
+
+PRECEDENCIA DEL OVERRIDE
+Este archivo modifica únicamente las cláusulas enumeradas abajo.
+En cualquier conflicto sobre Rule Version, AN/BF provenance, ANTI-CHASE, E2 o salida anti-chase, este override V3.6 prevalece.
+Todas las demás reglas, definiciones, riesgo, expiry, dedup, geometría, estados, blockers, auditoría, esquema y receptor se heredan SIN CAMBIOS del master base V3.5.
+
+MOTIVO
+V3.5 medía E2 con ABS(Entry-SETUP_ANCHOR)/ATR15m, lo que validaba una Entry condicional cercana al anchor aunque el Mark actual estuviera varias ATR por delante. Eso permitía que el gate canónico no explicara por sí mismo un WAIT_RETEST que TradingView sí detectaba. V3.6 corrige ese hueco sin convertir TradingView en autoridad.
+
+ANTI-CHASE V3.6 — CANÓNICO Y MARK-AWARE
+Si ATR15m falta, no es finito o <=0, o Mark Price falta/no es finito => E2=UNKNOWN y Execution Gate no puede ser PASS.
+
+Definir:
+entryAnchorDist = ABS(Entry-SETUP_ANCHOR)/ATR15m
+
+Extensión direccional actual respecto a la Entry candidata:
+LONG: markEntryExtension = MAX(0,(MarkPrice-Entry)/ATR15m)
+SHORT: markEntryExtension = MAX(0,(Entry-MarkPrice)/ATR15m)
+
+markEntryExtension mide únicamente cuánto se ha extendido el Mark más allá de la Entry en la dirección del trade. Un Mark situado del lado de retest no genera extensión positiva.
+
+ANTI_CHASE PASS exige simultáneamente:
+entryAnchorDist<=0.50
+AND markEntryExtension<=0.50
+AND RR_real>=1.5
+
+Si entryAnchorDist>0.50 O markEntryExtension>0.50 O RR_real<1.5 => E2=NO y WAIT_RETEST, salvo que una regla de mayor precedencia produzca DATA_INSUFFICIENT o BLOCK/NO_OPERAR.
+
+Para una tesis PRE_ENTRY, E2 se recalcula con el Mark Price live de cada ANALIZA. Entry, SETUP_ANCHOR, ENTRY_ZONE, Stop, TP1 y TP2 permanecen congelados bajo las reglas base.
+Nunca mover Entry al Mark, ampliar Stop ni elegir TP artificial para fabricar RR.
+
+TRADINGVIEW
+TV TECH/PATTERN permanece contexto/shadow.
+TV Extension Warning, TV Pullback Window y TV ST15 Dist ATR pueden confirmar o describir la extensión, pero NO determinan E2, NO sustituyen entryAnchorDist/markEntryExtension y NO pueden fabricar ACTIVE/WAIT por sí solos.
+Si TV contradice la métrica canónica, prevalece la métrica canónica y la discrepancia se anota en Notes.
+En ANALYSES los bloques existentes siguen siendo TV TECH=CC:CZ y TV PATTERN=DA:DF; no hay migración de esquema.
+
+EXECUTION SCORE — E2 OVERRIDE
+PRIMARY E2=YES solo si ANTI_CHASE V3.6 PASS y RR_real>=1.5.
+SCALP E2=YES solo si ANTI_CHASE V3.6 PASS y RR_real>=1.5.
+El hard gate heredado sigue intacto: PASS exige E1=YES AND E2=YES AND E3=YES AND E4=YES AND E5=YES; no existe ACTIVE con 4/5.
+
+REGRESIÓN NORMATIVA OBLIGATORIA
+Caso que originó V3.6:
+Direction=LONG
+Entry=1.5045
+SETUP_ANCHOR=1.5031
+MarkPrice=1.5185
+ATR15m=0.004942
+RR_real>=1.5
+
+Resultado:
+entryAnchorDist = ABS(1.5045-1.5031)/0.004942 ≈ 0.28
+markEntryExtension = MAX(0,(1.5185-1.5045)/0.004942) ≈ 2.83
+
+Aunque entryAnchorDist pasa, markEntryExtension>0.50.
+Por tanto E2=NO; Execution Gate no puede ser PASS; con BASE_PASS y sin hard blocker el estado es CONDICIONAL y blocker=WAIT_RETEST.
+TradingView puede coincidir con esta decisión, pero no es la causa normativa.
+
+SIMETRÍA SHORT
+Para SHORT, si Entry=1.5185, MarkPrice=1.5045 y ATR15m=0.004942, markEntryExtension≈2.83 y debe producir el mismo WAIT_RETEST simétrico.
+
+PROVENANCE
+SIGNALS AN Rule Version=XRP_V3.6.
+ANALYSES BF=Rule Version=XRP_V3.6.
+No reescribir filas V3.5 existentes.
+Thesis ID, expiry, receptor XRP_RECEPTOR_V3_4_V1 y schema XRP_V3_4_SCHEMA_DY_AQ_V1 se heredan sin cambio.
+
+SALIDA OBLIGATORIA — EXTENSIÓN
+Además de la salida heredada, cada ANALIZA debe exponer:
+ANTI-CHASE entryAnchorDist
+ANTI-CHASE markEntryExtension
+ANTI-CHASE RR_real
+y explicar cuál de las tres condiciones impide E2 cuando E2!=YES.

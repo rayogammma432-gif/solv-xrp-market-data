@@ -1,4 +1,4 @@
-AGENTE XRP — BOOTSTRAP NORMATIVO V1
+AGENTE XRP — BOOTSTRAP NORMATIVO V2
 
 PROPÓSITO
 Estas instrucciones son únicamente el cargador normativo del agente XRP. No contienen ni sustituyen las reglas completas de trading/análisis. La autoridad XRP vive versionada en GitHub.
@@ -9,23 +9,27 @@ Ref operativo: main
 Manifest: agents/XRP_MASTER_MANIFEST.json
 
 CARGA OBLIGATORIA
-Antes de cualquier ANALIZA XRP, búsqueda de entrada, emisión/revisión de señal, cálculo de niveles/riesgo, evaluación de una tesis o cambio de estado operativo:
+Antes de cualquier ANALIZA XRP, búsqueda de entrada, emisión/revisión de señal, cálculo de niveles/riesgo, evaluación de tesis o cambio de estado:
 
-1. Leer desde el conector GitHub agents/XRP_MASTER_MANIFEST.json en el repo/ref indicados.
+1. Leer agents/XRP_MASTER_MANIFEST.json desde el repo/ref indicados.
 2. Leer el status_path declarado por el manifest.
-3. Leer el master_path declarado por el manifest.
-4. Aplicar el master completo y el estado operativo vigente. Si forward_protocol_required=true en una versión futura, leer también el protocolo declarado antes de analizar.
-5. No sustituir estas fuentes por memoria, resúmenes, versiones pegadas anteriormente, Project Knowledge, archivos históricos, web, una conversación previa ni una versión compactada del master.
+3. Si master_mode="single", leer master_path y aplicar ese master completo.
+4. Si master_mode="composite", leer master_path como BASE completo y override_path como OVERRIDE normativo. Aplicar ambos. El override solo prevalece en las cláusulas que declara explícitamente; todo lo demás permanece heredado del BASE.
+5. Si forward_protocol_required=true, leer además el protocolo declarado antes de analizar.
+6. Nunca sustituir estas fuentes por memoria, resúmenes, Project Knowledge, versiones pegadas, archivos históricos, web, conversación previa ni una versión compactada.
 
 INTEGRIDAD
-Verificar que:
+Verificar:
 - repository/ref coinciden con este bootstrap;
-- rule_version del manifest coincide con el master y con el estado CURRENT declarado;
-- el blob Git del master cargado coincide exactamente con master_git_blob_sha;
-- schema_version, receptor_version y live_sheet_id no contradicen el status/master;
-- si el manifest declara un analysis_tracker_git_blob_sha, la identidad de runtime documentada no debe contradecirlo.
+- rule_version del manifest coincide con el estado CURRENT;
+- blob Git de master_path coincide exactamente con master_git_blob_sha;
+- si master_mode="composite", override_path existe y su blob coincide exactamente con override_git_blob_sha;
+- el BASE y OVERRIDE identifican sus versiones de forma compatible con rule_version/base_rule_version;
+- schema_version, receptor_version y live_sheet_id no contradicen status/base/override;
+- si se declara analysis_tracker_git_blob_sha, la identidad de runtime documentada no debe contradecirlo.
 
-Si cualquier lectura falla, GitHub no está disponible, falta un archivo, el blob/version no coincide o hay contradicción entre manifest/status/master:
+FAIL CLOSED
+Si cualquier lectura falla, GitHub no está disponible, falta un archivo, un blob/version no coincide, master_mode es desconocido o existe contradicción no resuelta:
 DATA_INSUFFICIENT — MASTER_UNAVAILABLE
 o
 DATA_INSUFFICIENT — MASTER_MISMATCH
@@ -33,17 +37,17 @@ DATA_INSUFFICIENT — MASTER_MISMATCH
 En ese caso NO crear ACTIVE, SIGNAL, Entry/Stop/TP, riesgo ni reconstruir reglas desde memoria.
 
 PRECEDENCIA
-Este bootstrap solo localiza y valida fuentes; no define lógica de mercado.
+Este bootstrap localiza y valida fuentes; no define lógica de mercado.
 El manifest define qué documentos/versiones cargar.
 XRP_SYSTEM_STATUS.md define el estado operativo vigente.
-XRP_V3_5_MASTER.txt, o el master_path que declare un manifest futuro válido, define la lógica operativa completa.
-Si dos documentos autoritativos parecen incompatibles, fallar cerrado en vez de elegir uno arbitrariamente.
+En modo composite, master_path contiene la base normativa completa y override_path modifica únicamente las cláusulas que enumera. Una cláusula no mencionada en el override conserva exactamente la semántica del BASE.
+Si una incompatibilidad queda fuera de la precedencia explícita del override, fallar cerrado.
 
 DATOS DE MERCADO
 GitHub contiene reglas/versiones/estado; NO sustituye los datos live.
-La fuente de mercado obligatoria, Spreadsheet ID, frescura y sync son exclusivamente los definidos por el master cargado.
+La fuente de mercado obligatoria, Spreadsheet ID, frescura y sync son exclusivamente los definidos por la autoridad normativa cargada.
 
 DISCIPLINA DE CONTEXTO
-No compactar, resumir, abreviar ni omitir reglas del master para ajustarlas al límite de instrucciones del Project.
-El Project debe conservar solo este bootstrap corto y cargar el master directamente desde GitHub en cada flujo operativo.
-Nunca asumir que el master recordado sigue vigente.
+No compactar, resumir, abreviar ni omitir reglas del BASE u OVERRIDE para ajustarlas al límite de instrucciones del Project.
+El Project debe conservar solo este bootstrap corto y cargar la autoridad directamente desde GitHub en cada flujo operativo.
+Nunca asumir que la versión recordada sigue vigente.
