@@ -5,10 +5,10 @@ Generated from the 2026-10-04 SOLV audit. This file records operational state; f
 | Subsystem | State | Authoritative identity | Notes |
 |---|---|---|---|
 | SOLV CURRENT | ACTIVE | SOLV_V3.4 | Live collector/receptor path; SIGNALS A:AQ; ANALYSES A:EC |
-| SOLV receptor hardening | DEPLOYMENT_REQUIRED | SOLV_RECEPTOR_V3_4_V2 | Repository source hardened; deployed Apps Script must be verified before R1 cutoff |
+| SOLV receptor hardening | DEPLOYED_VERIFIED | SOLV_RECEPTOR_V3_4_V2 | GET health and forbidden-sheet negative probe verified 2026-10-04T21:31Z |
 | V3.3 | HISTORICAL | SOLV_V3.3 | Historical/rollback reference only |
 | Backfill | ACTIVE_RESEARCH_ONLY | RESEARCH_BACKFILL_AGENT_V2 + BACKFILL_FILTER_R1 | Never counts as prospective R1 evidence and never creates retrospective trades |
-| SOLV Forward V3.4 R1 | PRELAUNCH_FROZEN | SOLV_FORWARD_V3_4_R1 | Formal start 2026-10-05T06:00:00Z; readiness must pass before cutoff |
+| SOLV Forward V3.4 R1 | PRELAUNCH_READY | SOLV_FORWARD_V3_4_R1 | Readiness passed before cutoff; formal start remains 2026-10-05T06:00:00Z |
 | Prelaunch V3.4 smoke | EXCLUDED_CONFIRMATORY | SOLV-20261003T231611Z-AN | Useful operational smoke only; not part of R1 sample |
 
 ## R1 launch boundary
@@ -72,3 +72,24 @@ At the 2026-10-04 audit:
 - 0 SIGNALS were marked `SOLV_V3.4`.
 
 These are point-in-time counts, not permanent invariants.
+
+
+## R1 readiness verification
+
+Verified before cutoff on `2026-10-04T21:33:41Z`:
+- Motorola repository HEAD: `b1e434423d1aed7353aa9fc0f42981b5125da380`;
+- branch: `main`;
+- tracked worktree: clean;
+- deployed receptor: `SOLV_RECEPTOR_V3_4_V2`;
+- rule: `SOLV_V3.4`;
+- schema: `SOLV_V3_4_SCHEMA_EC_AQ_V1`;
+- spreadsheet ID matched the frozen SOLV sheet;
+- SIGNALS columns: 43;
+- ANALYSES columns: 133;
+- generic `payload.sheets` negative probe to SIGNALS returned `SHEET_NOT_ALLOWED`;
+- collector restarted from the merged source and reported ACTIVE;
+- SOLV bootstrap completed successfully after restart;
+- live MARKET/LIVE_STATE updated at `2026-10-04T21:33:11.781Z`;
+- last closed SOLV 1m candle and expected last close both equaled `2026-10-04T21:32:59.999Z`.
+
+R1 remains prelaunch until the formal prospective start. No pre-start observation becomes confirmatory evidence.
