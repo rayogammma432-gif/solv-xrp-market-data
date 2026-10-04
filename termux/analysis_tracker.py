@@ -120,6 +120,8 @@ class AnalysisTracker:
 
         start_open = _ceil_minute(analysis_dt)
         target = analysis_dt + timedelta(minutes=EXECUTION_HORIZON_MINUTES)
+        thesis_expiry = _dt(item.get("thesisExpiresUtc"))
+        fill_deadline = min(target, thesis_expiry) if thesis_expiry is not None else target
         window = []
         for r in rows_1m or []:
             open_dt = _dt(r[0])
@@ -143,6 +145,10 @@ class AnalysisTracker:
 
         for open_dt, close_dt, row in window:
             if not filled:
+                # Thesis expiry limits when a pre-entry plan may fill. A plan
+                # that touches Entry only after expiry must never resurrect.
+                if close_dt > fill_deadline:
+                    continue
                 if not _touches(row, entry):
                     continue
                 filled = True
@@ -207,7 +213,11 @@ class AnalysisTracker:
                     audit["executionAuditNotes"] = ";".join(notes)
                 return audit
 
-        if latest_dt >= target:
+        if not filled and thesis_expiry is not None and latest_dt >= thesis_expiry:
+            audit["executionAuditStatus"] = "COMPLETE"
+            audit["firstBarrier"] = "NO_FILL_EXPIRED"
+            notes.append("THESIS_EXPIRED_BEFORE_FILL")
+        elif latest_dt >= target:
             audit["executionAuditStatus"] = "COMPLETE"
             if filled:
                 audit["firstBarrier"] = "OPEN_240M"
@@ -246,6 +256,8 @@ class AnalysisTracker:
         out = {"shadowTp1OneR": round(target_1r, 12)}
         start_open = _ceil_minute(analysis_dt)
         horizon = analysis_dt + timedelta(minutes=EXECUTION_HORIZON_MINUTES)
+        thesis_expiry = _dt(item.get("thesisExpiresUtc"))
+        fill_deadline = min(horizon, thesis_expiry) if thesis_expiry is not None else horizon
         window = []
         for r in rows_1m or []:
             open_dt = _dt(r[0])
@@ -261,6 +273,8 @@ class AnalysisTracker:
         filled = False
         for open_dt, close_dt, row in window:
             if not filled:
+                if close_dt > fill_deadline:
+                    continue
                 if not _touches(row, entry):
                     continue
                 filled = True
@@ -285,7 +299,9 @@ class AnalysisTracker:
                 out["shadowTp1RealizedR"] = -1.0
                 return out
 
-        if latest_dt >= horizon:
+        if not filled and thesis_expiry is not None and latest_dt >= thesis_expiry:
+            out["shadowTp1FirstBarrier"] = "NO_FILL_EXPIRED"
+        elif latest_dt >= horizon:
             out["shadowTp1FirstBarrier"] = "OPEN_240M" if filled else "NO_FILL"
         else:
             out["shadowTp1FirstBarrier"] = "OPEN" if filled else "WAITING_ENTRY"

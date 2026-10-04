@@ -79,4 +79,8 @@ jobs:
           grep -q "SOLV_RECEPTOR_V3_4_V2" apps-script/SOLV_Receptor_Incremental.gs
           grep -q "SOLV_FORWARD_V3_4_R1" research/SOLV_FORWARD_V3_4_R1_PREREGISTRATION.md
           grep -q "2026-10-05T06:00:00Z" research/SOLV_FORWARD_V3_4_R1_PREREGISTRATION.md
-          grep -Eq "PRELAUNCH_(FROZEN|READY)" research/SOLV_SYSTEM_STATUS.md
+          grep -Eq "PRELAUNCH_(FROZEN|READY|REVALIDATION_REQUIRED)" research/SOLV_SYSTEM_STATUS.md
+          grep -q "BASE_PASS PRIMARY SHORT" agents/SOLV_V3_4_MASTER.txt
+          grep -q "BASE_PASS SCALP SHORT" agents/SOLV_V3_4_MASTER.txt
+          grep -q "SCALP SHORT fijo 0.10%" agents/SOLV_V3_4_MASTER.txt
+          grep -q "NO_FILL_EXPIRED" termux/analysis_tracker.py

@@ -71,6 +71,54 @@ class SolvV34ShadowOneRTests(unittest.TestCase):
         self.assertEqual(update["shadowTp1FirstBarrier"], "STOP")
         self.assertEqual(update["shadowTp1RealizedR"], -1.0)
 
+    def test_solv_entry_after_expiry_is_no_fill_expired(self):
+        item = {
+            "analysisId": "SOLV-EXP-1",
+            "analysisUtc": "2026-10-03T10:00:30Z",
+            "markPrice": 100,
+            "primaryBias": "SHORT",
+            "entry": 99,
+            "stop": 101,
+            "tp1": 95,
+            "tp2": 93,
+            "thesisExpiresUtc": "2026-10-03T10:02:59.999Z",
+        }
+        rows = [
+            bar("2026-10-03T10:01:00Z", 100, 100.2, 99.5, 100.0),
+            bar("2026-10-03T10:02:00Z", 100.0, 100.1, 99.2, 99.5),
+            # Entry 99 is touched only after the thesis has expired.
+            bar("2026-10-03T10:03:00Z", 99.5, 100.0, 98.8, 99.1),
+        ]
+        update = self.tracker._evaluate_one(item, pad(rows, start_minute=4), key="solv")
+        self.assertEqual(update["firstBarrier"], "NO_FILL_EXPIRED")
+        self.assertEqual(update["shadowTp1FirstBarrier"], "NO_FILL_EXPIRED")
+        self.assertNotIn("entryFilledUtc", update)
+        self.assertIn("THESIS_EXPIRED_BEFORE_FILL", update["executionAuditNotes"])
+
+    def test_solv_fill_before_expiry_can_finish_after_expiry(self):
+        item = {
+            "analysisId": "SOLV-EXP-2",
+            "analysisUtc": "2026-10-03T10:00:30Z",
+            "markPrice": 100,
+            "primaryBias": "SHORT",
+            "entry": 99,
+            "stop": 101,
+            "tp1": 95,
+            "tp2": 93,
+            "thesisExpiresUtc": "2026-10-03T10:02:59.999Z",
+        }
+        rows = [
+            # Entry is filled before expiry, with neither stop nor TP1 touched.
+            bar("2026-10-03T10:01:00Z", 100, 100.2, 98.9, 99.2),
+            # TP1 occurs after expiry and must still count for the filled plan.
+            bar("2026-10-03T10:03:00Z", 99.2, 99.4, 94.8, 95.2),
+        ]
+        update = self.tracker._evaluate_one(item, pad(rows, start_minute=4), key="solv")
+        self.assertEqual(update["firstBarrier"], "TP1")
+        self.assertEqual(update["realizedR"], 2.0)
+        self.assertEqual(update["shadowTp1FirstBarrier"], "TP1_1R")
+        self.assertEqual(update["shadowTp1RealizedR"], 1.0)
+
     def test_xrp_does_not_emit_solv_shadow_fields(self):
         item = {
             "analysisId": "XRP-X1",
