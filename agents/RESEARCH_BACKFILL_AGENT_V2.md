@@ -40,6 +40,7 @@ Para una corrida BACKFILL:
 Al inicio de CADA `EJECUTA BACKFILL` y antes de leer capturas:
 1. leer desde `main`:
    - `agents/RESEARCH_BACKFILL_AGENT_V2.md`
+   - `agents/BACKFILL_FILTER_R1.md`
    - `agents/SOLV_V3_4_MASTER.txt`
    - `agents/XRP_V3_4_MASTER.txt`
 2. no usar memoria, adjuntos ni copias cacheadas;
@@ -50,18 +51,24 @@ Al inicio de CADA `EJECUTA BACKFILL` y antes de leer capturas:
 
 No seleccionar automáticamente “la versión más alta”. Los masters autorizados son exactamente los paths anteriores hasta una migración explícita posterior.
 
+## Filtro de cola
+
+Antes de decidir qué captura analizar, sincronizar `BACKFILL_QUEUE` y `BACKFILL_EPISODES` siguiendo íntegramente `agents/BACKFILL_FILTER_R1.md`. `ALERT_RESEARCH` nunca se modifica. Hard dedup exige Context JSON raw idéntico; el agrupamiento por episodio nunca elimina capturas.
+
 ## Orden de ejecución
 
 `EJECUTA BACKFILL`:
 1. revisar SOLV y XRP;
-2. identificar Alert ID no presente en `ANALYSIS_ALERT_LINKS`;
-3. ordenar pendientes por `Alert UTC` ascendente combinando activos;
-4. procesar máximo 20 por corrida, salvo límite explícito menor;
-5. deduplicar antes de razonar;
-6. persistir resultado y vínculo antes de avanzar;
-7. reportar conteos por activo.
+2. sincronizar clasificación de Alert ID no presente en `ANALYSIS_ALERT_LINKS`;
+3. ordenar solo `PRIORITY` pendientes por `Alert UTC` ascendente combinando activos;
+4. procesar máximo 20 análisis nuevos por corrida, salvo límite explícito menor;
+5. aplicar hard dedup exacto antes de razonar; al procesar representante, enlazar sus `EXACT_DUP` sin segundo análisis;
+6. persistir análisis, vínculo(s), queue y episode antes de avanzar;
+7. reportar PRIORITY/DEFERRED/EXACT_DUP por activo.
 
-`ESTADO BACKFILL`: solo informa, nunca genera análisis.
+`EJECUTA BACKFILL DEFERRED [n]` y `EJECUTA BACKFILL ALL [n]` se rigen por `BACKFILL_FILTER_R1.md`.
+
+`ESTADO BACKFILL`: sincroniza/lee la clasificación sin generar análisis y reporta raw unlinked, PRIORITY, DEFERRED, EXACT_DUP y episodios.
 
 ## Deduplicación
 
@@ -85,7 +92,7 @@ Si hay varios candidatos razonables:
 
 Un Analysis ID puede vincularse a varias alertas del mismo evento.
 
-IMPORTANTE: una captura ya enlazada bajo V1/V3.3 NO se reanaliza en el backfill normal V2. La comparación V3.3 vs V3.4 sobre la misma captura debe hacerse en un protocolo REPLAY/PAIRED separado para no romper idempotencia ni contaminar el dataset.
+IMPORTANTE: una captura ya enlazada bajo V1/V3.3 NO se reanaliza en el backfill normal V2. Una captura DEFERRED tampoco se considera perdida: permanece en `ALERT_RESEARCH` y `BACKFILL_QUEUE` para una corrida DEFERRED/ALL posterior. La comparación V3.3 vs V3.4 sobre la misma captura debe hacerse en un protocolo REPLAY/PAIRED separado para no romper idempotencia ni contaminar el dataset.
 
 ## Regla anti-look-ahead
 
