@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-XRP_FORWARD_V3_2_R1 forward-only shadow tracker.
+XRP_FORWARD_V3_2_R2 forward-only shadow tracker.
 
 Properties:
-- hard start at 2026-10-04T00:00:00Z
+- hard start at 2026-10-05T00:00:00Z
 - fetches/catches up every missed XRP 1m decision in chronological order
 - reconstructs PRIMARY_15M from exact 1m bars, matching HIST_NORM_V1 resampling semantics
 - fixed V3.2 candidate rules; no CURRENT-agent decisions
@@ -20,18 +20,18 @@ import subprocess
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
-FORWARD_START_UTC = datetime(2026, 10, 4, 0, 0, 0, tzinfo=timezone.utc)
+FORWARD_START_UTC = datetime(2026, 10, 5, 0, 0, 0, tzinfo=timezone.utc)
 FORWARD_START_MS = int(FORWARD_START_UTC.timestamp() * 1000)
-PROTOCOL_VERSION = "XRP_FORWARD_V3_2_R1"
-PROTOCOL_FILE = "research/XRP_FORWARD_RESEARCH_PROTOCOL_V3_2_R1.md"
-PROTOCOL_COMMIT_SHA = "1897f1a9732f2db3fdfb2916475b87bcb4235976"
-REGISTRY_FILE = "research/experiments/XRP_FORWARD_REGISTRY_V3_2_R1.jsonl"
-REGISTRY_SHA256 = "5caac1ec957545af503d18775a46d38363f7dadb8403b2ad3a34f5dbde5151bc"
+PROTOCOL_VERSION = "XRP_FORWARD_V3_2_R2"
+PROTOCOL_FILE = "research/XRP_FORWARD_RESEARCH_PROTOCOL_V3_2_R2.md"
+PROTOCOL_COMMIT_SHA = "70e44ed02c3132d1ffe1465b2e273c4bab87df78"
+REGISTRY_FILE = "research/experiments/XRP_FORWARD_REGISTRY_V3_2_R2.jsonl"
+REGISTRY_SHA256 = "0dc73280c4809d848bb5d160e18ce7245d9ad7232047487e1bacbf60c1497563"
 
 FEATURE_SET_VERSION = "FEATURES_V1_LIVE_EQUIV_V1"
 NORMALIZATION_VERSION = "LIVE_BINANCE_NORMALIZATION_EQUIV_V1"
-COLLECTOR_VERSION = "XRP_FORWARD_V3_2_R1_COLLECTOR_V1"
-OUTCOME_ENGINE_VERSION = "XRP_FORWARD_V3_2_R1_OUTCOME_V1"
+COLLECTOR_VERSION = "XRP_FORWARD_V3_2_R2_COLLECTOR_V1"
+OUTCOME_ENGINE_VERSION = "XRP_FORWARD_V3_2_R2_OUTCOME_V1"
 
 BASE_URL = "https://fapi.binance.com"
 WARMUP_MINUTES = 360
