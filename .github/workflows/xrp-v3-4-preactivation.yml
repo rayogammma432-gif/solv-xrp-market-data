@@ -93,7 +93,8 @@ jobs:
               "Execution Score",
               "ATR STOP STRESS",
               "THESIS/DEDUP",
-              "DK:DY",
+              "DK Direction Score",
+              "DY Execution Blocker",
               "Realized R",
           ]
           required_tracker = [
