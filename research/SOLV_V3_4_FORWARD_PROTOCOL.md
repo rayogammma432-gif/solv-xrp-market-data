@@ -85,3 +85,18 @@ Formal R1 start is `2026-10-05T06:00:00Z` with readiness cutoff `2026-10-05T05:3
 All BACKFILL rows and all observations before the formal start are excluded from confirmatory R1 evidence. The live analysis `SOLV-20261003T231611Z-AN` is classified as PRELAUNCH_SMOKE only.
 
 If readiness is not complete before the cutoff, R1 is abandoned and must not be reconstructed or backfilled. A new future start must be preregistered.
+
+
+## Pre-start normative lock amendment
+
+Before the formal R1 start, the master audit identified specification ambiguity rather than new market evidence. The following controls are therefore frozen prospectively before R1 begins:
+
+- explicit PRIMARY and SCALP BASE_PASS thresholds;
+- deterministic global-state precedence;
+- fixed 0.10% SCALP SHORT risk during R1;
+- computable UTC-day daily risk gate;
+- immutable canonical thesis geometry while PRE_ENTRY;
+- thesis expiry as a hard pre-entry fill deadline;
+- 5m/1D/TV/OI remain non-gating unless the same contradiction is independently present in the motor/base structure.
+
+This amendment does not use post-start evidence, does not change the 1.5 minimum RR, does not promote LONG, does not promote the 1R shadow target, and does not alter the production TP logic.
