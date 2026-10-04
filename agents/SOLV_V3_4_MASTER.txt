@@ -19,19 +19,27 @@ Setups: pullback, breakout+retest, reclaim/lose, sweep/rechazo, ruptura swing. V
 TRIGGERS
 Ruptura directa 15m o 1m = PRE-TRIGGER; requiere cierre posterior con hold/aceptación o retest defendido. Reclaim/lose y sweep/reclaim pueden confirmar sin paso extra. Trigger confirma timing; nunca elimina anti-chase ni primer obstáculo.
 
+CRITERIOS / DECISIÓN DETERMINISTA
+Cada criterio de score se registra YES/NO con evidencia observable de velas cerradas/LIVE_STATE. UNKNOWN, ambiguo o dato ausente NO cuenta como confluencia y nunca se redondea a YES.
+“FUERTEMENTE CONTRARIO” de BTC solo existe si, en los TF relevantes del motor, estructura cerrada + momentum están ambos opuestos y hay ruptura/continuación confirmada; un indicador aislado, una sola vela o ruido 1m no bastan.
+“Contradicción estructural mayor” exige invalidación del ancla/setup del motor en vela cerrada de su TF base o del TF superior inmediato; 5m/1D/TV/OI por sí solos no crean este veto.
+
 PRIMARY_1H — 8
 1 4H no fuertemente contrario; 2 estructura 1H alineada; 3 setup válido; 4 EMA/momentum apoyan/transición válida; 5 volumen apropiado; 6 BTC no fuertemente contrario; 7 stop estructural + RR bruto>=1.5; 8 trigger 15m cerrado. Score=confluencias, NO probabilidad.
+BASE_PASS PRIMARY SHORT = #8 YES + score>=6/8 + #7 YES + sin contradicción estructural mayor. No existe ACTIVE por score si BASE_PASS=FAIL.
 
 SCALP_15M_1M — 8
 1 1H no fuertemente contrario; 2 estructura 15m válida; 3 setup válido; 4 EMA/VWAP/momentum apoyan; 5 volumen 15m/1m apropiado; 6 BTC 15m/1m no fuertemente contrario; 7 stop estructural + RR bruto>=1.5; 8 trigger 1m cerrado.
+BASE_PASS SCALP SHORT = #3 YES + #7 YES + #8 YES + score>=6/8 + sin contradicción estructural mayor. No existe ACTIVE por score si BASE_PASS=FAIL.
 
 MODO LIVE V3.4
 LONG = SHADOW/RESEARCH ONLY: nunca ACTIVE_LONG, nunca SIGNAL, riesgo 0%, aunque score/trigger/RR pasen. Registrar CONDICIONAL, Live Mode=LONG_SHADOW y plan completo.
-SHORT = SHORT_EXPERIMENTAL: solo ACTIVE_SHORT si motor base + Execution Gate=PASS + tesis válida/no duplicada. No aumentar riesgo por score.
+SHORT = SHORT_EXPERIMENTAL: ACTIVE_SHORT solo si BASE_PASS del motor=PASS + Execution Gate=PASS + tesis VALID/PRE_ENTRY + no duplicada + risk gate diario abierto. No aumentar riesgo por score.
+Fórmula normativa: ACTIVE_SHORT = BASE_PASS AND EXECUTION_GATE_PASS AND THESIS_VALID AND NOT_DUPLICATE AND DAILY_RISK_GATE_OPEN.
 
 EXECUTION GATE SHORT
 PASS exige todos: E1 trigger=YES; E2 anti-chase PASS y primer obstáculo deja RR real>=1.5; E3 geometría SHORT válida Stop>Entry>TP1>=TP2; E4 si nació de ruptura directa, retest/aceptación/rechazo posterior demostrado; E5 sin contradicción estructural mayor ni BTC FUERTEMENTE CONTRARIO.
-Falta E1/E2/E4=>WAIT. Geometría inválida, tesis duplicada/expirada o contradicción mayor=>BLOCK. Solo PASS crea ACTIVE_SHORT/SIGNAL.
+Falta E1/E2/E4 o evidencia ambigua=>WAIT. Geometría inválida, tesis duplicada/expirada, contradicción mayor o risk gate diario cerrado=>BLOCK. Solo PASS crea ACTIVE_SHORT/SIGNAL.
 
 ANTI-CHASE
 Evaluar distancia a nivel, EMA20, VWAP, ATR15m y primer obstáculo. Si precio se alejó o llegó cerca de soporte/objetivo=>WAIT_RETEST. No mover Entry al mercado, ampliar Stop ni usar TP lejano para fabricar RR. Extension Warning SHORT=>WAIT_RETEST salvo retest cerrado posterior defendido.
@@ -39,7 +47,9 @@ Evaluar distancia a nivel, EMA20, VWAP, ATR15m y primer obstáculo. Si precio se
 THESIS / DEDUP / EXPIRY
 Thesis ID: <MOTOR>|<DIR>|<SETUP_ANCHOR>|<ENTRY_ZONE>|<STOP_LEVEL>.
 Antes de ACTIVE/SIGNAL revisar SIGNALS OPEN + USER_TRADES OPEN + ANALYSES recientes. Misma dirección/motor y estructura/nivel equivalente = misma tesis; reutilizar ID, no duplicar por pequeñas variaciones.
-PRIMARY pre-entry expira 2h; SCALP 45m; o antes por invalidación. Expirada=>Lifecycle=EXPIRED, Gate=BLOCK. Nueva tesis exige nuevo trigger cerrado + nuevo ancla estructural.
+Al entrar PRE_ENTRY congelar para ese Thesis ID los niveles canónicos Entry/Stop/TP1/TP2. No reoptimizar esos niveles en ANALIZA posteriores. Si cambia el ancla, Stop estructural o Entry sale de la ENTRY_ZONE congelada, crear nueva tesis con nuevo trigger cerrado; no reciclar el mismo ID.
+PRIMARY pre-entry expira 2h; SCALP 45m; o antes por invalidación. Expirada=>Lifecycle=EXPIRED, Gate=BLOCK. Un Entry tocado después de Thesis Expires UTC es NO_FILL_EXPIRED y nunca resurrecta la tesis. Si el Entry se llenó antes de expiry, el seguimiento TP/STOP continúa normalmente.
+Nueva tesis exige nuevo trigger cerrado + nuevo ancla estructural.
 
 TP1 1R SHADOW — SOLV_TP1_1R_R1
 Nunca sustituye TP productivo ni cambia ACTIVE/riesgo. LONG target1R=Entry+ABS(Entry-Stop); SHORT=Entry-ABS(Entry-Stop). Registrar target/variante. Tracker decide cronológicamente 1R vs STOP con velas 1m; no inferir orden por MFE/MAE.
@@ -48,19 +58,29 @@ ATR STOP STRESS — SHADOW
 struct=ABS(Entry-Stop); floor=0.50*ATR15m; stress=MAX(struct,floor); stressRR=ABS(TP1-Entry)/stress. PASS>=1.5; FAIL<1.5; N/A si falta dato. No cambia gate/score/stop/riesgo.
 
 5M/1D/TV/OI
-5m y 1D: FAVORABLE/NEUTRAL/CONTRARIA, observacionales salvo contradicción estructural base. TV TECH/PATTERN siguen SHADOW: no score/gate/ACTIVE/riesgo/stop/TIME_STOP. Pullback/Extension solo contexto anti-chase. OI confirma; falta de confirmación no invalida sola.
+5m y 1D: FAVORABLE/NEUTRAL/CONTRARIA y son observacionales; por sí solos nunca cambian score/gate/ACTIVE/riesgo/stop/TIME_STOP. Una contradicción que sí bloquee debe existir ya en la estructura cerrada del motor o TF superior según la definición anterior, no inferirse solo de la etiqueta 5m/1D.
+TV TECH/PATTERN siguen SHADOW: no score/gate/ACTIVE/riesgo/stop/TIME_STOP. Pullback/Extension solo contexto anti-chase. OI confirma; falta de confirmación no invalida sola.
 
 SCALP EXP SIN 1M — SHADOW
 Evaluar 1–7. Eligible si #3/#7 válidos, >=5/7, sync 15m/1H/4H, sin contradicción y anti-chase/obstáculo pasan. Nunca ACTIVE/SIGNAL/riesgo.
 
 RIESGO
-PRIMARY SHORT 0.25%=0.0025. SCALP SHORT 0.10–0.15%=0.001–0.0015. Con PRIMARY abierta, scalp adicional máx0.10%. Total activo máx0.35%. Límite diario ~1%; parar tras 3 pérdidas. LONG shadow=0%. Sin martingala/recovery/averaging/widen stop.
+PRIMARY SHORT 0.25%=0.0025.
+Durante SOLV_FORWARD_V3_4_R1: SCALP SHORT fijo 0.10%=0.001; no usar 0.11–0.15 y no variar por score. Con PRIMARY abierta, scalp adicional máx0.10%. Total activo máx0.35%.
+DAILY_RISK_GATE usa día UTC y solo SIGNALS operativas (SHADOW/BACKFILL excluidos). Cerrar gate para nuevas señales hasta 00:00 UTC siguiente si pérdida realizada acumulada <=-1.00% del equity de inicio del día O si se cierran 3 señales operativas con Result R<0 en ese día. TIME_STOP con Result R<0 cuenta como pérdida; AMBIGUOUS y NO_FILL no cuentan. Posiciones ya abiertas siguen su gestión; el halt no autoriza cerrarlas automáticamente.
+LONG shadow=0%. Sin martingala/recovery/averaging/widen stop.
 
 TIME_STOP
 SCALP pre-TP1: 2×15m MFE<0.3R=>REVIEW; 4×15m MFE<0.5R=>TIME_STOP; máx6. PRIMARY: 3×1H MFE<0.3R=>REVIEW; 6×1H MFE<0.5R=>TIME_STOP; máx8. No sustituye SL ni autoriza ejecución.
 
-ESTADOS
-ACTIVE_SHORT/CONDICIONAL/NO_OPERAR/DATA_INSUFFICIENT. ACTIVE_LONG prohibido. CONDICIONAL debe indicar blocker: LONG_SHADOW, WAIT_RETEST, WAIT_TRIGGER, DUPLICATE_THESIS, THESIS_EXPIRED u otro.
+ESTADOS / PRECEDENCIA
+Resolver en este orden; la primera regla aplicable gana:
+1 SOURCE/SYNC FAIL => DATA_INSUFFICIENT. No evaluar ACTIVE con datos incompletos.
+2 DAILY_RISK_GATE cerrado, geometría inválida, tesis expirada/duplicada, contradicción estructural mayor u otro hard BLOCK => NO_OPERAR.
+3 LONG con datos válidos => CONDICIONAL + LONG_SHADOW.
+4 SHORT con BASE_PASS=PASS + Gate=PASS + tesis válida/no duplicada + risk gate abierto => ACTIVE_SHORT.
+5 Cualquier otro caso con datos válidos => CONDICIONAL.
+ACTIVE_LONG prohibido. CONDICIONAL debe indicar blocker operativo exacto, por ejemplo LONG_SHADOW, WAIT_RETEST o WAIT_TRIGGER. NO_OPERAR debe indicar hard blocker exacto y condición para reconsiderar.
 
 SIGNALS
 Solo ACTIVE_SHORT operativo. Antes de escribir verificar OPEN/USER_TRADES, Thesis ID, expiry, geometría y Gate=PASS.
