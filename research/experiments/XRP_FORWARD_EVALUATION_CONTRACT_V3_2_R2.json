@@ -1,0 +1,85 @@
+{
+  "version": "XRP_FORWARD_EVALUATION_CONTRACT_V3_2_R2",
+  "protocol_version": "XRP_FORWARD_V3_2_R2",
+  "registry_sha256": "0dc73280c4809d848bb5d160e18ce7245d9ad7232047487e1bacbf60c1497563",
+  "forward_start_utc": "2026-10-05T00:00:00Z",
+  "formal_family_gate_utc": "2027-04-03T00:00:00Z",
+  "informational_checkpoint_utc": "2027-01-03T00:00:00Z",
+  "primary_alpha": 0.05,
+  "bootstrap": {
+    "unit": "UTC_DAY",
+    "replicates": 2000,
+    "sampling": "sample observed UTC decision days with replacement; include all eligible primary rows from each sampled day",
+    "ci": "percentile_95",
+    "one_sided_p": "(1 + count(bootstrap_primary_effect <= 0)) / (replicates + 1)",
+    "seed": "deterministic SHA256-derived seed from protocol_version|candidate_id|formal_family_gate_utc"
+  },
+  "family_multiplicity": {
+    "method": "HOLM",
+    "family": [
+      "XRP-FWD-V3-A-TAKER-EXHAUSTION",
+      "XRP-FWD-V3-B-OI-MODERATOR",
+      "XRP-FWD-V3-C-MOMENTUM-EXHAUSTION"
+    ],
+    "unavailable_or_noncomputable_p": 1
+  },
+  "common_inclusion": {
+    "protocol_version_exact": "XRP_FORWARD_V3_2_R2",
+    "decision_time_min_inclusive": "2026-10-05T00:00:00Z",
+    "decision_time_max_rule": "decision_time + primary_horizon + 5m grace <= evaluation_cutoff",
+    "primary_outcome_required": "COMPLETE",
+    "duplicate_event_policy": "Event ID must be unique; duplicates are provenance failure",
+    "incomplete_primary_policy": "Any eligible primary INCOMPLETE outcome blocks a clean PASS and yields DATA_QUALITY_BLOCKED for that candidate; it is never silently dropped for a PASS claim",
+    "secondary_horizons": "descriptive only and never substitute for primary"
+  },
+  "candidate_rules": {
+    "XRP-FWD-V3-A-TAKER-EXHAUSTION": {
+      "primary_effect": "mean(direction_signed_forward_return_15m)",
+      "minimum_calendar_days": 90,
+      "minimum_total_complete": 12000,
+      "minimum_each_side_complete": 3000,
+      "minimum_unique_utc_days_complete": 75,
+      "effect_floor": 0.0001,
+      "temporal_stability": "median of calendar-UTC monthly primary effects > 0 across informative months"
+    },
+    "XRP-FWD-V3-B-OI-MODERATOR": {
+      "primary_effect": "mean(sign(ret_12)*forward_return_60m | oi_group=EXPANSION) - mean(sign(ret_12)*forward_return_60m | oi_group=CONTRACTION)",
+      "minimum_calendar_days": 180,
+      "minimum_expansion_complete": 600,
+      "minimum_contraction_complete": 600,
+      "minimum_unique_utc_days_complete": 150,
+      "effect_floor": 0.0004,
+      "temporal_stability": "median of calendar-UTC quarterly expansion-minus-contraction effects > 0 across informative quarters; a quarter is informative only if both groups are present"
+    },
+    "XRP-FWD-V3-C-MOMENTUM-EXHAUSTION": {
+      "primary_effect": "mean(direction_signed_forward_return_60m)",
+      "minimum_calendar_days": 180,
+      "minimum_total_complete": 1200,
+      "minimum_each_side_complete": 250,
+      "minimum_unique_utc_days_complete": 150,
+      "effect_floor": 0.00043,
+      "temporal_stability": "median of calendar-UTC quarterly primary effects > 0 across informative quarters"
+    }
+  },
+  "formal_candidate_pass_requires_all": [
+    "candidate-specific sample minimums",
+    "candidate-specific effect floor",
+    "percentile CI95 lower > 0",
+    "Holm-adjusted one-sided p < 0.05",
+    "preregistered temporal stability",
+    "zero eligible primary INCOMPLETE outcomes",
+    "no unresolved provenance failure"
+  ],
+  "informational_checkpoint": {
+    "candidate": "XRP-FWD-V3-A-TAKER-EXHAUSTION",
+    "formal_pass_allowed": false,
+    "retuning_allowed": false,
+    "promotion_allowed": false
+  },
+  "immutability": "Any change to these evaluation rules after the XRP_FORWARD_V3_2_R2 formal forward start requires a new forward protocol/version and future start.",
+  "lineage": {
+    "previous_protocol": "XRP_FORWARD_V3_2_R1",
+    "previous_status": "ABORTED_PRELAUNCH_NO_PROSPECTIVE_EVIDENCE",
+    "scientific_rules_changed": false
+  }
+}
