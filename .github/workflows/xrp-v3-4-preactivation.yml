@@ -59,6 +59,30 @@ jobs:
           cp apps-script/XRP_Receptor_Incremental.gs /tmp/XRP_Receptor_Incremental.js
           node --check /tmp/XRP_Receptor_Incremental.js
 
+      - name: XRP receptor ingestion allowlist security tests
+        run: |
+          cp apps-script/XRP_Receptor_Incremental.gs /tmp/XRP_Receptor_Allowlist_Test.js
+          cat >> /tmp/XRP_Receptor_Allowlist_Test.js <<'JS'
+          function expectThrows_(fn, marker) {
+            let threw = false;
+            try { fn(); } catch (err) {
+              threw = true;
+              if (marker && String(err).indexOf(marker) === -1) throw err;
+            }
+            if (!threw) throw new Error('Expected rejection: ' + marker);
+          }
+          const row11 = Array(11).fill('x');
+          validateIncomingSheets_('bootstrap', {'XRP_1M':[row11]});
+          validateIncomingSheets_('incremental', {'ALERT_RESEARCH':[row11]});
+          expectThrows_(function(){ validateIncomingSheets_('bootstrap', {'ALERT_RESEARCH':[row11]}); }, 'SHEET_NOT_ALLOWED');
+          expectThrows_(function(){ validateIncomingSheets_('incremental', {'SIGNALS':[row11]}); }, 'SHEET_NOT_ALLOWED');
+          expectThrows_(function(){ validateIncomingSheets_('incremental', {'ANALYSES':[row11]}); }, 'SHEET_NOT_ALLOWED');
+          expectThrows_(function(){ validateIncomingSheets_('incremental', {'PAIRED_CURRENT':[row11]}); }, 'SHEET_NOT_ALLOWED');
+          expectThrows_(function(){ validateIncomingSheets_('incremental', {'XRP_1M':[['bad-width']]}); }, 'ROW_WIDTH_INVALID');
+          console.log('PASS XRP_RECEPTOR_INGESTION_ALLOWLIST');
+          JS
+          node /tmp/XRP_Receptor_Allowlist_Test.js
+
       - name: V3.4 schema contract
         run: |
           python - <<'PY'
