@@ -8,7 +8,7 @@ Generated from the 2026-10-04 SOLV audit. This file records operational state; f
 | SOLV receptor hardening | DEPLOYED_VERIFIED | SOLV_RECEPTOR_V3_4_V2 | GET health and forbidden-sheet negative probe verified 2026-10-04T21:31Z |
 | V3.3 | HISTORICAL | SOLV_V3.3 | Historical/rollback reference only |
 | Backfill | ACTIVE_RESEARCH_ONLY | RESEARCH_BACKFILL_AGENT_V2 + BACKFILL_FILTER_R1 | Never counts as prospective R1 evidence and never creates retrospective trades |
-| SOLV Forward V3.4 R1 | PRELAUNCH_REVALIDATION_REQUIRED | SOLV_FORWARD_V3_4_R1 | Pre-start normative lock amended; master/tracker hashes must be revalidated before cutoff |
+| SOLV Forward V3.4 R1 | PRELAUNCH_READY | SOLV_FORWARD_V3_4_R1 | Normative-lock revalidation passed before cutoff; formal start remains 2026-10-05T06:00:00Z |
 | Prelaunch V3.4 smoke | EXCLUDED_CONFIRMATORY | SOLV-20261003T231611Z-AN | Useful operational smoke only; not part of R1 sample |
 
 ## R1 launch boundary
@@ -99,4 +99,24 @@ R1 remains prelaunch until the formal prospective start. No pre-start observatio
 
 Before the formal R1 start, a master-instruction audit found three execution-specification defects: missing explicit BASE_PASS thresholds after V3.4 compaction, thesis expiry not enforced by the analysis tracker, and missing deterministic state precedence.
 
-A pre-start amendment fixes those defects without using post-start evidence or optimizing historical outcomes. The formal R1 start and cutoff remain unchanged. Until the amended master/tracker identities are merged, pulled to Motorola, tested and the collector restarted, R1 is `PRELAUNCH_REVALIDATION_REQUIRED`.
+A pre-start amendment fixes those defects without using post-start evidence or optimizing historical outcomes. The formal R1 start and cutoff remain unchanged. That revalidation has now passed. R1 is `PRELAUNCH_READY` and remains prelaunch until the formal start.
+
+
+## Normative-lock readiness verification
+
+Revalidated before cutoff on `2026-10-04T21:52:41Z` after the master audit amendment:
+- Motorola repository HEAD: `02698bf903d96d6f5c8b5171d2b7a426fa90ab08`;
+- tracked worktree: clean;
+- master blob: `4329831141517db8ff59918b228e74230ae8dd00`;
+- analysis tracker blob: `1d950a9af9d9729d8c12fb6f316ecd37d7fda4cd`;
+- local Python execution/expiry unit tests: PASS;
+- GitHub SOLV V3.4 smoke CI: PASS;
+- collector restarted after pull: PID 12726 and alive;
+- receptor health remained `SOLV_RECEPTOR_V3_4_V2`;
+- rule/schema remained `SOLV_V3.4` / `SOLV_V3_4_SCHEMA_EC_AQ_V1`;
+- forbidden generic SIGNALS write returned `SHEET_NOT_ALLOWED`;
+- post-restart SOLV bootstrap was observed;
+- MARKET/LIVE_STATE updated at `2026-10-04T21:52:57.908Z`;
+- SOLV 1m last close and expected last close both equaled `2026-10-04T21:51:59.999Z`.
+
+No observation before the formal start is confirmatory R1 evidence. The start remains `2026-10-05T06:00:00Z`.
