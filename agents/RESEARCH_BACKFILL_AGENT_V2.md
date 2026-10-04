@@ -76,15 +76,17 @@ Llave primaria: `Alert ID`.
 
 A. Si ya existe en `ANALYSIS_ALERT_LINKS`: omitir completamente.
 
-B. Si no, usar `Context JSON[data.last_close_1m]` para buscar `ANALYSES[Last 1m Close]`. Si coincide exactamente y `Analysis UTC` está a <=15 min de `Alert UTC`, y existe un único candidato inequívoco:
+B. Si no, usar `Context JSON[data.last_close_1m]` para buscar `ANALYSES[Last 1m Close]`. Si coincide exactamente, `Analysis UTC` está a <=15 min de `Alert UTC`, existe un único candidato inequívoco Y su `Rule Version` coincide con la regla vigente del activo (V3.4):
 - no crear análisis;
 - crear vínculo `EXISTING_LINKED`;
 - Link Type=`EXACT_LAST1M`.
+Si el candidato inequívoco es V3.3 u otra versión, no reutilizarlo como sustituto de V3.4; continuar y anotar `CROSS_VERSION_CANDIDATE_IGNORED`.
 
-C. Si no hay coincidencia exacta, aceptar una única coincidencia de `Analysis UTC` dentro de ±90s:
+C. Si no hay coincidencia exacta válida, aceptar una única coincidencia de `Analysis UTC` dentro de ±90s SOLO si su `Rule Version` coincide con la regla vigente:
 - no crear análisis;
 - `EXISTING_LINKED`;
 - Link Type=`TIME_90S`.
+Un candidato de otra Rule Version no bloquea la creación V3.4.
 
 Si hay varios candidatos razonables:
 - no crear análisis;
