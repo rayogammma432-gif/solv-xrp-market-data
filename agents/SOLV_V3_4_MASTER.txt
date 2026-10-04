@@ -67,7 +67,7 @@ Evaluar 1–7. Eligible si #3/#7 válidos, >=5/7, sync 15m/1H/4H, sin contradicc
 RIESGO
 PRIMARY SHORT 0.25%=0.0025.
 Durante SOLV_FORWARD_V3_4_R1: SCALP SHORT fijo 0.10%=0.001; no usar 0.11–0.15 y no variar por score. Con PRIMARY abierta, scalp adicional máx0.10%. Total activo máx0.35%.
-DAILY_RISK_GATE usa día UTC y solo SIGNALS operativas (SHADOW/BACKFILL excluidos). Cerrar gate para nuevas señales hasta 00:00 UTC siguiente si pérdida realizada acumulada <=-1.00% del equity de inicio del día O si se cierran 3 señales operativas con Result R<0 en ese día. TIME_STOP con Result R<0 cuenta como pérdida; AMBIGUOUS y NO_FILL no cuentan. Posiciones ya abiertas siguen su gestión; el halt no autoriza cerrarlas automáticamente.
+DAILY_RISK_GATE usa día UTC y solo SIGNALS operativas (SHADOW/BACKFILL excluidos). Calcular DAILY_LOSS_PCT = SUM(min(0, RiskPct * ResultR)) de señales cerradas del día, usando RiskPct en fracción (0.0025=0.25%). Cerrar gate para nuevas señales hasta 00:00 UTC siguiente si DAILY_LOSS_PCT<=-0.0100 O si se cierran 3 señales operativas con Result R<0 en ese día; las 3 pérdidas son acumuladas en el día, no necesitan ser consecutivas. TIME_STOP con Result R<0 cuenta como pérdida; AMBIGUOUS y NO_FILL no cuentan. Posiciones ya abiertas siguen su gestión; el halt no autoriza cerrarlas automáticamente.
 LONG shadow=0%. Sin martingala/recovery/averaging/widen stop.
 
 TIME_STOP
