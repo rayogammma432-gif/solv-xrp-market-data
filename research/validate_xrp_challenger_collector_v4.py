@@ -1,0 +1,371 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import ast
+import hashlib
+import json
+import subprocess
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+UPSTREAM = ROOT / "research/experiments/XRP_FORWARD_REGISTRY_V3_2_R2.jsonl"
+PREVIOUS_UPSTREAM = ROOT / "research/experiments/XRP_FORWARD_REGISTRY_V3_2_R1.jsonl"
+REG = ROOT / "research/experiments/XRP_CHALLENGER_COLLECTOR_REGISTRY_V4.json"
+PROTOCOL = ROOT / "research/XRP_CHALLENGER_COLLECTOR_PROTOCOL_V4.md"
+FORWARD_PROTOCOL = ROOT / "research/XRP_FORWARD_RESEARCH_PROTOCOL_V3_2_R2.md"
+EVALUATION_PROTOCOL = ROOT / "research/XRP_FORWARD_EVALUATION_CONTRACT_V3_2_R2.md"
+EVALUATION_CONTRACT = ROOT / "research/experiments/XRP_FORWARD_EVALUATION_CONTRACT_V3_2_R2.json"
+PREVIOUS_EVALUATION_CONTRACT = ROOT / "research/experiments/XRP_FORWARD_EVALUATION_CONTRACT_V3_2_R1.json"
+HOLDOUT_LOCK = ROOT / "research/XRP_2026_HOLDOUT_LOCK_V1.md"
+DEPLOYMENT_RUNBOOK = ROOT / "research/XRP_CHALLENGER_DEPLOYMENT_GATE_V4.md"
+COLLECTOR = ROOT / "termux/xrp_challenger_collector.py"
+TRACKER = ROOT / "termux/forward_v3_tracker.py"
+DEPLOYMENT_GATE = ROOT / "termux/challenger_deployment_gate.py"
+CURRENT = ROOT / "termux/market_collector.py"
+OPERATIONAL_RECEPTOR = ROOT / "apps-script/XRP_Receptor_Incremental.gs"
+CHALLENGER_RECEPTOR = ROOT / "apps-script/XRP_Challenger_Receptor.gs"
+CONFIG_EXAMPLE = ROOT / "termux/config.example.json"
+ACTIVATION_EXAMPLE = ROOT / "termux/challenger_activation.example.json"
+START = ROOT / "termux/start_challenger_collector.sh"
+STATUS = ROOT / "termux/status_challenger_collector.sh"
+GITIGNORE = ROOT / ".gitignore"
+
+EXPECTED_REGISTRY_SHA = "0dc73280c4809d848bb5d160e18ce7245d9ad7232047487e1bacbf60c1497563"
+EXPECTED_PREVIOUS_REGISTRY_SHA = "5caac1ec957545af503d18775a46d38363f7dadb8403b2ad3a34f5dbde5151bc"
+EXPECTED_START = "2026-10-05T00:00:00Z"
+EXPECTED_PROTOCOL = "XRP_FORWARD_V3_2_R2"
+EXPECTED_COLLECTOR = "XRP_CHALLENGER_COLLECTOR_V2_R4"
+EXPECTED_RECEPTOR = "XRP_RECEPTOR_CHALLENGER_V2_R5"
+EXPECTED_RECEPTOR_BUILD = "XRP_CHALLENGER_RECEPTOR_BUILD_20261004_R5"
+EXPECTED_SHEET = "14mVe2XXcsVBCojZSbp6A7qQKO2RFpovLtKntOYFDwvA"
+
+
+def sha256_file(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def latest_file_commit(path):
+    rel = str(Path(path).resolve().relative_to(ROOT.resolve()))
+    return subprocess.run(
+        ["git", "log", "-1", "--format=%H", "--", rel],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def main():
+    errors = []
+    upstream_sha = sha256_file(UPSTREAM)
+    previous_upstream_sha = sha256_file(PREVIOUS_UPSTREAM)
+    if previous_upstream_sha != EXPECTED_PREVIOUS_REGISTRY_SHA:
+        errors.append(f"immutable V3.2 R1 registry changed: {previous_upstream_sha}")
+    reg = json.loads(REG.read_text(encoding="utf-8"))
+    activation = json.loads(ACTIVATION_EXAMPLE.read_text(encoding="utf-8"))
+    protocol = PROTOCOL.read_text(encoding="utf-8")
+    forward_protocol = FORWARD_PROTOCOL.read_text(encoding="utf-8")
+    evaluation_protocol = EVALUATION_PROTOCOL.read_text(encoding="utf-8")
+    evaluation_contract = json.loads(EVALUATION_CONTRACT.read_text(encoding="utf-8"))
+    previous_evaluation_contract = json.loads(PREVIOUS_EVALUATION_CONTRACT.read_text(encoding="utf-8"))
+    holdout_lock = HOLDOUT_LOCK.read_text(encoding="utf-8")
+    deployment_runbook = DEPLOYMENT_RUNBOOK.read_text(encoding="utf-8")
+    collector = COLLECTOR.read_text(encoding="utf-8")
+    tracker = TRACKER.read_text(encoding="utf-8")
+    deployment_gate = DEPLOYMENT_GATE.read_text(encoding="utf-8")
+    current = CURRENT.read_text(encoding="utf-8")
+    operational_receptor = OPERATIONAL_RECEPTOR.read_text(encoding="utf-8")
+    challenger_receptor = CHALLENGER_RECEPTOR.read_text(encoding="utf-8")
+    config_example = json.loads(CONFIG_EXAMPLE.read_text(encoding="utf-8"))
+    start = START.read_text(encoding="utf-8")
+    status = STATUS.read_text(encoding="utf-8")
+    gitignore = GITIGNORE.read_text(encoding="utf-8")
+
+    protocol_commit = latest_file_commit(FORWARD_PROTOCOL)
+    evaluation_protocol_commit = latest_file_commit(EVALUATION_PROTOCOL)
+    evaluation_contract_commit = latest_file_commit(EVALUATION_CONTRACT)
+    if f'PROTOCOL_COMMIT_SHA = "{protocol_commit}"' not in tracker:
+        errors.append(
+            f"tracker protocol provenance stale: tracker must pin {protocol_commit}"
+        )
+    if evaluation_protocol_commit not in forward_protocol:
+        errors.append("forward protocol does not pin current evaluation MD commit")
+    if evaluation_contract_commit not in forward_protocol:
+        errors.append("forward protocol does not pin current evaluation JSON commit")
+
+    if upstream_sha != EXPECTED_REGISTRY_SHA:
+        errors.append(f"upstream V3.2 R2 registry SHA changed: {upstream_sha}")
+    if reg.get("upstream_registry_sha256") != upstream_sha:
+        errors.append("collector registry upstream SHA mismatch")
+    if reg.get("upstream_protocol") != EXPECTED_PROTOCOL:
+        errors.append("collector registry protocol mismatch")
+    if reg.get("frozen_forward_start_utc") != EXPECTED_START:
+        errors.append("collector registry start mismatch")
+    if reg.get("status") != "PRELAUNCH_DEPLOYMENT_NOT_VERIFIED":
+        errors.append("collector registry must remain prelaunch")
+    if reg.get("activation_enabled") is not False:
+        errors.append("collector registry activation must be false")
+    if reg.get("formal_collection_started") is not False:
+        errors.append("formal collection must not be marked started")
+    if (reg.get("process") or {}).get("collector_version") != EXPECTED_COLLECTOR:
+        errors.append("collector registry process version mismatch")
+    if (reg.get("receptor") or {}).get("version") != EXPECTED_RECEPTOR:
+        errors.append("collector registry receptor version mismatch")
+    if (reg.get("receptor") or {}).get("build_id") != EXPECTED_RECEPTOR_BUILD:
+        errors.append("collector registry receptor build mismatch")
+    if reg.get("current_collector_dependency") is not False:
+        errors.append("CURRENT collector dependency must be false")
+    if reg.get("signals") is not False or reg.get("orders") is not False or reg.get("telegram") is not False:
+        errors.append("challenger collector must remain research-only")
+
+    if activation.get("enabled") is not False:
+        errors.append("activation example must be disabled")
+    if activation.get("formal_start_utc") != EXPECTED_START:
+        errors.append("activation example start mismatch")
+    if activation.get("protocol_version") != EXPECTED_PROTOCOL:
+        errors.append("activation example protocol mismatch")
+    if activation.get("registry_sha256") != EXPECTED_REGISTRY_SHA:
+        errors.append("activation example registry mismatch")
+    if activation.get("receptor_version") != EXPECTED_RECEPTOR:
+        errors.append("activation example receptor mismatch")
+    if activation.get("receptor_build_id") != EXPECTED_RECEPTOR_BUILD:
+        errors.append("activation example receptor build mismatch")
+    if activation.get("challenger_spreadsheet_id") != EXPECTED_SHEET:
+        errors.append("activation example sheet mismatch")
+
+    for forbidden in (
+        "ForwardV3Tracker", "self.forward_v3", "forwardV3Events",
+        "forwardV3Outcomes", "forwardV3Health", "forwardV3RecoveryRequest",
+    ):
+        if forbidden in current:
+            errors.append(f"CURRENT collector still contains {forbidden}")
+
+    tree = ast.parse(collector)
+    imported = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imported.add(node.module)
+    if "market_collector" in imported:
+        errors.append("independent collector imports market_collector")
+
+    for marker in (
+        EXPECTED_COLLECTOR,
+        EXPECTED_RECEPTOR,
+        "challenger_ready.json",
+        "challenger_heartbeat.json",
+        "RUNNING_READY",
+        "RUNNING_DEGRADED",
+        "RUNTIME_COLLECTOR_GIT_SHA_MISMATCH",
+        "LATE_FIRST_START_BLOCKED_CREATE_NEW_PROTOCOL_START",
+    ):
+        if marker not in collector:
+            errors.append(f"collector missing marker {marker}")
+
+    for marker in (
+        EXPECTED_PROTOCOL,
+        EXPECTED_REGISTRY_SHA,
+        "STATE_PROVENANCE_MISMATCH_RESET_REQUIRED",
+        "--untracked-files=no",
+        "Fail closed on a gap",
+        "same-cycle health accounting exact",
+        "core.fileMode=false",
+    ):
+        if marker not in tracker:
+            errors.append(f"tracker missing hardening marker {marker}")
+
+    for marker in (
+        EXPECTED_RECEPTOR,
+        EXPECTED_RECEPTOR_BUILD,
+        EXPECTED_PROTOCOL,
+        EXPECTED_REGISTRY_SHA,
+        EXPECTED_COLLECTOR,
+        EXPECTED_SHEET,
+        "LockService.getScriptLock",
+        "challengerProtocolVersion",
+        "challengerRegistrySha256",
+        "challengerCollectorVersion",
+        "IDEMPOTENCY_CONFLICT",
+        "PENDING_OUTCOMES_PLUS_POST_CHECKPOINT",
+        "requiredHorizons_",
+    ):
+        if marker not in challenger_receptor:
+            errors.append(f"dedicated receptor missing marker {marker}")
+
+    for obsolete in (
+        "Math.min(eventCount, 1200)",
+        "Math.min(outcomeCount, 9000)",
+    ):
+        if obsolete in challenger_receptor:
+            errors.append(f"dedicated receptor still contains bounded recovery window: {obsolete}")
+
+    for forbidden in (
+        EXPECTED_RECEPTOR, "challenger_recovery", "challenger_incremental",
+        "challengerCandidates", "challengerOutcomes", "challengerHealth",
+    ):
+        if forbidden in operational_receptor:
+            errors.append(f"operational receptor contains Challenger marker {forbidden}")
+
+    if "challenger" not in config_example:
+        errors.append("config example missing challenger block")
+
+    for marker in (
+        "PASS_DEPLOYMENT_GATE",
+        "CURRENT_XRP_URL_MISSING_CANNOT_VERIFY_ISOLATION",
+        "STALE_LOCAL_ARTIFACTS_PRESENT_RUN_RESET_FIRST",
+        "--reset-local-prelaunch",
+        "RESET_BLOCKED_INSUFFICIENT_PRESTART_MARGIN",
+        "core.fileMode=false",
+        "MIN_ACTIVATION_LEAD_SECONDS = 30 * 60",
+        "RECEPTOR_BUILD_ID_MISMATCH",
+        "RECEPTOR_PROTOCOL_MISMATCH",
+        "RECEPTOR_REGISTRY_MISMATCH",
+        "RECEPTOR_COLLECTOR_MISMATCH",
+    ):
+        if marker not in deployment_gate:
+            errors.append(f"deployment gate missing marker {marker}")
+
+    if "RUNNING_READY" not in start:
+        errors.append("start script does not wait for readiness")
+    if "UNREGISTERED_RUNNING" not in start or "RUNNING_NOT_READY" not in start or "RUNNING_DEGRADED" not in start:
+        errors.append("start script does not block discovered duplicate/unready/degraded collector")
+    if "--status-json" not in status or "tail -n" in status:
+        errors.append("status script is not authoritative machine-readable status")
+
+    for marker in (
+        "termux/challenger_ready.json",
+        "termux/challenger_heartbeat.json",
+        "termux/prelaunch_archive/",
+        "termux/config.json.backup",
+    ):
+        if marker not in gitignore:
+            errors.append(f".gitignore missing {marker}")
+
+    for marker in (
+        "ABORTED PRELAUNCH / NO VALID FORMAL COLLECTION",
+        EXPECTED_START,
+        "Git cleanliness semantics",
+        "cursor",
+        "READY",
+        "RUNNING_DEGRADED",
+        "Recovery is based on persistent remote completeness",
+        "30 minutes",
+    ):
+        if marker not in protocol:
+            errors.append(f"collector protocol missing marker {marker}")
+
+    # R2 may change only time/provenance identity; frozen science must match R1.
+    previous_rows = [json.loads(x) for x in PREVIOUS_UPSTREAM.read_text(encoding="utf-8").splitlines() if x.strip()]
+    current_rows = [json.loads(x) for x in UPSTREAM.read_text(encoding="utf-8").splitlines() if x.strip()]
+    previous_by_id = {x["candidate_id"]: x for x in previous_rows}
+    current_by_id = {x["candidate_id"]: x for x in current_rows}
+    ignored_registry_fields = {"version", "forward_start", "formal_family_gate", "informational_checkpoint", "multiplicity", "status"}
+    if set(previous_by_id) != set(current_by_id):
+        errors.append("R2 candidate family differs from R1")
+    else:
+        for cid in sorted(previous_by_id):
+            prev = {k: v for k, v in previous_by_id[cid].items() if k not in ignored_registry_fields}
+            cur = {k: v for k, v in current_by_id[cid].items() if k not in ignored_registry_fields}
+            if prev != cur:
+                errors.append(f"R2 scientific registry fields changed for {cid}")
+
+    if evaluation_contract.get("candidate_rules") != previous_evaluation_contract.get("candidate_rules"):
+        errors.append("R2 evaluation candidate rules differ from R1")
+    for key in ("primary_alpha", "bootstrap", "family_multiplicity"):
+        prev = previous_evaluation_contract.get(key)
+        cur = evaluation_contract.get(key)
+        if key == "bootstrap":
+            prev = dict(prev or {})
+            cur = dict(cur or {})
+            prev.pop("seed", None)
+            cur.pop("seed", None)
+        if prev != cur:
+            errors.append(f"R2 evaluation scientific field changed: {key}")
+
+    if evaluation_contract.get("version") != "XRP_FORWARD_EVALUATION_CONTRACT_V3_2_R2":
+        errors.append("evaluation contract version mismatch")
+    if evaluation_contract.get("protocol_version") != EXPECTED_PROTOCOL:
+        errors.append("evaluation contract protocol mismatch")
+    if evaluation_contract.get("registry_sha256") != EXPECTED_REGISTRY_SHA:
+        errors.append("evaluation contract registry mismatch")
+    if evaluation_contract.get("forward_start_utc") != EXPECTED_START:
+        errors.append("evaluation contract start mismatch")
+    if evaluation_contract.get("formal_family_gate_utc") != "2027-04-03T00:00:00Z":
+        errors.append("evaluation contract family gate mismatch")
+    if (evaluation_contract.get("bootstrap") or {}).get("replicates") != 2000:
+        errors.append("evaluation bootstrap replicates changed")
+    if (evaluation_contract.get("family_multiplicity") or {}).get("method") != "HOLM":
+        errors.append("evaluation multiplicity must remain HOLM")
+    incomplete_policy = (evaluation_contract.get("common_inclusion") or {}).get("incomplete_primary_policy", "")
+    if "DATA_QUALITY_BLOCKED" not in incomplete_policy:
+        errors.append("evaluation contract does not fail closed on primary INCOMPLETE")
+
+    rules = evaluation_contract.get("candidate_rules") or {}
+    expected_floors = {
+        "XRP-FWD-V3-A-TAKER-EXHAUSTION": 0.00010,
+        "XRP-FWD-V3-B-OI-MODERATOR": 0.00040,
+        "XRP-FWD-V3-C-MOMENTUM-EXHAUSTION": 0.00043,
+    }
+    for cid, floor in expected_floors.items():
+        if (rules.get(cid) or {}).get("effect_floor") != floor:
+            errors.append(f"evaluation effect floor changed for {cid}")
+
+    for marker in (
+        "One-sided p-value",
+        "Holm",
+        "DATA_QUALITY_BLOCKED",
+        "median monthly",
+        "median informative-quarter",
+        "deterministic",
+    ):
+        if marker not in evaluation_protocol:
+            errors.append(f"evaluation protocol missing marker {marker}")
+
+    if EXPECTED_PROTOCOL not in holdout_lock or EXPECTED_START not in holdout_lock:
+        errors.append("holdout lock not amended to V3.2 R2")
+    if "ABORTED PRELAUNCH / NO VALID FORMAL COLLECTION" not in holdout_lock:
+        errors.append("holdout lock does not preserve V3.1 aborted status")
+    if "V3.2: ABORTED PRELAUNCH / NO PROSPECTIVE EVIDENCE" not in holdout_lock:
+        errors.append("holdout lock does not preserve V3.2 aborted status")
+
+    if "10-minute safety window" in protocol:
+        errors.append("collector protocol still contains obsolete 10-minute launch rule")
+    if "30-minute safety window" not in deployment_runbook:
+        errors.append("deployment runbook missing 30-minute safety window")
+    if "10-minute safety window" in deployment_runbook or "fewer than 10 minutes" in deployment_runbook:
+        errors.append("deployment runbook still contains obsolete 10-minute launch rule")
+
+    for marker in (
+        EXPECTED_PROTOCOL,
+        EXPECTED_START,
+        "2027-04-03T00:00:00Z",
+        "2027-01-03T00:00:00Z",
+        "evaluation stops at the gap",
+        "Recovery is completeness-based",
+        "RUNNING_DEGRADED",
+        "build ID",
+        "XRP_FORWARD_EVALUATION_CONTRACT_V3_2_R2",
+    ):
+        if marker not in forward_protocol:
+            errors.append(f"forward protocol missing marker {marker}")
+
+    report = {
+        "version": "XRP_CHALLENGER_COLLECTOR_PRELAUNCH_V4",
+        "upstream_registry_sha256": upstream_sha,
+        "status": "PASS_PRELAUNCH_NOT_ACTIVATED" if not errors else "FAIL",
+        "formal_collection_started": False,
+        "errors": errors,
+    }
+    out = ROOT / "challenger-collector-prelaunch-v4"
+    out.mkdir(exist_ok=True)
+    (out / "XRP_CHALLENGER_COLLECTOR_PRELAUNCH_V4.json").write_text(
+        json.dumps(report, indent=2) + "\n", encoding="utf-8"
+    )
+    print(json.dumps(report, indent=2))
+    if errors:
+        raise SystemExit(2)
+
+
+if __name__ == "__main__":
+    main()

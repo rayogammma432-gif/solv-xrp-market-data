@@ -3,9 +3,10 @@
 Versión 2: actualización cada minuto con escritura incremental.
 
 ## Comportamiento
-- Al arrancar: bootstrap de 500 velas cerradas para SOLV/BTC en 1m/5m/15m/1h/4h; XRP conserva 1m/15m/1h/4h.
+- Al arrancar: bootstrap de 500 velas cerradas para SOLV/XRP/BTC en 1m/5m/15m/1h/4h/1d.
 - Cada minuto: nueva vela 1m + MARKET + OI actual + LIVE_STATE.
-- En cierres 5m: añade SOLV_5M y BTC_5M. Esta capa es inicialmente telemetría/calidad de ejecución, no gate obligatorio.
+- En cierres 5m: añade la serie 5m del activo y BTC_5M.
+- En cierres 1D: añade la nueva vela diaria del activo y BTC_1D.
 - En cierres 15m: añade nueva 15m y actualiza OI_HISTORY.
 - En cierres 1H: añade nueva 1H.
 - En cierres 4H: añade nueva 4H.
@@ -13,6 +14,13 @@ Versión 2: actualización cada minuto con escritura incremental.
 
 ## Seguridad
 `config.json` contiene URLs /exec y Shared Secrets. Nunca se sube a GitHub.
+
+El receptor XRP CURRENT aplica allowlist a `payload.sheets`:
+- bootstrap: únicamente XRP/BTC 1m, 5m, 15m, 1H, 4H y 1D;
+- incremental: las mismas series + ALERT_RESEARCH, ALERT_FORWARD y ALERT_MFE_MAE.
+
+La ruta genérica no puede escribir SIGNALS, ANALYSES, USER_TRADES, PERFORMANCE ni PAIRED_*.
+CURRENT y Challenger deben usar URLs /exec y secretos distintos.
 
 ## Actualizar una instalación existente
 ```sh
@@ -90,8 +98,16 @@ Google Sheet incluye:
 
 El agente debe registrar solo LONG/SHORT ACTIVOS, nunca CONDICIONAL o NO OPERAR.
 
-Columnas SIGNALS A:W:
-`Signal ID, Signal UTC, Motor, Direction, Setup, Entry, Stop, TP1, TP2, Risk %, Confluences, State, Result, Result R, MFE R, MAE R, Bars elapsed, TP1 hit UTC, Close UTC, Exit Price, Exit Reason, Time Stop Status, Notes`.
+Columnas SIGNALS A:AQ:
+- A:W conserva el contrato histórico de señal/tracking;
+- X:AL contiene telemetría pasiva 5/10/15m;
+- AM Thesis ID;
+- AN Rule Version;
+- AO Direction Score;
+- AP Execution Score;
+- AQ Execution Gate.
+
+Toda señal V3.4 debe escribir AM:AQ.
 
 Al crear la señal:
 - `State=OPEN`
@@ -122,7 +138,7 @@ TIME_STOP es tracking/gestión analítica: el Motorola NO ejecuta ni cierra órd
 
 ### Activación
 
-Después de actualizar y desplegar el receptor SOLV nuevo:
+Después de actualizar y desplegar el receptor CURRENT correspondiente:
 
 ```sh
 cd ~/solv-xrp-market-data
@@ -169,3 +185,33 @@ El Motorola hace shadow tracking de cada fila de ANALYSES desde el Mark Price de
 Estos resultados NO son trades ni performance real. Sirven para investigación de reglas, falsos negativos, filtros demasiado estrictos y patrones posteriores a alertas.
 
 El receptor SOLV devuelve al Motorola hasta 500 análisis no completos para seguimiento. Las alertas Telegram se ponen en cola local y se escriben en ALERTS en el siguiente POST exitoso.
+
+
+## XRP Challenger V3.2 R2 — lanzamiento prospectivo
+
+R1 perdió su start y está cerrado sin evidencia prospectiva. No se backfillea.
+
+R2 congelado:
+- protocolo: `XRP_FORWARD_V3_2_R2`
+- start: `2026-10-05T00:00:00Z`
+- Guatemala: `2026-10-04 18:00:00`
+- cutoff de readiness: `2026-10-04T23:30:00Z` / `17:30 Guatemala`
+- runbook: `research/XRP_CHALLENGER_DEPLOYMENT_GATE_V4.md`
+
+Secuencia en Motorola, después de mergear el commit validado y desplegar una nueva versión del Apps Script Challenger:
+
+```sh
+cd ~/solv-xrp-market-data
+git pull
+cd termux
+
+bash stop_challenger_collector.sh
+python challenger_deployment_gate.py --reset-local-prelaunch
+python challenger_deployment_gate.py
+python challenger_deployment_gate.py --write-activation
+bash start_challenger_collector.sh
+bash status_challenger_collector.sh
+```
+
+No continuar si el gate no devuelve `PASS_DEPLOYMENT_GATE` o si start/status no muestran `RUNNING_READY`.
+Si no se completa antes del cutoff, R2 también se abandona; nunca se rellena retrospectivamente.
