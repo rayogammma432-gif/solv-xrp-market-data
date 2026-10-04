@@ -11,6 +11,23 @@ on:
       - "research/SOLV_SYSTEM_STATUS.md"
       - "research/SOLV_FORWARD_V3_4_R1_PREREGISTRATION.md"
       - "research/SOLV_V3_4_DEPLOYMENT_GATE_R1.md"
+      - "research/SOLV_V3_4_FORWARD_PROTOCOL.md"
+      - "research/SOLV_V3_4_ACTIVATION_CHECKLIST.md"
+      - "README.md"
+      - ".github/workflows/solv-v3-4-smoke.yml"
+  pull_request:
+    paths:
+      - "agents/SOLV_V3_4_MASTER.txt"
+      - "apps-script/SOLV_Receptor_Incremental.gs"
+      - "termux/analysis_tracker.py"
+      - "termux/test_analysis_tracker_execution.py"
+      - "termux/test_analysis_tracker_solv_v34.py"
+      - "research/SOLV_SYSTEM_STATUS.md"
+      - "research/SOLV_FORWARD_V3_4_R1_PREREGISTRATION.md"
+      - "research/SOLV_V3_4_DEPLOYMENT_GATE_R1.md"
+      - "research/SOLV_V3_4_FORWARD_PROTOCOL.md"
+      - "research/SOLV_V3_4_ACTIVATION_CHECKLIST.md"
+      - "README.md"
       - ".github/workflows/solv-v3-4-smoke.yml"
   workflow_dispatch:
 
