@@ -46,8 +46,9 @@ TV TECH/PATTERN remains research/context telemetry. TV Pullback Window, Extensio
 
 ## Architecture
 
-Because V3.5 is already live evidence, it is not edited in place. V3.6 uses a manifest-pinned composite authority:
+Because V3.5 is already live evidence, it is not edited in place. V3.6 uses a manifest-pinned descriptor-composite authority:
+- `agents/XRP_V3_6_MASTER.txt` as the V3.6 entrypoint/descriptor;
 - immutable full V3.5 master as BASE;
 - V3.6 override containing only the prospective clauses.
 
-This preserves the full non-compacted GitHub master, explicit version provenance and deterministic rollback.
+The descriptor exists so an existing Bootstrap V1 that only follows `master_path` still reaches and verifies BASE+OVERRIDE. This preserves the full non-compacted GitHub master, explicit version provenance and deterministic rollback without requiring Project Instructions to be repasted.
