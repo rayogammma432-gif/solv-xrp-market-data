@@ -172,11 +172,11 @@ def main():
     assert 'tail -n' not in status_src
 
     for marker_text in (
-        "XRP_RECEPTOR_CHALLENGER_V2_R4",
-        "XRP_CHALLENGER_RECEPTOR_BUILD_20261003_R4",
-        "XRP_FORWARD_V3_2_R1",
-        "XRP_CHALLENGER_COLLECTOR_V2_R3",
-        "5caac1ec957545af503d18775a46d38363f7dadb8403b2ad3a34f5dbde5151bc",
+        "XRP_RECEPTOR_CHALLENGER_V2_R5",
+        "XRP_CHALLENGER_RECEPTOR_BUILD_20261004_R5",
+        "XRP_FORWARD_V3_2_R2",
+        "XRP_CHALLENGER_COLLECTOR_V2_R4",
+        "0dc73280c4809d848bb5d160e18ce7245d9ad7232047487e1bacbf60c1497563",
         "LockService.getScriptLock",
         "challengerProtocolVersion",
         "challengerRegistrySha256",
@@ -196,8 +196,8 @@ def main():
         assert forbidden not in operational_receptor_src, forbidden
 
     assert "challenger" in config_example
-    assert COLLECTOR_VERSION == "XRP_CHALLENGER_COLLECTOR_V2_R3"
-    assert PROTOCOL_VERSION == "XRP_FORWARD_V3_2_R1"
+    assert COLLECTOR_VERSION == "XRP_CHALLENGER_COLLECTOR_V2_R4"
+    assert PROTOCOL_VERSION == "XRP_FORWARD_V3_2_R2"
 
     assert _heartbeat_allows_ready({"status": "STARTUP_READY"}) is True
     assert _heartbeat_allows_ready({"status": "CYCLE_OK"}) is True
