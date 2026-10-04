@@ -84,7 +84,7 @@ INDICADORES
 1H/15m: EMA20/50/200, RSI14, ATR14, volumen, estructura, VWAP UTC.
 1m/5m: EMA20/50/200, RSI14, ATR14, volumen, microestructura.
 1D: close, EMA50/200, RSI14, ATR14.
-D5 participación razonable = volumen de la vela de setup/trigger >= media de volumen de 20 velas cerradas en su TF. Menor volumen = D5 NO; no es hard blocker por sí solo.
+Participación PRIMARY YES si el volumen de la vela 15m de trigger O de la vela 1H de setup es >= su media de 20 velas cerradas. Participación SCALP YES si el volumen de la vela 1m de trigger O de la vela 15m de setup es >= su media de 20. Si ambas comparaciones disponibles son inferiores => D5 NO. Dato ausente en ambas => UNKNOWN. D5 no es hard blocker por sí solo.
 
 DIRECTION SCORE
 PRIMARY /6:
@@ -92,15 +92,15 @@ D1 XRP 4H no FUERTEMENTE CONTRARIO.
 D2 XRP 1H estructura alineada con la dirección O transición válida en la dirección.
 D3 setup 1H válido con SETUP_ANCHOR explícito.
 D4 momentum 1H YES en la dirección.
-D5 participación razonable en 1H/15m.
+D5 participación PRIMARY según la definición de volumen anterior.
 D6 BTC 1H no FUERTEMENTE CONTRARIO.
 
 SCALP /6:
 D1 XRP 1H no FUERTEMENTE CONTRARIO.
 D2 XRP 15m estructura alineada O transición válida.
 D3 setup 15m válido con SETUP_ANCHOR explícito.
-D4 momentum 15m YES y relación con VWAP no contradice fuertemente.
-D5 participación razonable 15m/1m.
+D4 momentum 15m YES Y (LONG: close15m>=VWAP UTC; SHORT: close15m<=VWAP UTC).
+D5 participación SCALP según la definición de volumen anterior.
 D6 BTC 15m no FUERTEMENTE CONTRARIO.
 
 BASE PASS
@@ -129,6 +129,7 @@ RR_real = ABS(PrimerObstaculo-Entry) / ABS(Entry-Stop).
 No usar un TP lejano para ignorar un obstáculo más cercano.
 
 ATR STOP STRESS
+Si ATR15m falta, no es finito o <=0 => E4=UNKNOWN y no puede existir PASS.
 struct=ABS(Entry-Stop)
 floor=0.50*ATR15m
 stress=MAX(struct,floor)
@@ -137,6 +138,7 @@ PASS si stressRR>=1.5; FAIL si <1.5; N/A si falta dato.
 Nunca ampliar Stop automáticamente hasta stress. Si FAIL, esperar mejor Entry o descartar.
 
 ANTI-CHASE
+Si ATR15m falta, no es finito o <=0 => E2=UNKNOWN y Execution Gate no puede ser PASS.
 Definir anchorDist=ABS(Entry-SETUP_ANCHOR)/ATR15m.
 ANTI_CHASE PASS exige anchorDist<=0.50 y RR_real>=1.5.
 Si anchorDist>0.50, Extension Warning=YES en dirección del trade sin retest posterior, o el primer obstáculo deja RR_real<1.5 => WAIT_RETEST.
@@ -144,9 +146,12 @@ Nunca mover Entry al Mark, ampliar Stop ni elegir un TP artificial para fabricar
 
 5M / MICROESTRUCTURA
 5m se clasifica FAVORABLE/NEUTRAL/CONTRARIA al plan.
-CONTRARIA LONG = estructura/momentum 5m SHORT y cierre bajo EMA20; CONTRARIA SHORT = estructura/momentum 5m LONG y cierre sobre EMA20.
-Para SCALP, 5m CONTRARIA bloquea E5 hasta nueva confirmación.
-Para PRIMARY, E5=NO solo si 5m CONTRARIA Y microestructura 1m también contradice; una sola capa contraria puede quedar NEUTRAL/WAIT.
+CONTRARIA LONG = estructura 5m BEAR + momentum 5m SHORT YES + cierre 5m bajo EMA20.
+CONTRARIA SHORT = estructura 5m BULL + momentum 5m LONG YES + cierre 5m sobre EMA20.
+MICRO_1M_CONTRARIA LONG = las 2 últimas velas 1m cerraron bajo EMA20 y la segunda cerró por debajo del low de la primera.
+MICRO_1M_CONTRARIA SHORT = las 2 últimas velas 1m cerraron sobre EMA20 y la segunda cerró por encima del high de la primera.
+Para SCALP, 5m CONTRARIA O MICRO_1M_CONTRARIA => E5=NO hasta nueva confirmación.
+Para PRIMARY, E5=NO solo si 5m CONTRARIA Y MICRO_1M_CONTRARIA; una sola capa contraria no basta para E5=NO.
 TV TECH/PATTERN es contexto. Nunca fabrica un trade ni sustituye los criterios canónicos.
 
 EXECUTION SCORE
@@ -155,14 +160,14 @@ E1 trigger 15m cerrado válido.
 E2 ANTI_CHASE PASS y RR_real>=1.5.
 E3 geometría válida y Plan Direction coincide con la dirección BASE_PASS.
 E4 ATR STOP STRESS PASS.
-E5 5m/1m no cumplen condición CONTRARIA conjunta.
+E5 NO existe condición conjunta 5m CONTRARIA + MICRO_1M_CONTRARIA.
 
 SCALP /5:
 E1 trigger 1m cerrado válido.
 E2 ANTI_CHASE PASS y RR_real>=1.5.
 E3 geometría válida y Plan Direction coincide con dirección BASE_PASS.
 E4 ATR STOP STRESS PASS.
-E5 5m no CONTRARIA y microestructura 1m no FUERTEMENTE contraria al trigger.
+E5 5m no CONTRARIA Y no existe MICRO_1M_CONTRARIA.
 
 EXECUTION GATE
 PASS exige E1=YES AND E2=YES AND E3=YES AND E4=YES AND E5=YES. El E-SCORE debe ser 5/5; no existe ACTIVE con 4/5.
