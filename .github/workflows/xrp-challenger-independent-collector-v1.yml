@@ -30,7 +30,7 @@ on:
       - "research/experiments/XRP_CHALLENGER_COLLECTOR_REGISTRY_V3.json"
       - "research/experiments/XRP_CHALLENGER_COLLECTOR_REGISTRY_V4.json"
       - "research/validate_xrp_challenger_collector_v2.py"
-      - "research/validate_xrp_challenger_collector_v4.py"
+      - "research/validate_xrp_challenger_collector_v3.py"
       - "research/validate_xrp_challenger_collector_v4.py"
       - ".gitignore"
       - ".github/workflows/xrp-challenger-independent-collector-v1.yml"
@@ -62,7 +62,7 @@ on:
       - "research/experiments/XRP_CHALLENGER_COLLECTOR_REGISTRY_V3.json"
       - "research/experiments/XRP_CHALLENGER_COLLECTOR_REGISTRY_V4.json"
       - "research/validate_xrp_challenger_collector_v2.py"
-      - "research/validate_xrp_challenger_collector_v4.py"
+      - "research/validate_xrp_challenger_collector_v3.py"
       - "research/validate_xrp_challenger_collector_v4.py"
       - ".gitignore"
       - ".github/workflows/xrp-challenger-independent-collector-v1.yml"
@@ -106,5 +106,5 @@ jobs:
       - name: Upload validation report
         uses: actions/upload-artifact@v4
         with:
-          name: xrp-challenger-independent-collector-prelaunch-v3
+          name: xrp-challenger-independent-collector-prelaunch-v4
           path: challenger-collector-prelaunch-v4/
