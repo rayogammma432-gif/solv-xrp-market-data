@@ -4,11 +4,26 @@ Repositorio operativo para captura de mercado, análisis de agentes, tracking, b
 
 ## Estado autoritativo
 
-La matriz viva de estado está en:
+Las matrices vivas de estado están en:
 
 - `research/XRP_SYSTEM_STATUS.md`
+- `research/SOLV_SYSTEM_STATUS.md`
 
 No usar este README como sustituto de los protocolos congelados de cada experimento.
+
+## SOLV CURRENT
+
+Runtime activo:
+- regla: `agents/SOLV_V3_4_MASTER.txt`
+- receptor fuente: `apps-script/SOLV_Receptor_Incremental.gs`
+- receptor objetivo: `SOLV_RECEPTOR_V3_4_V2`
+- collector: `termux/market_collector.py`
+- spreadsheet: `SOLV_Market_Data`
+- schema: SIGNALS A:AQ / ANALYSES A:EC
+
+El receptor SOLV endurecido acepta por la ruta genérica `payload.sheets` solo tabs explícitamente permitidas de ingestión. SIGNALS, ANALYSES, USER_TRADES, PERFORMANCE y BACKFILL_* no son destinos válidos de esa ruta.
+
+El forward confirmatorio congelado es `SOLV_FORWARD_V3_4_R1`: start `2026-10-05T06:00:00Z`, cutoff de readiness `2026-10-05T05:30:00Z`. Todo BACKFILL y todo dato pre-start queda fuera de la muestra confirmatoria.
 
 ## XRP CURRENT
 
