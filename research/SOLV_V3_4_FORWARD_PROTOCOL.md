@@ -69,6 +69,19 @@ SHORT_EXPERIMENTAL may continue while data is collected, but risk must remain at
 Rule: `SOLV_V3.4`
 Shadow TP variant: `SOLV_TP1_1R_R1`
 Schema: `SOLV_V3_4_SCHEMA_EC_AQ_V1`
-Receptor: `SOLV_RECEPTOR_V3_4_V1`
+Receptor: `SOLV_RECEPTOR_V3_4_V2`
 
 V3.3 remains preserved for rollback/audit. Do not overwrite historical V3.3 rows.
+
+
+## R1 launch contract
+
+The current confirmatory launch is frozen separately as `SOLV_FORWARD_V3_4_R1` in:
+- `research/SOLV_FORWARD_V3_4_R1_PREREGISTRATION.md`
+- `research/SOLV_V3_4_DEPLOYMENT_GATE_R1.md`
+
+Formal R1 start is `2026-10-05T06:00:00Z` with readiness cutoff `2026-10-05T05:30:00Z`.
+
+All BACKFILL rows and all observations before the formal start are excluded from confirmatory R1 evidence. The live analysis `SOLV-20261003T231611Z-AN` is classified as PRELAUNCH_SMOKE only.
+
+If readiness is not complete before the cutoff, R1 is abandoned and must not be reconstructed or backfilled. A new future start must be preregistered.
