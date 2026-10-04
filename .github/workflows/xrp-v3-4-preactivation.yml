@@ -82,6 +82,10 @@ jobs:
               "tp2: r[22] === '' ? null : Number(r[22])",
               "thesisId: String(r[38] || '')",
               "executionGate: String(r[42] || '')",
+              "const XRP_BOOTSTRAP_INGESTION_SHEETS = Object.freeze([",
+              "const XRP_INCREMENTAL_INGESTION_SHEETS = Object.freeze(",
+              "function validateIncomingSheets_(mode, incomingSheets) {",
+              "SHEET_NOT_ALLOWED mode=",
           ]
           required_rules = [
               "AGENTE XRPUSDT — XRP_V3.4",
