@@ -22,10 +22,15 @@ R1 does not change the scientific hypotheses already defined in `research/SOLV_V
 Frozen rules:
 - rule: `SOLV_V3.4`;
 - LONG: `LONG_SHADOW`, research only, 0% risk, never ACTIVE/SIGNAL;
-- SHORT: `SHORT_EXPERIMENTAL`, only ACTIVE when the existing Execution Gate passes;
+- SHORT: `SHORT_EXPERIMENTAL`, only ACTIVE when BASE_PASS + Execution Gate + thesis + daily-risk gate all pass;
+- PRIMARY SHORT BASE_PASS: trigger #8 YES, score >=6/8, criterion #7 YES, no major structural contradiction;
+- SCALP SHORT BASE_PASS: criteria #3/#7/#8 YES, score >=6/8, no major structural contradiction;
+- R1 SCALP SHORT risk is fixed at 0.10%; it is not score-dependent;
 - production TP remains unchanged;
 - `SOLV_TP1_1R_R1` remains shadow only;
 - Thesis ID deduplication and expiry remain mandatory;
+- canonical Entry/Stop/TP1/TP2 freeze when a thesis enters PRE_ENTRY; material plan changes require a new Thesis ID;
+- thesis expiry limits pre-entry fill: a touch after expiry is NO_FILL_EXPIRED, while positions filled before expiry continue normal TP/STOP tracking;
 - chronological closed 1m candles determine fill/barrier order;
 - ambiguous same-1m outcomes remain AMBIGUOUS.
 
@@ -33,11 +38,11 @@ No threshold, direction, setup, risk or target is being optimized at launch.
 
 ## Frozen source identities
 
-- master blob: `af85c1ecc697dcd1a7f0ac6359094e63642b8ecf`
+- master blob: `0ff59cd17cc6f3d59d02e8d6de651fcfd1559b6c`
 - receptor blob: `8b31939253e1aa22ec1340520c8ef2f7460bb157`
 - receptor version: `SOLV_RECEPTOR_V3_4_V2`
 - collector blob: `fafad1bc1315cae19e08df1bc257fa6f8172aa62`
-- analysis tracker blob: `059c50122987c399bc3d43eceb615246146ccafe`
+- analysis tracker blob: `1d950a9af9d9729d8c12fb6f316ecd37d7fda4cd`
 - signal tracker blob: `f4117f5cf38adcccc20132e3139196cd8ae9d1ff`
 - schema: `SOLV_V3_4_SCHEMA_EC_AQ_V1`
 - spreadsheet: `1H6oLPDHQKX3zpKVvWS_FhE3lUNnNtE0uEwLSIFZYPY8`
@@ -107,3 +112,21 @@ SHORT risk may be reduced or disabled if prospective evidence shows persistent n
 ## Integrity rule
 
 R1 is a prospective experiment, not a backfill label. Missing prospective evidence is missing evidence. It is never recreated after the fact.
+
+
+## Pre-start normative amendment 2026-10-04
+
+This amendment was frozen before the formal R1 start and before any confirmatory R1 observation was eligible.
+
+Purpose: remove specification ambiguity found in the master audit without optimizing direction, setup family, RR threshold, production targets or historical results.
+
+Changes:
+- restored explicit PRIMARY/SCALP BASE_PASS thresholds that were explicit in V3.3 but omitted during V3.4 compaction;
+- made state precedence deterministic;
+- fixed R1 SCALP operational risk at 0.10%;
+- defined daily risk-gate accounting;
+- froze canonical thesis geometry while PRE_ENTRY;
+- made thesis expiry a hard pre-entry fill boundary in the analysis tracker;
+- clarified that 5m/1D/TV/OI do not independently create a structural veto.
+
+Because the amendment changes the master and analysis-tracker blobs, previous source hashes are superseded by the identities in this document. R1 readiness must be revalidated against these hashes before the existing readiness cutoff. The formal start remains unchanged.
