@@ -8,7 +8,7 @@ const SPREADSHEET_ID = '1H6oLPDHQKX3zpKVvWS_FhE3lUNnNtE0uEwLSIFZYPY8';
 const ARCHIVE_SPREADSHEET_ID = '1_GlUrC_n1-q0juk0-28dQ6ZdIdGFTutbrglYhKlpIIk';
 const ASSET_SYMBOL = 'SOLVUSDT';
 const ASSET_PREFIX = 'SOLV';
-const SOLV_V3_4_RECEPTOR_VERSION = 'SOLV_RECEPTOR_V3_4_V1';
+const SOLV_V3_4_RECEPTOR_VERSION = 'SOLV_RECEPTOR_V3_4_V2';
 const SOLV_V3_4_RULE_VERSION = 'SOLV_V3.4';
 const SOLV_V3_4_SCHEMA_VERSION = 'SOLV_V3_4_SCHEMA_EC_AQ_V1';
 const SIGNAL_COLS = 43; // A:AQ
@@ -24,6 +24,60 @@ const MAX_ROWS = {
   'OI_1M': 1440,
   'OI_HISTORY': 96
 };
+
+
+// Security boundary for generic payload.sheets ingestion.
+// A caller holding SHARED_SECRET must never be able to address operational
+// or research-state tabs such as SIGNALS, ANALYSES, USER_TRADES,
+// PERFORMANCE, BACKFILL_* or arbitrary existing sheet names.
+const SOLV_BOOTSTRAP_INGESTION_SHEETS = Object.freeze([
+  'SOLV_1M', 'BTC_1M',
+  'SOLV_5M', 'BTC_5M',
+  'SOLV_15M', 'BTC_15M',
+  'SOLV_1H', 'BTC_1H',
+  'SOLV_4H', 'BTC_4H',
+  'SOLV_1D', 'BTC_1D'
+]);
+const SOLV_INCREMENTAL_INGESTION_SHEETS = Object.freeze(
+  SOLV_BOOTSTRAP_INGESTION_SHEETS.concat([
+    'ALERT_RESEARCH', 'ALERT_FORWARD', 'ALERT_MFE_MAE'
+  ])
+);
+
+function validateIncomingSheets_(mode, incomingSheets) {
+  if (
+    incomingSheets === null ||
+    typeof incomingSheets !== 'object' ||
+    Array.isArray(incomingSheets)
+  ) {
+    throw new Error('payload.sheets debe ser un objeto');
+  }
+
+  const allowed = mode === 'bootstrap'
+    ? SOLV_BOOTSTRAP_INGESTION_SHEETS
+    : SOLV_INCREMENTAL_INGESTION_SHEETS;
+
+  Object.keys(incomingSheets).forEach(function(name) {
+    if (allowed.indexOf(name) === -1) {
+      throw new Error('SHEET_NOT_ALLOWED mode=' + mode + ' sheet=' + name);
+    }
+    const rows = incomingSheets[name];
+    if (!Array.isArray(rows)) {
+      throw new Error('ROWS_NOT_ARRAY sheet=' + name);
+    }
+    rows.forEach(function(row, idx) {
+      if (!Array.isArray(row) || row.length !== 11) {
+        throw new Error(
+          'ROW_WIDTH_INVALID sheet=' + name +
+          ' row=' + idx +
+          ' expected=11 received=' +
+          (Array.isArray(row) ? row.length : 'NO_ARRAY')
+        );
+      }
+    });
+  });
+  return incomingSheets;
+}
 
 function jsonOut_(obj) {
   return ContentService
@@ -551,9 +605,10 @@ function doPost(e) {
       throw new Error('mode inválido: ' + mode);
     }
 
+    const incomingSheets = validateIncomingSheets_(mode, payload.sheets || {});
+
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const counts = {};
-    const incomingSheets = payload.sheets || {};
 
     Object.keys(incomingSheets).forEach(function(name) {
       const rows = incomingSheets[name];
