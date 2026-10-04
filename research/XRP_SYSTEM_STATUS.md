@@ -4,7 +4,10 @@ Generated from the 2026-10-04 audit. This file records operational state; frozen
 
 | Subsystem | State | Authoritative identity | Notes |
 |---|---|---|---|
-| XRP CURRENT | ACTIVE | XRP_V3.4 | Live market collector/receptor; SIGNALS A:AQ; ANALYSES A:DY |
+| XRP CURRENT | ACTIVE_NORMATIVE | XRP_V3.5 | GitHub-authoritative rule contract; reuses V3.4 receptor/schema; SIGNALS A:AQ; ANALYSES A:DY |
+| XRP runtime receptor/schema | COMPATIBLE_REUSE | XRP_RECEPTOR_V3_4_V1 / XRP_V3_4_SCHEMA_DY_AQ_V1 | V3.5 is a rule-only normative upgrade; no Sheet schema migration required |
+| XRP analysis tracker | SOURCE_READY | V3.5 expiry-aware tracker | Device must pull merged main/restart collector before post-fill audit is considered V3.5-complete |
+| V3.4 | HISTORICAL | agents/XRP_V3_4_MASTER.txt | Never relabel prior rows or signals as V3.5 |
 | V3.3 | HISTORICAL | archive/xrp-v3.3-final | Never restore as active path without explicit migration |
 | Backfill | ACTIVE_MANUAL | RESEARCH_BACKFILL_AGENT_V2 + BACKFILL_FILTER_R1 | Manual only; no SIGNAL/trade creation |
 | Challenger V3.1 | ABORTED | no valid prospective evidence | Historical audit only |
@@ -66,3 +69,48 @@ At the 2026-10-04 audit:
 - Paired capture infrastructure had captures but no arm decisions/outcomes yet.
 
 These are point-in-time counts, not permanent invariants.
+
+
+## XRP V3.5 normative migration
+
+The 2026-10-04 master audit found execution-contract ambiguities in XRP_V3.4: ACTIVE could still be reached with anti-chase or execution-context failures under the 4/5 score rule; state/blocker precedence was not deterministic; risk selection and daily halt semantics were underspecified; Thesis ID canonicalization was incomplete; and pre-entry thesis expiry was not frozen for chronological audit.
+
+XRP_V3.5 is a prospective normative successor. It does not rewrite V3.4 evidence.
+
+Authoritative sources:
+- manifest: `agents/XRP_MASTER_MANIFEST.json`;
+- project loader: `agents/XRP_PROJECT_BOOTSTRAP.txt`;
+- full master: `agents/XRP_V3_5_MASTER.txt`;
+- tracker: `termux/analysis_tracker.py`.
+
+Boundary:
+- Any row whose Rule Version is `XRP_V3.4` remains V3.4.
+- A new row is V3.5 only when BF is exactly `XRP_V3.5` and the analysis was produced after the Project loaded the manifest-pinned V3.5 master.
+- Historical V3.4 rows/signals are never backfilled, relabeled or re-scored as V3.5.
+- Performance reporting must stratify V3.4 and V3.5.
+
+V3.5 intentionally reuses the existing receptor/schema:
+- receptor `XRP_RECEPTOR_V3_4_V1`;
+- schema `XRP_V3_4_SCHEMA_DY_AQ_V1`;
+- SIGNALS A:AQ;
+- ANALYSES A:DY.
+
+No new Sheet column is required for thesis expiry. V3.5 encodes `CREATED_UTC` inside the canonical Thesis ID. The analysis tracker derives:
+- PRIMARY_1H expiry = CREATED_UTC + 2h;
+- SCALP_15M_1M expiry = CREATED_UTC + 45m.
+
+This preserves the existing Sheet/receptor contract while making `NO_FILL_EXPIRED` computable.
+
+## Project-instructions loader architecture
+
+To prevent destructive compaction caused by the Project instruction-size limit, ChatGPT Project instructions for XRP should contain only `agents/XRP_PROJECT_BOOTSTRAP.txt`.
+
+The bootstrap resolves the manifest, status and full master directly from GitHub. The manifest pins the expected Git blob of the full master and the expiry-aware analysis tracker. CI must fail if:
+- the master blob differs from the manifest;
+- required paths/versions are missing;
+- the bootstrap exceeds 8,000 characters;
+- the bootstrap lacks fail-closed markers;
+- V3.5 no longer requires all five execution criteria for ACTIVE;
+- canonical Thesis ID / expiry rules disappear.
+
+The full master is intentionally allowed to exceed 8,000 characters. It must never be compacted merely to fit Project instructions.

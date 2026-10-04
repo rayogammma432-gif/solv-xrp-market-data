@@ -1,0 +1,177 @@
+name: XRP V3.5 normative gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "agents/XRP_V3_5_MASTER.txt"
+      - "agents/XRP_MASTER_MANIFEST.json"
+      - "agents/XRP_PROJECT_BOOTSTRAP.txt"
+      - "termux/analysis_tracker.py"
+      - "termux/test_analysis_tracker_execution.py"
+      - "termux/test_analysis_tracker_xrp_v35.py"
+      - "research/XRP_SYSTEM_STATUS.md"
+      - ".github/workflows/xrp-v3-5-normative.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "agents/XRP_V3_5_MASTER.txt"
+      - "agents/XRP_MASTER_MANIFEST.json"
+      - "agents/XRP_PROJECT_BOOTSTRAP.txt"
+      - "termux/analysis_tracker.py"
+      - "termux/test_analysis_tracker_execution.py"
+      - "termux/test_analysis_tracker_xrp_v35.py"
+      - "research/XRP_SYSTEM_STATUS.md"
+      - ".github/workflows/xrp-v3-5-normative.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  normative:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python syntax
+        run: |
+          python -m py_compile termux/analysis_tracker.py
+          python -m py_compile termux/test_analysis_tracker_xrp_v35.py
+
+      - name: Execution audit regression tests
+        working-directory: termux
+        run: |
+          python -m unittest -v             test_analysis_tracker_execution.py             test_analysis_tracker_xrp_v35.py
+
+      - name: XRP master manifest integrity
+        run: |
+          python - <<'PY'
+          import json
+          import pathlib
+          import subprocess
+
+          manifest_path = pathlib.Path("agents/XRP_MASTER_MANIFEST.json")
+          manifest = json.loads(manifest_path.read_text())
+
+          required = [
+              "repository", "ref", "asset", "rule_version",
+              "master_path", "master_git_blob_sha", "status_path",
+              "schema_version", "receptor_version", "live_sheet_id",
+              "analysis_tracker_path", "analysis_tracker_git_blob_sha",
+          ]
+          missing = [k for k in required if not manifest.get(k)]
+          if missing:
+              raise SystemExit("Missing manifest keys: " + ",".join(missing))
+
+          if manifest["repository"] != "rayogammma432-gif/solv-xrp-market-data":
+              raise SystemExit("MANIFEST_REPOSITORY_MISMATCH")
+          if manifest["ref"] != "main":
+              raise SystemExit("MANIFEST_REF_MISMATCH")
+          if manifest["asset"] != "XRPUSDT":
+              raise SystemExit("MANIFEST_ASSET_MISMATCH")
+          if manifest["rule_version"] != "XRP_V3.5":
+              raise SystemExit("MANIFEST_RULE_VERSION_MISMATCH")
+
+          master_path = pathlib.Path(manifest["master_path"])
+          status_path = pathlib.Path(manifest["status_path"])
+          tracker_path = pathlib.Path(manifest["analysis_tracker_path"])
+          for p in (master_path, status_path, tracker_path):
+              if not p.is_file():
+                  raise SystemExit("MISSING_REQUIRED_PATH:" + str(p))
+
+          master_blob = subprocess.check_output(
+              ["git", "hash-object", str(master_path)], text=True
+          ).strip()
+          if master_blob != manifest["master_git_blob_sha"]:
+              raise SystemExit(
+                  f"MASTER_BLOB_MISMATCH expected={manifest['master_git_blob_sha']} actual={master_blob}"
+              )
+
+          tracker_blob = subprocess.check_output(
+              ["git", "hash-object", str(tracker_path)], text=True
+          ).strip()
+          if tracker_blob != manifest["analysis_tracker_git_blob_sha"]:
+              raise SystemExit(
+                  f"TRACKER_BLOB_MISMATCH expected={manifest['analysis_tracker_git_blob_sha']} actual={tracker_blob}"
+              )
+
+          master = master_path.read_text()
+          status = status_path.read_text()
+          bootstrap = pathlib.Path("agents/XRP_PROJECT_BOOTSTRAP.txt").read_text()
+
+          if len(bootstrap) > 8000:
+              raise SystemExit(f"BOOTSTRAP_TOO_LONG chars={len(bootstrap)}")
+          if len(master) < 12000:
+              raise SystemExit(f"MASTER_SUSPICIOUSLY_COMPACT chars={len(master)}")
+          if "XRP_MASTER_MANIFEST.json" not in bootstrap:
+              raise SystemExit("BOOTSTRAP_MANIFEST_REFERENCE_MISSING")
+          if "MASTER_MISMATCH" not in bootstrap or "MASTER_UNAVAILABLE" not in bootstrap:
+              raise SystemExit("BOOTSTRAP_FAIL_CLOSED_MARKERS_MISSING")
+          if "No compactar" not in master and "no compactar" not in master.lower():
+              raise SystemExit("MASTER_NO_COMPACTION_GUARD_MISSING")
+          if "XRP_V3.5" not in status:
+              raise SystemExit("STATUS_RULE_VERSION_MISSING")
+
+          print(
+              "PASS XRP_MASTER_MANIFEST",
+              master_blob,
+              "tracker",
+              tracker_blob,
+              "bootstrap_chars",
+              len(bootstrap),
+              "master_chars",
+              len(master),
+          )
+          PY
+
+      - name: V3.5 hard-gate contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          rules = Path("agents/XRP_V3_5_MASTER.txt").read_text()
+          tracker = Path("termux/analysis_tracker.py").read_text()
+
+          required = [
+              "PASS exige E1=YES AND E2=YES AND E3=YES AND E4=YES AND E5=YES",
+              "no existe ACTIVE con 4/5",
+              "SCALP fijo 0.10%=0.0010",
+              "DAILY_LOSS_PCT",
+              "CREATED_UTC",
+              "PRIMARY_1H PRE_ENTRY expira 2 horas",
+              "SCALP_15M_1M PRE_ENTRY expira 45 minutos",
+              "ESTADOS / PRECEDENCIA",
+              "BLOCKERS CANÓNICOS",
+              "No existe ACTIVE con Gate WAIT/BLOCK o E-SCORE<5/5",
+              "BF=Rule Version=XRP_V3.5",
+          ]
+          for marker in required:
+              if marker not in rules:
+                  raise SystemExit("MISSING_RULE_MARKER:" + marker)
+
+          forbidden = [
+              "E-SCORE>=4/5",
+              "SCALP 0.10–0.15%",
+          ]
+          for marker in forbidden:
+              if marker in rules:
+                  raise SystemExit("FORBIDDEN_LEGACY_RULE:" + marker)
+
+          for marker in (
+              "def _thesis_expiry",
+              'motor == "PRIMARY_1H"',
+              'motor == "SCALP_15M_1M"',
+              "NO_FILL_EXPIRED",
+          ):
+              if marker not in tracker:
+                  raise SystemExit("MISSING_TRACKER_MARKER:" + marker)
+
+          print("PASS XRP_V3_5_NORMATIVE_GATE")
+          PY
