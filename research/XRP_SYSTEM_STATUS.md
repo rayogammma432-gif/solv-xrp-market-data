@@ -1,20 +1,21 @@
 # XRP System Status
 
-Generated from the 2026-10-04 audit. This file records operational state; frozen experiment protocols remain authoritative for scientific rules.
+Generated from the 2026-10-04 audit and subsequent normative migrations. This file records operational state; frozen experiment protocols remain authoritative for scientific rules.
 
 | Subsystem | State | Authoritative identity | Notes |
 |---|---|---|---|
-| XRP CURRENT | ACTIVE_NORMATIVE | XRP_V3.5 | GitHub-authoritative rule contract; reuses V3.4 receptor/schema; SIGNALS A:AQ; ANALYSES A:DY |
-| XRP runtime receptor/schema | COMPATIBLE_REUSE | XRP_RECEPTOR_V3_4_V1 / XRP_V3_4_SCHEMA_DY_AQ_V1 | V3.5 is a rule-only normative upgrade; no Sheet schema migration required |
-| XRP analysis tracker | SOURCE_READY | V3.5 expiry-aware tracker | Device must pull merged main/restart collector before post-fill audit is considered V3.5-complete |
-| V3.4 | HISTORICAL | agents/XRP_V3_4_MASTER.txt | Never relabel prior rows or signals as V3.5 |
+| XRP CURRENT | ACTIVE_NORMATIVE | XRP_V3.6 | Composite GitHub authority: immutable V3.5 base + V3.6 Mark-aware anti-chase override; SIGNALS A:AQ; ANALYSES A:DY |
+| XRP runtime receptor/schema | COMPATIBLE_REUSE | XRP_RECEPTOR_V3_4_V1 / XRP_V3_4_SCHEMA_DY_AQ_V1 | V3.6 is a rule-only normative upgrade; no Sheet schema migration required |
+| XRP analysis tracker | RUNTIME_COMPATIBLE | expiry-aware tracker | Tracker logic is unchanged by V3.6; thesis expiry continues to derive from canonical Thesis ID |
+| V3.5 | HISTORICAL | agents/XRP_V3_5_MASTER.txt | Never relabel prior rows or signals as V3.6; also serves as immutable base of the V3.6 composite authority |
+| V3.4 | HISTORICAL | agents/XRP_V3_4_MASTER.txt | Never relabel prior rows or signals |
 | V3.3 | HISTORICAL | archive/xrp-v3.3-final | Never restore as active path without explicit migration |
 | Backfill | ACTIVE_MANUAL | RESEARCH_BACKFILL_AGENT_V2 + BACKFILL_FILTER_R1 | Manual only; no SIGNAL/trade creation |
 | Challenger V3.1 | ABORTED | no valid prospective evidence | Historical audit only |
 | Challenger V3.2 | ABORTED | no prospective evidence | Historical audit only |
 | Challenger V3.2 R1 | ABORTED | XRP_FORWARD_V3_2_R1 | Missed 2026-10-04T00:00:00Z start; no backfill allowed |
-| Challenger V3.2 R2 | PRELAUNCH_FROZEN | XRP_FORWARD_V3_2_R2 | Start 2026-10-05T00:00:00Z; device/receptor readiness must be verified before cutoff |
-| Paired Benchmark V1 | PRELAUNCH | frozen V3.3 CURRENT baseline | Do not silently substitute V3.4 |
+| Challenger V3.2 R2 | PRELAUNCH_FROZEN | XRP_FORWARD_V3_2_R2 | Start 2026-10-05T00:00:00Z; device/receptor readiness remains governed by its frozen protocol |
+| Paired Benchmark V1 | PRELAUNCH | frozen V3.3 CURRENT baseline | Do not silently substitute a later CURRENT |
 | Historical derivatives dataset | REVIEW_REQUIRED | audit artifacts | Missing slots/nonmonotonic source files must remain explicit |
 
 ## Current R2 launch boundary
@@ -70,47 +71,49 @@ At the 2026-10-04 audit:
 
 These are point-in-time counts, not permanent invariants.
 
-
 ## XRP V3.5 normative migration
 
 The 2026-10-04 master audit found execution-contract ambiguities in XRP_V3.4: ACTIVE could still be reached with anti-chase or execution-context failures under the 4/5 score rule; state/blocker precedence was not deterministic; risk selection and daily halt semantics were underspecified; Thesis ID canonicalization was incomplete; and pre-entry thesis expiry was not frozen for chronological audit.
 
-XRP_V3.5 is a prospective normative successor. It does not rewrite V3.4 evidence.
+XRP_V3.5 was activated prospectively and produced live provenance as V3.5. It is not rewritten by V3.6.
 
-Authoritative sources:
+V3.5 introduced:
+- all-five execution hard gate;
+- deterministic state/blocker precedence;
+- fixed risk semantics;
+- canonical Thesis ID and expiry;
+- chronological execution audit;
+- GitHub manifest/bootstrap architecture.
+
+## XRP V3.6 Mark-aware anti-chase migration
+
+A live V3.5 smoke test, `XRP-20261004T230928Z-ANALIZA`, exposed a remaining normative mismatch. The plan had Entry `1.5045`, SETUP_ANCHOR `1.5031`, Mark `1.5185`, ATR15m `0.004942`, Direction Score `6/6`, Execution Score `4/5`, Gate `WAIT`, blocker `WAIT_RETEST`.
+
+The operational decision was sensible, but V3.5's canonical anti-chase formula only measured `ABS(Entry-SETUP_ANCHOR)/ATR15m ≈ 0.28`, which passed. The actual Mark was approximately `2.83 ATR` beyond the candidate Entry. The row remains V3.5 and is not relabeled.
+
+V3.6 is prospective and defines:
+- `entryAnchorDist = ABS(Entry-SETUP_ANCHOR)/ATR15m`;
+- LONG `markEntryExtension = MAX(0,(MarkPrice-Entry)/ATR15m)`;
+- SHORT `markEntryExtension = MAX(0,(Entry-MarkPrice)/ATR15m)`;
+- E2 PASS only when both distances are <=0.50 and `RR_real>=1.5`;
+- otherwise `WAIT_RETEST` unless a higher-precedence rule applies;
+- TradingView remains context only and cannot determine E2.
+
+V3.6 intentionally reuses the V3.4 receptor/schema and the V3.5 expiry-aware tracker. No Sheet schema or Apps Script migration is required.
+
+Authoritative composite:
 - manifest: `agents/XRP_MASTER_MANIFEST.json`;
-- project loader: `agents/XRP_PROJECT_BOOTSTRAP.txt`;
-- full master: `agents/XRP_V3_5_MASTER.txt`;
+- bootstrap: `agents/XRP_PROJECT_BOOTSTRAP.txt`;
+- BASE: `agents/XRP_V3_5_MASTER.txt`;
+- OVERRIDE: `agents/XRP_V3_6_OVERRIDE.txt`;
 - tracker: `termux/analysis_tracker.py`.
 
-Boundary:
-- Any row whose Rule Version is `XRP_V3.4` remains V3.4.
-- A new row is V3.5 only when BF is exactly `XRP_V3.5` and the analysis was produced after the Project loaded the manifest-pinned V3.5 master.
-- Historical V3.4 rows/signals are never backfilled, relabeled or re-scored as V3.5.
-- Performance reporting must stratify V3.4 and V3.5.
-
-V3.5 intentionally reuses the existing receptor/schema:
-- receptor `XRP_RECEPTOR_V3_4_V1`;
-- schema `XRP_V3_4_SCHEMA_DY_AQ_V1`;
-- SIGNALS A:AQ;
-- ANALYSES A:DY.
-
-No new Sheet column is required for thesis expiry. V3.5 encodes `CREATED_UTC` inside the canonical Thesis ID. The analysis tracker derives:
-- PRIMARY_1H expiry = CREATED_UTC + 2h;
-- SCALP_15M_1M expiry = CREATED_UTC + 45m.
-
-This preserves the existing Sheet/receptor contract while making `NO_FILL_EXPIRED` computable.
+Performance reporting must stratify V3.4, V3.5 and V3.6.
 
 ## Project-instructions loader architecture
 
-To prevent destructive compaction caused by the Project instruction-size limit, ChatGPT Project instructions for XRP should contain only `agents/XRP_PROJECT_BOOTSTRAP.txt`.
+ChatGPT Project instructions for XRP should contain only `agents/XRP_PROJECT_BOOTSTRAP.txt`.
 
-The bootstrap resolves the manifest, status and full master directly from GitHub. The manifest pins the expected Git blob of the full master and the expiry-aware analysis tracker. CI must fail if:
-- the master blob differs from the manifest;
-- required paths/versions are missing;
-- the bootstrap exceeds 8,000 characters;
-- the bootstrap lacks fail-closed markers;
-- V3.5 no longer requires all five execution criteria for ACTIVE;
-- canonical Thesis ID / expiry rules disappear.
+The bootstrap resolves the manifest and status directly from GitHub. For V3.6 the manifest declares `master_mode=composite`, so the Project must load both the full immutable V3.5 BASE and the V3.6 OVERRIDE. CI fails if either blob differs, required paths/versions disappear, the bootstrap exceeds 8,000 characters, the all-five execution hard gate disappears, or the Mark-aware anti-chase regression fails.
 
-The full master is intentionally allowed to exceed 8,000 characters. It must never be compacted merely to fit Project instructions.
+The BASE remains intentionally larger than 8,000 characters and must never be compacted merely to fit Project instructions. The override is a narrow prospective delta, not a replacement summary of the base.
