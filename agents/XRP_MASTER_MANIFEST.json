@@ -1,0 +1,21 @@
+{
+  "manifest_version": "XRP_MASTER_MANIFEST_V1",
+  "repository": "rayogammma432-gif/solv-xrp-market-data",
+  "ref": "main",
+  "asset": "XRPUSDT",
+  "rule_version": "XRP_V3.5",
+  "master_path": "agents/XRP_V3_5_MASTER.txt",
+  "master_git_blob_sha": "a9f59fb6437e482be3ba96872dd1ee12217e1895",
+  "status_path": "research/XRP_SYSTEM_STATUS.md",
+  "schema_version": "XRP_V3_4_SCHEMA_DY_AQ_V1",
+  "receptor_version": "XRP_RECEPTOR_V3_4_V1",
+  "live_sheet_title": "XRP_Market_Data",
+  "live_sheet_id": "1ag0yaE0hcDoG8uED4qejfHGlD2OuXZxvUPYZRUzjqG0",
+  "analysis_tracker_path": "termux/analysis_tracker.py",
+  "analysis_tracker_git_blob_sha": "82523fd6f56bd7ecf91ffcbc71f9d59bc992ae9e",
+  "historical_rule_version": "XRP_V3.4",
+  "historical_master_path": "agents/XRP_V3_4_MASTER.txt",
+  "forward_protocol_required": false,
+  "phase_authority": "research/XRP_SYSTEM_STATUS.md",
+  "fail_closed": true
+}
