@@ -40,6 +40,57 @@ const MAX_ROWS = {
   'OI_HISTORY': 96
 };
 
+// Security boundary for generic payload.sheets ingestion.
+// Never allow a caller holding SHARED_SECRET to address operational/research tabs
+// such as SIGNALS, ANALYSES, USER_TRADES, PERFORMANCE or PAIRED_* by name.
+const XRP_BOOTSTRAP_INGESTION_SHEETS = Object.freeze([
+  'XRP_1M', 'BTC_1M',
+  'XRP_5M', 'BTC_5M',
+  'XRP_15M', 'BTC_15M',
+  'XRP_1H', 'BTC_1H',
+  'XRP_4H', 'BTC_4H',
+  'XRP_1D', 'BTC_1D'
+]);
+const XRP_INCREMENTAL_INGESTION_SHEETS = Object.freeze(
+  XRP_BOOTSTRAP_INGESTION_SHEETS.concat([
+    'ALERT_RESEARCH', 'ALERT_FORWARD', 'ALERT_MFE_MAE'
+  ])
+);
+
+function validateIncomingSheets_(mode, incomingSheets) {
+  if (
+    incomingSheets === null ||
+    typeof incomingSheets !== 'object' ||
+    Array.isArray(incomingSheets)
+  ) {
+    throw new Error('payload.sheets debe ser un objeto');
+  }
+  const allowed = mode === 'bootstrap'
+    ? XRP_BOOTSTRAP_INGESTION_SHEETS
+    : XRP_INCREMENTAL_INGESTION_SHEETS;
+
+  Object.keys(incomingSheets).forEach(function(name) {
+    if (allowed.indexOf(name) === -1) {
+      throw new Error('SHEET_NOT_ALLOWED mode=' + mode + ' sheet=' + name);
+    }
+    const rows = incomingSheets[name];
+    if (!Array.isArray(rows)) {
+      throw new Error('ROWS_NOT_ARRAY sheet=' + name);
+    }
+    rows.forEach(function(row, idx) {
+      if (!Array.isArray(row) || row.length !== 11) {
+        throw new Error(
+          'ROW_WIDTH_INVALID sheet=' + name +
+          ' row=' + idx +
+          ' expected=11 received=' +
+          (Array.isArray(row) ? row.length : 'NO_ARRAY')
+        );
+      }
+    });
+  });
+  return incomingSheets;
+}
+
 function jsonOut_(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
@@ -1049,10 +1100,10 @@ function doPost(e) {
     if (mode !== 'bootstrap' && mode !== 'incremental') {
       throw new Error('mode inválido: ' + mode);
     }
+    const incomingSheets = validateIncomingSheets_(mode, payload.sheets || {});
 
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const counts = {};
-    const incomingSheets = payload.sheets || {};
 
     Object.keys(incomingSheets).forEach(function(name) {
       const rows = incomingSheets[name];
