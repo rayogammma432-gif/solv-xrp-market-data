@@ -8,7 +8,7 @@ Generated from the 2026-10-04 SOLV audit. This file records operational state; f
 | SOLV receptor hardening | DEPLOYED_VERIFIED | SOLV_RECEPTOR_V3_4_V2 | GET health and forbidden-sheet negative probe verified 2026-10-04T21:31Z |
 | V3.3 | HISTORICAL | SOLV_V3.3 | Historical/rollback reference only |
 | Backfill | ACTIVE_RESEARCH_ONLY | RESEARCH_BACKFILL_AGENT_V2 + BACKFILL_FILTER_R1 | Never counts as prospective R1 evidence and never creates retrospective trades |
-| SOLV Forward V3.4 R1 | PRELAUNCH_READY | SOLV_FORWARD_V3_4_R1 | Readiness passed before cutoff; formal start remains 2026-10-05T06:00:00Z |
+| SOLV Forward V3.4 R1 | PRELAUNCH_REVALIDATION_REQUIRED | SOLV_FORWARD_V3_4_R1 | Pre-start normative lock amended; master/tracker hashes must be revalidated before cutoff |
 | Prelaunch V3.4 smoke | EXCLUDED_CONFIRMATORY | SOLV-20261003T231611Z-AN | Useful operational smoke only; not part of R1 sample |
 
 ## R1 launch boundary
@@ -93,3 +93,10 @@ Verified before cutoff on `2026-10-04T21:33:41Z`:
 - last closed SOLV 1m candle and expected last close both equaled `2026-10-04T21:32:59.999Z`.
 
 R1 remains prelaunch until the formal prospective start. No pre-start observation becomes confirmatory evidence.
+
+
+## Normative audit amendment
+
+Before the formal R1 start, a master-instruction audit found three execution-specification defects: missing explicit BASE_PASS thresholds after V3.4 compaction, thesis expiry not enforced by the analysis tracker, and missing deterministic state precedence.
+
+A pre-start amendment fixes those defects without using post-start evidence or optimizing historical outcomes. The formal R1 start and cutoff remain unchanged. Until the amended master/tracker identities are merged, pulled to Motorola, tested and the collector restarted, R1 is `PRELAUNCH_REVALIDATION_REQUIRED`.
