@@ -1,4 +1,4 @@
-name: XRP Challenger Independent Collector Prelaunch V3
+name: XRP Challenger Independent Collector Prelaunch V4
 
 on:
   workflow_dispatch:
@@ -9,21 +9,29 @@ on:
       - "apps-script/XRP_Receptor_Incremental.gs"
       - "research/XRP_FORWARD_RESEARCH_PROTOCOL_V3_2.md"
       - "research/XRP_FORWARD_RESEARCH_PROTOCOL_V3_2_R1.md"
+      - "research/XRP_FORWARD_RESEARCH_PROTOCOL_V3_2_R2.md"
       - "research/XRP_FORWARD_EVALUATION_CONTRACT_V3_2.md"
       - "research/XRP_FORWARD_EVALUATION_CONTRACT_V3_2_R1.md"
+      - "research/XRP_FORWARD_EVALUATION_CONTRACT_V3_2_R2.md"
       - "research/XRP_2026_HOLDOUT_LOCK_V1.md"
       - "research/XRP_CHALLENGER_COLLECTOR_PROTOCOL_V2.md"
       - "research/XRP_CHALLENGER_COLLECTOR_PROTOCOL_V3.md"
+      - "research/XRP_CHALLENGER_COLLECTOR_PROTOCOL_V4.md"
       - "research/XRP_CHALLENGER_DEPLOYMENT_GATE_V2.md"
       - "research/XRP_CHALLENGER_DEPLOYMENT_GATE_V3.md"
+      - "research/XRP_CHALLENGER_DEPLOYMENT_GATE_V4.md"
       - "research/experiments/XRP_FORWARD_REGISTRY_V3_2.jsonl"
       - "research/experiments/XRP_FORWARD_REGISTRY_V3_2_R1.jsonl"
+      - "research/experiments/XRP_FORWARD_REGISTRY_V3_2_R2.jsonl"
       - "research/experiments/XRP_FORWARD_EVALUATION_CONTRACT_V3_2.json"
       - "research/experiments/XRP_FORWARD_EVALUATION_CONTRACT_V3_2_R1.json"
+      - "research/experiments/XRP_FORWARD_EVALUATION_CONTRACT_V3_2_R2.json"
       - "research/experiments/XRP_CHALLENGER_COLLECTOR_REGISTRY_V2.json"
       - "research/experiments/XRP_CHALLENGER_COLLECTOR_REGISTRY_V3.json"
+      - "research/experiments/XRP_CHALLENGER_COLLECTOR_REGISTRY_V4.json"
       - "research/validate_xrp_challenger_collector_v2.py"
-      - "research/validate_xrp_challenger_collector_v3.py"
+      - "research/validate_xrp_challenger_collector_v4.py"
+      - "research/validate_xrp_challenger_collector_v4.py"
       - ".gitignore"
       - ".github/workflows/xrp-challenger-independent-collector-v1.yml"
   pull_request:
@@ -33,21 +41,29 @@ on:
       - "apps-script/XRP_Receptor_Incremental.gs"
       - "research/XRP_FORWARD_RESEARCH_PROTOCOL_V3_2.md"
       - "research/XRP_FORWARD_RESEARCH_PROTOCOL_V3_2_R1.md"
+      - "research/XRP_FORWARD_RESEARCH_PROTOCOL_V3_2_R2.md"
       - "research/XRP_FORWARD_EVALUATION_CONTRACT_V3_2.md"
       - "research/XRP_FORWARD_EVALUATION_CONTRACT_V3_2_R1.md"
+      - "research/XRP_FORWARD_EVALUATION_CONTRACT_V3_2_R2.md"
       - "research/XRP_2026_HOLDOUT_LOCK_V1.md"
       - "research/XRP_CHALLENGER_COLLECTOR_PROTOCOL_V2.md"
       - "research/XRP_CHALLENGER_COLLECTOR_PROTOCOL_V3.md"
+      - "research/XRP_CHALLENGER_COLLECTOR_PROTOCOL_V4.md"
       - "research/XRP_CHALLENGER_DEPLOYMENT_GATE_V2.md"
       - "research/XRP_CHALLENGER_DEPLOYMENT_GATE_V3.md"
+      - "research/XRP_CHALLENGER_DEPLOYMENT_GATE_V4.md"
       - "research/experiments/XRP_FORWARD_REGISTRY_V3_2.jsonl"
       - "research/experiments/XRP_FORWARD_REGISTRY_V3_2_R1.jsonl"
+      - "research/experiments/XRP_FORWARD_REGISTRY_V3_2_R2.jsonl"
       - "research/experiments/XRP_FORWARD_EVALUATION_CONTRACT_V3_2.json"
       - "research/experiments/XRP_FORWARD_EVALUATION_CONTRACT_V3_2_R1.json"
+      - "research/experiments/XRP_FORWARD_EVALUATION_CONTRACT_V3_2_R2.json"
       - "research/experiments/XRP_CHALLENGER_COLLECTOR_REGISTRY_V2.json"
       - "research/experiments/XRP_CHALLENGER_COLLECTOR_REGISTRY_V3.json"
+      - "research/experiments/XRP_CHALLENGER_COLLECTOR_REGISTRY_V4.json"
       - "research/validate_xrp_challenger_collector_v2.py"
-      - "research/validate_xrp_challenger_collector_v3.py"
+      - "research/validate_xrp_challenger_collector_v4.py"
+      - "research/validate_xrp_challenger_collector_v4.py"
       - ".gitignore"
       - ".github/workflows/xrp-challenger-independent-collector-v1.yml"
 
@@ -61,7 +77,7 @@ jobs:
           fetch-depth: 0
 
       - name: Python syntax
-        run: python -m py_compile termux/forward_v3_tracker.py termux/xrp_challenger_collector.py termux/challenger_deployment_gate.py termux/market_collector.py termux/test_forward_v3_tracker.py termux/test_xrp_challenger_collector_v2.py termux/test_challenger_deployment_gate_v2.py research/validate_xrp_challenger_collector_v3.py
+        run: python -m py_compile termux/forward_v3_tracker.py termux/xrp_challenger_collector.py termux/challenger_deployment_gate.py termux/market_collector.py termux/test_forward_v3_tracker.py termux/test_xrp_challenger_collector_v2.py termux/test_challenger_deployment_gate_v2.py research/validate_xrp_challenger_collector_v4.py
 
       - name: Shell syntax
         run: bash -n termux/start_challenger_collector.sh && bash -n termux/stop_challenger_collector.sh && bash -n termux/status_challenger_collector.sh
@@ -69,26 +85,26 @@ jobs:
       - name: Apps Script syntax
         run: cp apps-script/XRP_Challenger_Receptor.gs /tmp/xrp_challenger_receptor.js && cp apps-script/XRP_Receptor_Incremental.gs /tmp/xrp_current_receptor.js && node --check /tmp/xrp_challenger_receptor.js && node --check /tmp/xrp_current_receptor.js
 
-      - name: V3.2 R1 tracker parity and regressions
+      - name: V3.2 R2 tracker parity and regressions
         env:
           PYTHONPATH: termux:research
         run: python termux/test_forward_v3_tracker.py
 
-      - name: Challenger V3 activation and isolation
+      - name: Challenger V4 activation and isolation
         env:
           PYTHONPATH: termux
         run: python termux/test_xrp_challenger_collector_v2.py
 
-      - name: Challenger V3 deployment gate
+      - name: Challenger V4 deployment gate
         env:
           PYTHONPATH: termux
         run: python termux/test_challenger_deployment_gate_v2.py
 
       - name: Validate preregistration and separation
-        run: python research/validate_xrp_challenger_collector_v3.py
+        run: python research/validate_xrp_challenger_collector_v4.py
 
       - name: Upload validation report
         uses: actions/upload-artifact@v4
         with:
           name: xrp-challenger-independent-collector-prelaunch-v3
-          path: challenger-collector-prelaunch-v3/
+          path: challenger-collector-prelaunch-v4/
