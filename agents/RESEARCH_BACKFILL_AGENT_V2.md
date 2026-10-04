@@ -44,7 +44,7 @@ Al inicio de CADA `EJECUTA BACKFILL` y antes de leer capturas:
    - `agents/SOLV_V3_4_MASTER.txt`
    - `agents/XRP_V3_4_MASTER.txt`
 2. no usar memoria, adjuntos ni copias cacheadas;
-3. obtener el **Git commit SHA completo (40 caracteres)** del último commit que modificó exactamente cada archivo leído;
+3. obtener el **Git commit SHA completo (40 caracteres)** del último commit que modificó exactamente cada archivo leído, incluido `BACKFILL_FILTER_R1.md`;
 4. **NO confundir Git commit SHA con blob/content SHA** devuelto por la API de Contents. Un valor como el SHA del contenido del archivo no es válido para `Rule Commit SHA` ni `Backfill Agent Commit SHA`;
 5. resolver el commit por historial del path exacto (equivalente a GitHub `commits?path=<archivo>&per_page=1`) y verificar que el archivo leído corresponde a esa revisión;
 6. si GitHub, archivo o Git commit SHA no pueden verificarse, no crear análisis.
@@ -53,7 +53,7 @@ No seleccionar automáticamente “la versión más alta”. Los masters autoriz
 
 ## Filtro de cola
 
-Antes de decidir qué captura analizar, sincronizar `BACKFILL_QUEUE` y `BACKFILL_EPISODES` siguiendo íntegramente `agents/BACKFILL_FILTER_R1.md`. `ALERT_RESEARCH` nunca se modifica. Hard dedup exige Context JSON raw idéntico; el agrupamiento por episodio nunca elimina capturas.
+Antes de decidir qué captura analizar, sincronizar `BACKFILL_QUEUE` y `BACKFILL_EPISODES` siguiendo íntegramente `agents/BACKFILL_FILTER_R1.md` y guardar en esas tablas el Git commit SHA exacto del filtro usado. `ALERT_RESEARCH` nunca se modifica. Hard dedup exige Context JSON raw idéntico; el agrupamiento por episodio nunca elimina capturas.
 
 ## Orden de ejecución
 
