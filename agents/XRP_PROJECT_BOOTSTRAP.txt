@@ -13,20 +13,22 @@ Antes de cualquier ANALIZA XRP, búsqueda de entrada, emisión/revisión de señ
 
 1. Leer agents/XRP_MASTER_MANIFEST.json desde el repo/ref indicados.
 2. Leer el status_path declarado por el manifest.
-3. Si master_mode="single", leer master_path y aplicar ese master completo.
-4. Si master_mode="composite", leer master_path como BASE completo y override_path como OVERRIDE normativo. Aplicar ambos. El override solo prevalece en las cláusulas que declara explícitamente; todo lo demás permanece heredado del BASE.
-5. Si forward_protocol_required=true, leer además el protocolo declarado antes de analizar.
-6. Nunca sustituir estas fuentes por memoria, resúmenes, Project Knowledge, versiones pegadas, archivos históricos, web, conversación previa ni una versión compactada.
+3. Leer SIEMPRE master_path y verificar master_git_blob_sha. master_path es el entrypoint normativo que debe coincidir con rule_version.
+4. Si master_mode="single", aplicar ese master completo.
+5. Si master_mode="composite", leer master_path como BASE completo y override_path como OVERRIDE.
+6. Si master_mode="descriptor_composite", master_path es un descriptor obligatorio. Leer además base_master_path y override_path, verificar base_master_git_blob_sha y override_git_blob_sha y aplicar BASE+OVERRIDE con la precedencia declarada por el descriptor/override.
+7. Si forward_protocol_required=true, leer además el protocolo declarado antes de analizar.
+8. Nunca sustituir estas fuentes por memoria, resúmenes, Project Knowledge, versiones pegadas, archivos históricos, web, conversación previa ni una versión compactada.
 
 INTEGRIDAD
 Verificar:
 - repository/ref coinciden con este bootstrap;
-- rule_version del manifest coincide con el estado CURRENT;
-- blob Git de master_path coincide exactamente con master_git_blob_sha;
-- si master_mode="composite", override_path existe y su blob coincide exactamente con override_git_blob_sha;
-- el BASE y OVERRIDE identifican sus versiones de forma compatible con rule_version/base_rule_version;
-- schema_version, receptor_version y live_sheet_id no contradicen status/base/override;
-- si se declara analysis_tracker_git_blob_sha, la identidad de runtime documentada no debe contradecirlo.
+- rule_version del manifest coincide con status CURRENT y con master_path;
+- blob de master_path coincide con master_git_blob_sha;
+- en composite/descriptor_composite, todos los paths auxiliares existen y sus blobs coinciden;
+- base_rule_version identifica correctamente la base histórica;
+- schema_version, receptor_version y live_sheet_id no contradicen status/autoridad;
+- analysis_tracker_git_blob_sha, si existe, no contradice la identidad runtime documentada.
 
 FAIL CLOSED
 Si cualquier lectura falla, GitHub no está disponible, falta un archivo, un blob/version no coincide, master_mode es desconocido o existe contradicción no resuelta:
@@ -37,17 +39,20 @@ DATA_INSUFFICIENT — MASTER_MISMATCH
 En ese caso NO crear ACTIVE, SIGNAL, Entry/Stop/TP, riesgo ni reconstruir reglas desde memoria.
 
 PRECEDENCIA
-Este bootstrap localiza y valida fuentes; no define lógica de mercado.
+El bootstrap solo localiza y valida fuentes.
 El manifest define qué documentos/versiones cargar.
 XRP_SYSTEM_STATUS.md define el estado operativo vigente.
-En modo composite, master_path contiene la base normativa completa y override_path modifica únicamente las cláusulas que enumera. Una cláusula no mencionada en el override conserva exactamente la semántica del BASE.
-Si una incompatibilidad queda fuera de la precedencia explícita del override, fallar cerrado.
+En descriptor_composite, master_path declara la composición normativa y obliga a cargar BASE+OVERRIDE. El OVERRIDE solo prevalece en cláusulas explícitas; lo demás queda heredado del BASE.
+Si una incompatibilidad queda fuera de esa precedencia, fallar cerrado.
+
+COMPATIBILIDAD CON BOOTSTRAP V1
+El master_path de una versión descriptor_composite debe ser autocontenido como entrypoint: un Project que todavía conserve Bootstrap V1 leerá master_path y, desde ese descriptor, cargará obligatoriamente BASE+OVERRIDE. Así una actualización de versión no exige volver a pegar Project Instructions.
 
 DATOS DE MERCADO
 GitHub contiene reglas/versiones/estado; NO sustituye los datos live.
-La fuente de mercado obligatoria, Spreadsheet ID, frescura y sync son exclusivamente los definidos por la autoridad normativa cargada.
+La fuente live, Spreadsheet ID, frescura y sync son exclusivamente los definidos por la autoridad cargada.
 
 DISCIPLINA DE CONTEXTO
-No compactar, resumir, abreviar ni omitir reglas del BASE u OVERRIDE para ajustarlas al límite de instrucciones del Project.
-El Project debe conservar solo este bootstrap corto y cargar la autoridad directamente desde GitHub en cada flujo operativo.
+No compactar, resumir, abreviar ni omitir descriptor, BASE u OVERRIDE para ajustarlos al límite de instrucciones del Project.
+El Project debe conservar solo el bootstrap corto y cargar la autoridad directamente desde GitHub.
 Nunca asumir que la versión recordada sigue vigente.

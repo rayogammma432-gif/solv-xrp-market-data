@@ -4,7 +4,7 @@ Generated from the 2026-10-04 audit and subsequent normative migrations. This fi
 
 | Subsystem | State | Authoritative identity | Notes |
 |---|---|---|---|
-| XRP CURRENT | ACTIVE_NORMATIVE | XRP_V3.6 | Composite GitHub authority: immutable V3.5 base + V3.6 Mark-aware anti-chase override; SIGNALS A:AQ; ANALYSES A:DY |
+| XRP CURRENT | ACTIVE_NORMATIVE | XRP_V3.6 | Descriptor entrypoint + immutable V3.5 base + V3.6 Mark-aware anti-chase override; SIGNALS A:AQ; ANALYSES A:DY |
 | XRP runtime receptor/schema | COMPATIBLE_REUSE | XRP_RECEPTOR_V3_4_V1 / XRP_V3_4_SCHEMA_DY_AQ_V1 | V3.6 is a rule-only normative upgrade; no Sheet schema migration required |
 | XRP analysis tracker | RUNTIME_COMPATIBLE | expiry-aware tracker | Tracker logic is unchanged by V3.6; thesis expiry continues to derive from canonical Thesis ID |
 | XRP V3.6 regression guard | MANUAL_GUARD | termux/test_xrp_v36_normative.py | Deterministic truth-table and blob checks committed; automatic Actions hook must be reattached before the next normative change |
@@ -102,9 +102,10 @@ V3.6 is prospective and defines:
 
 V3.6 intentionally reuses the V3.4 receptor/schema and the V3.5 expiry-aware tracker. No Sheet schema or Apps Script migration is required.
 
-Authoritative composite:
+Authoritative descriptor-composite:
 - manifest: `agents/XRP_MASTER_MANIFEST.json`;
 - bootstrap: `agents/XRP_PROJECT_BOOTSTRAP.txt`;
+- descriptor/master entrypoint: `agents/XRP_V3_6_MASTER.txt`;
 - BASE: `agents/XRP_V3_5_MASTER.txt`;
 - OVERRIDE: `agents/XRP_V3_6_OVERRIDE.txt`;
 - tracker: `termux/analysis_tracker.py`.
@@ -115,7 +116,7 @@ Performance reporting must stratify V3.4, V3.5 and V3.6.
 
 ChatGPT Project instructions for XRP should contain only `agents/XRP_PROJECT_BOOTSTRAP.txt`.
 
-The bootstrap resolves the manifest and status directly from GitHub. For V3.6 the manifest declares `master_mode=composite`, so the Project must load both the full immutable V3.5 BASE and the V3.6 OVERRIDE.
+The bootstrap resolves the manifest and status directly from GitHub. For V3.6 the manifest declares `master_mode=descriptor_composite`. `master_path` points to `agents/XRP_V3_6_MASTER.txt`, which identifies V3.6 and obligatorily loads/verifies the full immutable V3.5 BASE plus the V3.6 OVERRIDE. This preserves compatibility with Project Bootstrap V1: even an older loader that only follows `master_path` reaches the complete V3.6 authority.
 
 The versioned regression guard is `termux/test_xrp_v36_normative.py`. It verifies both pinned blobs and the Mark-aware LONG/SHORT truth table. Automatic GitHub Actions attachment is currently pending; until it is reattached, the regression test must be run explicitly before any further normative change.
 
