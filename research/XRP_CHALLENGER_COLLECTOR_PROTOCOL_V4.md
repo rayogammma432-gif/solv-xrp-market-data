@@ -19,7 +19,7 @@ Upstream registry SHA256:
 
 ## Launch lineage and V3 relaunch
 
-V3.1 and V3.2 both remain immutable aborted prelaunch records with no accepted prospective candidate/outcome/health rows.
+V3.1, V3.2 and V3.2 R1 remain immutable aborted prelaunch records with no accepted prospective candidate/outcome/health rows.
 
 V3.2 R2 is a clean relaunch. It changes only prospective start/provenance and operational identity; scientific hypotheses and evaluation rules are unchanged from the frozen V3.2 specification.
 
@@ -138,7 +138,7 @@ V3.1 audit rows remain historical. V3.2 R2 rows are distinguished by protocol ve
 ## Scientific rules
 
 Candidate A/B/C rules, horizons, directions and floors are unchanged from V3.1 and are defined normatively in:
-- `research/XRP_FORWARD_RESEARCH_PROTOCOL_V3_2_R1.md`
+- `research/XRP_FORWARD_RESEARCH_PROTOCOL_V3_2_R2.md`
 - `research/experiments/XRP_FORWARD_REGISTRY_V3_2_R2.jsonl`
 
 ## Holdout
