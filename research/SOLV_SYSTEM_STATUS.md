@@ -120,3 +120,18 @@ Revalidated before cutoff on `2026-10-04T21:52:41Z` after the master audit amend
 - SOLV 1m last close and expected last close both equaled `2026-10-04T21:51:59.999Z`.
 
 No observation before the formal start is confirmatory R1 evidence. The start remains `2026-10-05T06:00:00Z`.
+
+
+## Project-instructions loader architecture
+
+To avoid destructive compaction of the normative master, the ChatGPT Project instructions should contain only the loader in `agents/SOLV_PROJECT_BOOTSTRAP.txt`.
+
+The loader resolves:
+1. `agents/SOLV_MASTER_MANIFEST.json`;
+2. the manifest-declared system status;
+3. the manifest-declared full master;
+4. the manifest-declared forward protocol when required.
+
+The manifest freezes the expected Git blob of the full master. CI fails if the declared blob differs from `git hash-object` of the master, if required paths are missing, or if the bootstrap exceeds 8,000 characters.
+
+This loader architecture does not change R1 trading rules, source identities or the formal prospective start. It only changes how Project instructions obtain the authoritative rules.
