@@ -11,17 +11,25 @@ Cada workbook debe tener:
 Versión de clasificación: `BACKFILL_FILTER_R1`.
 
 ## 1. HARD DEDUP — EXACT CONTEXT
+La búsqueda de contexto idéntico se hace contra TODO `ALERT_RESEARCH`, incluidos Alert ID ya enlazados.
+
 Dos alertas son duplicado exacto solo si:
 - mismo Asset; y
 - `Context JSON` raw es exactamente idéntico.
 
 No deduplicar solo por cercanía temporal, mark parecido o `last_close_1m`.
 
-Representante del grupo exacto:
-1. menor Alert UTC;
-2. empate => Alert ID lexicográficamente menor.
+Representante del grupo exacto para la versión objetivo:
+1. si existe un Alert ID con Context JSON idéntico ya enlazado a un análisis de la misma Rule Version, usar el más antiguo de esos representantes;
+2. en otro caso, menor Alert UTC entre Alert ID todavía elegibles para la versión objetivo;
+3. empate => Alert ID lexicográficamente menor.
 
 El representante puede analizarse. Los demás quedan `EXACT_DUP`.
+
+REGLA DE VERSIÓN: un análisis existente solo puede actuar como representante para hard dedup si su `Rule Version` coincide con la regla vigente del activo (`SOLV_V3.4` o `XRP_V3.4`). Un análisis V3.3 nunca suprime la creación de evidencia V3.4 para un Alert ID nuevo.
+
+Si un contexto idéntico ya tiene un Alert ID enlazado a un análisis de la MISMA Rule Version V3.4, enlazar inmediatamente los duplicados pendientes a ese Analysis ID y no introducirlos en la cola de análisis.
+
 Cuando el representante tenga Analysis ID, crear para cada duplicado un vínculo al mismo análisis:
 - Link Type=`EXACT_CONTEXT`
 - Status=`EXISTING_LINKED`
