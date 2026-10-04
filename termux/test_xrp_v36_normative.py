@@ -33,15 +33,23 @@ def anti_chase(direction, entry, anchor, mark, atr15m, rr_real):
 def main():
     manifest = json.loads(MANIFEST.read_text())
     assert manifest["rule_version"] == "XRP_V3.6"
-    assert manifest["master_mode"] == "composite"
+    assert manifest["master_mode"] == "descriptor_composite"
     assert manifest["base_rule_version"] == "XRP_V3.5"
 
-    base = ROOT / manifest["master_path"]
+    descriptor = ROOT / manifest["master_path"]
+    base = ROOT / manifest["base_master_path"]
     override = ROOT / manifest["override_path"]
-    assert git_blob(base) == manifest["master_git_blob_sha"]
+
+    assert git_blob(descriptor) == manifest["master_git_blob_sha"]
+    assert git_blob(base) == manifest["base_master_git_blob_sha"]
     assert git_blob(override) == manifest["override_git_blob_sha"]
-    assert len(base.read_text()) >= 12000
+
+    descriptor_text = descriptor.read_text()
+    base_text = base.read_text()
     ov = override.read_text()
+    assert "XRP_V3.6" in descriptor_text
+    assert "MANDATORY COMPOSITE AUTHORITY" in descriptor_text
+    assert len(base_text) >= 12000
 
     required = [
         "entryAnchorDist = ABS(Entry-SETUP_ANCHOR)/ATR15m",
