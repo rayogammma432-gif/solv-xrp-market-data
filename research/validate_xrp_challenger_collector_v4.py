@@ -255,23 +255,23 @@ def main():
         if marker not in protocol:
             errors.append(f"collector protocol missing marker {marker}")
 
-    # R1 may change only time/provenance identity; frozen science must match V3.2.
+    # R2 may change only time/provenance identity; frozen science must match R1.
     previous_rows = [json.loads(x) for x in PREVIOUS_UPSTREAM.read_text(encoding="utf-8").splitlines() if x.strip()]
     current_rows = [json.loads(x) for x in UPSTREAM.read_text(encoding="utf-8").splitlines() if x.strip()]
     previous_by_id = {x["candidate_id"]: x for x in previous_rows}
     current_by_id = {x["candidate_id"]: x for x in current_rows}
     ignored_registry_fields = {"version", "forward_start", "formal_family_gate", "informational_checkpoint", "multiplicity", "status"}
     if set(previous_by_id) != set(current_by_id):
-        errors.append("R1 candidate family differs from V3.2")
+        errors.append("R2 candidate family differs from R1")
     else:
         for cid in sorted(previous_by_id):
             prev = {k: v for k, v in previous_by_id[cid].items() if k not in ignored_registry_fields}
             cur = {k: v for k, v in current_by_id[cid].items() if k not in ignored_registry_fields}
             if prev != cur:
-                errors.append(f"R1 scientific registry fields changed for {cid}")
+                errors.append(f"R2 scientific registry fields changed for {cid}")
 
     if evaluation_contract.get("candidate_rules") != previous_evaluation_contract.get("candidate_rules"):
-        errors.append("R1 evaluation candidate rules differ from V3.2")
+        errors.append("R2 evaluation candidate rules differ from R1")
     for key in ("primary_alpha", "bootstrap", "family_multiplicity"):
         prev = previous_evaluation_contract.get(key)
         cur = evaluation_contract.get(key)
@@ -281,9 +281,9 @@ def main():
             prev.pop("seed", None)
             cur.pop("seed", None)
         if prev != cur:
-            errors.append(f"R1 evaluation scientific field changed: {key}")
+            errors.append(f"R2 evaluation scientific field changed: {key}")
 
-    if evaluation_contract.get("version") != "XRP_FORWARD_EVALUATION_CONTRACT_V3_2_R1":
+    if evaluation_contract.get("version") != "XRP_FORWARD_EVALUATION_CONTRACT_V3_2_R2":
         errors.append("evaluation contract version mismatch")
     if evaluation_contract.get("protocol_version") != EXPECTED_PROTOCOL:
         errors.append("evaluation contract protocol mismatch")
@@ -291,7 +291,7 @@ def main():
         errors.append("evaluation contract registry mismatch")
     if evaluation_contract.get("forward_start_utc") != EXPECTED_START:
         errors.append("evaluation contract start mismatch")
-    if evaluation_contract.get("formal_family_gate_utc") != "2027-04-02T00:00:00Z":
+    if evaluation_contract.get("formal_family_gate_utc") != "2027-04-03T00:00:00Z":
         errors.append("evaluation contract family gate mismatch")
     if (evaluation_contract.get("bootstrap") or {}).get("replicates") != 2000:
         errors.append("evaluation bootstrap replicates changed")
@@ -323,7 +323,7 @@ def main():
             errors.append(f"evaluation protocol missing marker {marker}")
 
     if EXPECTED_PROTOCOL not in holdout_lock or EXPECTED_START not in holdout_lock:
-        errors.append("holdout lock not amended to V3.2 R1")
+        errors.append("holdout lock not amended to V3.2 R2")
     if "ABORTED PRELAUNCH / NO VALID FORMAL COLLECTION" not in holdout_lock:
         errors.append("holdout lock does not preserve V3.1 aborted status")
     if "V3.2: ABORTED PRELAUNCH / NO PROSPECTIVE EVIDENCE" not in holdout_lock:
@@ -339,19 +339,19 @@ def main():
     for marker in (
         EXPECTED_PROTOCOL,
         EXPECTED_START,
-        "2027-04-02T00:00:00Z",
-        "2027-01-02T00:00:00Z",
+        "2027-04-03T00:00:00Z",
+        "2027-01-03T00:00:00Z",
         "evaluation stops at the gap",
         "Recovery is completeness-based",
         "RUNNING_DEGRADED",
         "build ID",
-        "XRP_FORWARD_EVALUATION_CONTRACT_V3_2_R1",
+        "XRP_FORWARD_EVALUATION_CONTRACT_V3_2_R2",
     ):
         if marker not in forward_protocol:
             errors.append(f"forward protocol missing marker {marker}")
 
     report = {
-        "version": "XRP_CHALLENGER_COLLECTOR_PRELAUNCH_V3",
+        "version": "XRP_CHALLENGER_COLLECTOR_PRELAUNCH_V4",
         "upstream_registry_sha256": upstream_sha,
         "status": "PASS_PRELAUNCH_NOT_ACTIVATED" if not errors else "FAIL",
         "formal_collection_started": False,
@@ -359,7 +359,7 @@ def main():
     }
     out = ROOT / "challenger-collector-prelaunch-v4"
     out.mkdir(exist_ok=True)
-    (out / "XRP_CHALLENGER_COLLECTOR_PRELAUNCH_V3.json").write_text(
+    (out / "XRP_CHALLENGER_COLLECTOR_PRELAUNCH_V4.json").write_text(
         json.dumps(report, indent=2) + "\n", encoding="utf-8"
     )
     print(json.dumps(report, indent=2))
