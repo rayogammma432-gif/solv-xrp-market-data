@@ -7,7 +7,7 @@ Generated from the 2026-10-04 audit and subsequent normative migrations. This fi
 | XRP CURRENT | ACTIVE_NORMATIVE | XRP_V3.6 | Descriptor entrypoint + immutable V3.5 base + V3.6 Mark-aware anti-chase override; SIGNALS A:AQ; ANALYSES A:DY |
 | XRP runtime receptor/schema | COMPATIBLE_REUSE | XRP_RECEPTOR_V3_4_V1 / XRP_V3_4_SCHEMA_DY_AQ_V1 | V3.6 is a rule-only normative upgrade; no Sheet schema migration required |
 | XRP analysis tracker | RUNTIME_COMPATIBLE | expiry-aware tracker | Tracker logic is unchanged by V3.6; thesis expiry continues to derive from canonical Thesis ID |
-| XRP V3.6 regression guard | MANUAL_GUARD | termux/test_xrp_v36_normative.py | Deterministic truth-table and blob checks committed; automatic Actions hook must be reattached before the next normative change |
+| XRP V3.6 regression guard | CI_GUARDED | termux/test_xrp_v36_normative.py via xrp-v3-4-preactivation.yml | Deterministic blob checks and Mark-aware LONG/SHORT truth table run automatically on V3.6 normative changes |
 | V3.5 | HISTORICAL | agents/XRP_V3_5_MASTER.txt | Never relabel prior rows or signals as V3.6; also serves as immutable base of the V3.6 composite authority |
 | V3.4 | HISTORICAL | agents/XRP_V3_4_MASTER.txt | Never relabel prior rows or signals |
 | V3.3 | HISTORICAL | archive/xrp-v3.3-final | Never restore as active path without explicit migration |
@@ -118,6 +118,6 @@ ChatGPT Project instructions for XRP should contain only `agents/XRP_PROJECT_BOO
 
 The bootstrap resolves the manifest and status directly from GitHub. For V3.6 the manifest declares `master_mode=descriptor_composite`. `master_path` points to `agents/XRP_V3_6_MASTER.txt`, which identifies V3.6 and obligatorily loads/verifies the full immutable V3.5 BASE plus the V3.6 OVERRIDE. This preserves compatibility with Project Bootstrap V1: even an older loader that only follows `master_path` reaches the complete V3.6 authority.
 
-The versioned regression guard is `termux/test_xrp_v36_normative.py`. It verifies both pinned blobs and the Mark-aware LONG/SHORT truth table. Automatic GitHub Actions attachment is currently pending; until it is reattached, the regression test must be run explicitly before any further normative change.
+The versioned regression guard is `termux/test_xrp_v36_normative.py`. It verifies descriptor/base/override pinned blobs and the Mark-aware LONG/SHORT truth table. It is attached to the existing `.github/workflows/xrp-v3-4-preactivation.yml`, whose path filters now include all V3.6 normative authority files, so normative changes trigger this guard automatically.
 
 The BASE remains intentionally larger than 8,000 characters and must never be compacted merely to fit Project instructions. The override is a narrow prospective delta, not a replacement summary of the base.
