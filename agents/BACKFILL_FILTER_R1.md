@@ -79,12 +79,14 @@ K Representative Alert ID
 L Filter Version
 M Processed Link Status
 N Notes
+O Filter Commit SHA
 
 Snapshot Group ID:
 - para contexto único: `SNAP|<ASSET>|<LAST_1M>|<ALERT_ID>`
 - para exact duplicates: usar el Alert ID representante en el último componente.
 
 `Processed Link Status` refleja el vínculo actual cuando exista; no sustituye `ANALYSIS_ALERT_LINKS`.
+`Filter Commit SHA` guarda el Git commit SHA completo del archivo `BACKFILL_FILTER_R1.md` realmente leído al clasificar ese Alert ID.
 
 ## 6. BACKFILL_EPISODES
 Columnas:
@@ -103,6 +105,7 @@ L Representative Analysis ID
 M Rule Version
 N Episode Status
 O Notes
+P Filter Commit SHA
 
 Episode Status:
 - `OPEN`: tiene PRIORITY sin procesar;
