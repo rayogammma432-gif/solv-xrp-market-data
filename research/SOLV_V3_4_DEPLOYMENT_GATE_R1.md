@@ -10,7 +10,7 @@ Readiness cutoff: `2026-10-05T05:30:00Z`
 ## Required identities
 
 - rule: `SOLV_V3.4`
-- master blob: `0ff59cd17cc6f3d59d02e8d6de651fcfd1559b6c`
+- master blob: `4329831141517db8ff59918b228e74230ae8dd00`
 - receptor: `SOLV_RECEPTOR_V3_4_V2`
 - receptor blob: `8b31939253e1aa22ec1340520c8ef2f7460bb157`
 - schema: `SOLV_V3_4_SCHEMA_EC_AQ_V1`
