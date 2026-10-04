@@ -14,12 +14,16 @@ No usar este README como sustituto de los protocolos congelados de cada experime
 ## SOLV CURRENT
 
 Runtime activo:
-- regla: `agents/SOLV_V3_4_MASTER.txt`
+- bootstrap de instrucciones de proyecto: `agents/SOLV_PROJECT_BOOTSTRAP.txt`
+- manifest autoritativo: `agents/SOLV_MASTER_MANIFEST.json`
+- regla completa: `agents/SOLV_V3_4_MASTER.txt`
 - receptor fuente: `apps-script/SOLV_Receptor_Incremental.gs`
 - receptor objetivo: `SOLV_RECEPTOR_V3_4_V2`
 - collector: `termux/market_collector.py`
 - spreadsheet: `SOLV_Market_Data`
 - schema: SIGNALS A:AQ / ANALYSES A:EC
+
+Las instrucciones pegadas en el Project no deben contener una copia compactada del master. Deben usar únicamente el bootstrap corto, que carga manifest + status + master + protocolo desde GitHub y falla cerrado si no puede verificar identidad/versiones. CI comprueba que el bootstrap siga por debajo de 8.000 caracteres y que el blob declarado en el manifest coincida con el master real.
 
 El receptor SOLV endurecido acepta por la ruta genérica `payload.sheets` solo tabs explícitamente permitidas de ingestión. SIGNALS, ANALYSES, USER_TRADES, PERFORMANCE y BACKFILL_* no son destinos válidos de esa ruta.
 

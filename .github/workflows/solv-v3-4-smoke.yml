@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - "agents/SOLV_V3_4_MASTER.txt"
+      - "agents/SOLV_MASTER_MANIFEST.json"
+      - "agents/SOLV_PROJECT_BOOTSTRAP.txt"
       - "apps-script/SOLV_Receptor_Incremental.gs"
       - "termux/analysis_tracker.py"
       - "termux/test_analysis_tracker_execution.py"
@@ -18,6 +20,8 @@ on:
   pull_request:
     paths:
       - "agents/SOLV_V3_4_MASTER.txt"
+      - "agents/SOLV_MASTER_MANIFEST.json"
+      - "agents/SOLV_PROJECT_BOOTSTRAP.txt"
       - "apps-script/SOLV_Receptor_Incremental.gs"
       - "termux/analysis_tracker.py"
       - "termux/test_analysis_tracker_execution.py"
@@ -70,6 +74,46 @@ jobs:
           console.log('PASS SOLV_RECEPTOR_INGESTION_ALLOWLIST');
           JS
           node /tmp/SOLV_Receptor_Allowlist_Test.js
+      - name: SOLV master manifest integrity
+        run: |
+          python - <<'PY'
+          import json, pathlib, subprocess, sys
+
+          manifest = json.loads(pathlib.Path("agents/SOLV_MASTER_MANIFEST.json").read_text())
+          required = [
+              "repository", "ref", "rule_version", "master_path",
+              "master_git_blob_sha", "status_path", "schema_version",
+              "receptor_version"
+          ]
+          missing = [k for k in required if not manifest.get(k)]
+          if missing:
+              raise SystemExit("Missing manifest keys: " + ",".join(missing))
+
+          master_path = pathlib.Path(manifest["master_path"])
+          status_path = pathlib.Path(manifest["status_path"])
+          if not master_path.is_file():
+              raise SystemExit("Master path does not exist: " + str(master_path))
+          if not status_path.is_file():
+              raise SystemExit("Status path does not exist: " + str(status_path))
+
+          actual = subprocess.check_output(
+              ["git", "hash-object", str(master_path)], text=True
+          ).strip()
+          expected = manifest["master_git_blob_sha"]
+          if actual != expected:
+              raise SystemExit(f"MASTER_BLOB_MISMATCH expected={expected} actual={actual}")
+
+          bootstrap = pathlib.Path("agents/SOLV_PROJECT_BOOTSTRAP.txt").read_text()
+          if len(bootstrap) > 8000:
+              raise SystemExit(f"BOOTSTRAP_TOO_LONG chars={len(bootstrap)}")
+          if "SOLV_MASTER_MANIFEST.json" not in bootstrap:
+              raise SystemExit("BOOTSTRAP_MANIFEST_REFERENCE_MISSING")
+          if "MASTER_MISMATCH" not in bootstrap or "MASTER_UNAVAILABLE" not in bootstrap:
+              raise SystemExit("BOOTSTRAP_FAIL_CLOSED_MARKERS_MISSING")
+
+          print("PASS SOLV_MASTER_MANIFEST", actual, "bootstrap_chars", len(bootstrap))
+          PY
+
       - name: V3.4 rule markers
         run: |
           grep -q "LONG = SHADOW/RESEARCH ONLY" agents/SOLV_V3_4_MASTER.txt
