@@ -1,5 +1,19 @@
 # SOLV V3.4 — Activation and Rollback Checklist
 
+## R1 prospective boundary
+
+Formal start:
+- UTC: `2026-10-05T06:00:00Z`
+- America/Guatemala: `2026-10-05 00:00:00`
+
+Readiness cutoff:
+- UTC: `2026-10-05T05:30:00Z`
+- America/Guatemala: `2026-10-04 23:30:00`
+
+This checklist is now subordinate to `research/SOLV_V3_4_DEPLOYMENT_GATE_R1.md` for launch readiness. If readiness is incomplete at cutoff, R1 is abandoned and cannot be backfilled.
+
+The pre-existing live row `SOLV-20261003T231611Z-AN` is PRELAUNCH_SMOKE and must not enter the R1 confirmatory sample.
+
 ## Current safe state
 
 The Google Sheet schema is already prepared:
@@ -33,7 +47,7 @@ In the existing SOLV Apps Script project:
 5. Keep the same Web App URL used by `config.json`.
 
 Expected GET health:
-- receptorVersion = `SOLV_RECEPTOR_V3_4_V1`
+- receptorVersion = `SOLV_RECEPTOR_V3_4_V2`
 - ruleVersion = `SOLV_V3.4`
 - schemaVersion = `SOLV_V3_4_SCHEMA_EC_AQ_V1`
 - signalCols = `43`
