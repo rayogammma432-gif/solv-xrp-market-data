@@ -9,7 +9,7 @@ Generated from the 2026-10-04 audit and subsequent normative migrations. This fi
 | XRP analysis tracker | RUNTIME_COMPATIBLE | expiry-aware tracker | Tracker logic is unchanged by V3.6; thesis expiry continues to derive from canonical Thesis ID |
 | XRP decision telemetry | ACTIVE_SHADOW | XRP_DECISION_TELEMETRY_V1 | Append-only post-decision evidence; never participates in V3.6 gates or state |
 | XRP archive health | ACTIVE_SHADOW | XRP_ARCHIVE_HEALTH_V1 | Explicit 1m gap ledger; ambiguous counterfactual coverage resolves to UNKNOWN |
-| XRP execution-market archive | DEPLOYMENT_READY | XRP_EXECUTION_MARKET_V1 | Best-effort mark/index/funding/OI + bid/ask/spread/depth; research only |
+| XRP execution-market archive | ACTIVE_SHADOW | XRP_EXECUTION_MARKET_V1 | Live since 2026-10-05T19:47:15Z; receptor deployment v7; collector blob 49cac2711f068588925e3cb90914842e864b52a5; research only |
 | XRP V3.6 regression guard | CI_GUARDED | termux/test_xrp_v36_normative.py via xrp-v3-4-preactivation.yml | Deterministic blob checks and Mark-aware LONG/SHORT truth table run automatically on V3.6 normative changes |
 | V3.5 | HISTORICAL | agents/XRP_V3_5_MASTER.txt | Never relabel prior rows or signals as V3.6; also serves as immutable base of the V3.6 composite authority |
 | V3.4 | HISTORICAL | agents/XRP_V3_4_MASTER.txt | Never relabel prior rows or signals |
@@ -124,6 +124,16 @@ The bootstrap resolves the manifest and status directly from GitHub. For V3.6 th
 The versioned regression guard is `termux/test_xrp_v36_normative.py`. It verifies descriptor/base/override pinned blobs and the Mark-aware LONG/SHORT truth table. It is attached to the existing `.github/workflows/xrp-v3-4-preactivation.yml`, whose path filters now include all V3.6 normative authority files, so normative changes trigger this guard automatically.
 
 The BASE remains intentionally larger than 8,000 characters and must never be compacted merely to fit Project instructions. The override is a narrow prospective delta, not a replacement summary of the base.
+
+## Research telemetry deployment snapshot — 2026-10-05
+
+- `XRP_DECISION_TELEMETRY_V1` tab created in XRP_Market_Data with 103-column append-only schema.
+- `XRP_ARCHIVE_HEALTH` and `XRP_EXECUTION_MARKET_V1` created in XRP_Research_Archive.
+- CURRENT Apps Script deployment updated to version 7 with the validated decision-telemetry writer, live archive-gap detector and execution-market archive route.
+- Motorola CURRENT collector updated to Git blob `49cac2711f068588925e3cb90914842e864b52a5` and restarted successfully.
+- First live execution-market snapshot persisted at `2026-10-05T19:47:15.432Z` with bid/ask, spread, top-5/top-20 depth, funding, index, basis and OI.
+- Gap scan through `2026-10-05T18:59:00Z`: 8 OPEN gaps / 26 missing minutes in XRP_1M_ARCHIVE and the identical 8 gaps / 26 minutes in BTC_1M_ARCHIVE. No gap was silently repaired.
+- XRP_V3.6 descriptor/base/override/tracker blobs remained unchanged and matched XRP_MASTER_MANIFEST.json at deployment validation.
 
 ## CURRENT research telemetry boundary
 
