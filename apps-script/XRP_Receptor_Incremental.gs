@@ -29,6 +29,13 @@ const PAIRED_OUTCOME_COLS = 22;
 const PAIRED_CAPTURE_BATCH = 'XRP_PAIR_POOL_V1';
 const PAIRED_OUTCOME_VERSION = 'XRP_PAIRED_OUTCOME_V1';
 const MAX_RESEARCH_ROWS = 3000;
+const EXECUTION_MARKET_COLS = 23;
+const ARCHIVE_HEALTH_COLS = 17;
+const DECISION_TELEMETRY_COLS = 103;
+const DECISION_TELEMETRY_SCHEMA_VERSION = 'XRP_DECISION_TELEMETRY_V1';
+const RESEARCH_TELEMETRY_RECEPTOR_VERSION = 'XRP_RESEARCH_TELEMETRY_V1';
+const EXECUTION_MARKET_SCHEMA_VERSION = 'XRP_EXECUTION_MARKET_V1';
+const ARCHIVE_HEALTH_SCHEMA_VERSION = 'XRP_ARCHIVE_HEALTH_V1';
 
 const MAX_ROWS = {
   '1M': 500,
@@ -194,24 +201,156 @@ function appendArchiveNew_(sh, rows, cols) {
   return toAppend.length;
 }
 
-function archiveResearch_(incomingSheets, oi1m) {
+function utcCellString_(value) {
+  if (value instanceof Date) return value.toISOString();
+  return String(value || '');
+}
+
+function compactUtc_(value) {
+  return utcCellString_(value).replace(/[-:.]/g, '').replace(/000Z$/, 'Z');
+}
+
+function validateResearchRows_(rows, cols, label) {
+  if (!Array.isArray(rows)) return [];
+  rows.forEach(function(row, idx) {
+    if (!Array.isArray(row) || row.length !== cols) {
+      throw new Error(
+        label + '_ROW_WIDTH_INVALID row=' + idx +
+        ' expected=' + cols +
+        ' received=' + (Array.isArray(row) ? row.length : 'NO_ARRAY')
+      );
+    }
+  });
+  return rows;
+}
+
+function detectArchiveGaps_(archive, streamSheetName, incomingRows, generatedAtUtc) {
+  if (!Array.isArray(incomingRows) || !incomingRows.length) return [];
+  const sh = sheet_(archive, streamSheetName);
+  const lastRow = sh.getLastRow();
+  const lastPresent = lastRow >= 2 ? utcCellString_(sh.getRange(lastRow, 1).getValue()) : '';
+  const coverageStart = lastRow >= 2 ? utcCellString_(sh.getRange(2, 1).getValue()) : '';
+
+  const sorted = incomingRows.slice().sort(function(a, b) {
+    return utcCellString_(a[0]).localeCompare(utcCellString_(b[0]));
+  }).filter(function(row) {
+    const ts = utcCellString_(row[0]);
+    return ts && (!lastPresent || ts > lastPresent);
+  });
+
+  if (!sorted.length) return [];
+  const coverageEnd = utcCellString_(sorted[sorted.length - 1][0]);
+  let previous = lastPresent;
+  const gaps = [];
+
+  sorted.forEach(function(row) {
+    const next = utcCellString_(row[0]);
+    if (previous) {
+      const prevMs = Date.parse(previous);
+      const nextMs = Date.parse(next);
+      if (isFinite(prevMs) && isFinite(nextMs)) {
+        const stepMinutes = Math.round((nextMs - prevMs) / 60000);
+        if (stepMinutes > 1) {
+          const missing = stepMinutes - 1;
+          const gapStart = new Date(prevMs + 60000).toISOString();
+          const gapEnd = new Date(nextMs - 60000).toISOString();
+          const healthId =
+            'AHV1|' + streamSheetName + '|' + compactUtc_(gapStart) + '|' + missing;
+          gaps.push([
+            ARCHIVE_HEALTH_SCHEMA_VERSION,
+            healthId,
+            String(generatedAtUtc || new Date().toISOString()),
+            streamSheetName,
+            60,
+            coverageStart || next,
+            coverageEnd,
+            previous,
+            gapStart,
+            gapEnd,
+            next,
+            missing,
+            'OPEN',
+            'NOT_RECOVERED',
+            'LIVE_APPEND_GAP_DETECTOR',
+            '',
+            'Counterfactuals whose fill/barrier ordering can depend on this interval must return UNKNOWN until provenance-preserving recovery.'
+          ]);
+        }
+      }
+    }
+    previous = next;
+  });
+  return gaps;
+}
+
+function appendArchiveHealth_(archive, rows) {
+  rows = validateResearchRows_(rows || [], ARCHIVE_HEALTH_COLS, 'ARCHIVE_HEALTH');
+  if (!rows.length) return 0;
+  const sh = sheet_(archive, 'XRP_ARCHIVE_HEALTH');
+  const lastRow = sh.getLastRow();
+  const existing = {};
+  if (lastRow >= 2) {
+    sh.getRange(2, 2, lastRow - 1, 1).getValues().forEach(function(r) {
+      const id = String(r[0] || '');
+      if (id) existing[id] = true;
+    });
+  }
+  const toAppend = rows.filter(function(row) {
+    const id = String(row[1] || '');
+    if (!id || existing[id]) return false;
+    existing[id] = true;
+    return true;
+  });
+  if (!toAppend.length) return 0;
+  const startRow = sh.getLastRow() + 1;
+  ensureRows_(sh, startRow + toAppend.length - 1);
+  sh.getRange(startRow, 1, toAppend.length, ARCHIVE_HEALTH_COLS).setValues(toAppend);
+  return toAppend.length;
+}
+
+function archiveResearch_(incomingSheets, oi1m, executionMarketRows, generatedAtUtc) {
   const archive = SpreadsheetApp.openById(ARCHIVE_SPREADSHEET_ID);
+  const xrpRows = incomingSheets['XRP_1M'] || [];
+  const btcRows = incomingSheets['BTC_1M'] || [];
+  const gaps = detectArchiveGaps_(archive, 'XRP_1M_ARCHIVE', xrpRows, generatedAtUtc)
+    .concat(detectArchiveGaps_(archive, 'BTC_1M_ARCHIVE', btcRows, generatedAtUtc));
+
+  const executionRows = validateResearchRows_(
+    Array.isArray(executionMarketRows) ? executionMarketRows : [],
+    EXECUTION_MARKET_COLS,
+    'EXECUTION_MARKET'
+  );
+  executionRows.forEach(function(row, idx) {
+    if (String(row[1] || '') !== EXECUTION_MARKET_SCHEMA_VERSION) {
+      throw new Error('EXECUTION_MARKET_SCHEMA_INVALID row=' + idx);
+    }
+    if (String(row[2] || '') !== ASSET_SYMBOL) {
+      throw new Error('EXECUTION_MARKET_SYMBOL_INVALID row=' + idx);
+    }
+  });
+
   return {
     XRP_1M: appendArchiveNew_(
       sheet_(archive, 'XRP_1M_ARCHIVE'),
-      incomingSheets['XRP_1M'] || [],
+      xrpRows,
       11
     ),
     BTC_1M: appendArchiveNew_(
       sheet_(archive, 'BTC_1M_ARCHIVE'),
-      incomingSheets['BTC_1M'] || [],
+      btcRows,
       11
     ),
     OI_1M: appendArchiveNew_(
       sheet_(archive, 'OI_1M_ARCHIVE'),
       Array.isArray(oi1m) ? oi1m : [],
       9
-    )
+    ),
+    XRP_EXECUTION_MARKET: appendArchiveNew_(
+      sheet_(archive, 'XRP_EXECUTION_MARKET_V1'),
+      executionRows,
+      EXECUTION_MARKET_COLS
+    ),
+    ARCHIVE_HEALTH_GAPS: appendArchiveHealth_(archive, gaps)
   };
 }
 
@@ -429,6 +568,64 @@ function getPendingAnalyses_(ss) {
   });
 
   return out.slice(-500);
+}
+
+function appendDecisionTelemetry_(ss, rows) {
+  rows = validateResearchRows_(
+    Array.isArray(rows) ? rows : [],
+    DECISION_TELEMETRY_COLS,
+    'DECISION_TELEMETRY'
+  );
+  if (!rows.length) return 0;
+
+  const analyses = sheet_(ss, 'ANALYSES');
+  const analysisIds = {};
+  if (analyses.getLastRow() >= 2) {
+    analyses.getRange(2, 1, analyses.getLastRow() - 1, 1)
+      .getValues()
+      .forEach(function(r) {
+        const id = String(r[0] || '');
+        if (id) analysisIds[id] = true;
+      });
+  }
+
+  const sh = sheet_(ss, 'XRP_DECISION_TELEMETRY_V1');
+  const existing = {};
+  if (sh.getLastRow() >= 2) {
+    sh.getRange(2, 1, sh.getLastRow() - 1, 1)
+      .getValues()
+      .forEach(function(r) {
+        const id = String(r[0] || '');
+        if (id) existing[id] = true;
+      });
+  }
+
+  const toAppend = [];
+  rows.forEach(function(row, idx) {
+    const telemetryId = String(row[0] || '');
+    const schema = String(row[1] || '');
+    const analysisId = String(row[2] || '');
+
+    if (schema !== DECISION_TELEMETRY_SCHEMA_VERSION) {
+      throw new Error('DECISION_TELEMETRY_SCHEMA_INVALID row=' + idx);
+    }
+    if (!analysisId || !analysisIds[analysisId]) {
+      throw new Error('DECISION_TELEMETRY_ANALYSIS_ID_INVALID row=' + idx);
+    }
+    if (telemetryId !== 'DT1|' + analysisId) {
+      throw new Error('DECISION_TELEMETRY_ID_INVALID row=' + idx);
+    }
+    if (existing[telemetryId]) return;
+    existing[telemetryId] = true;
+    toAppend.push(row);
+  });
+
+  if (!toAppend.length) return 0;
+  const startRow = sh.getLastRow() + 1;
+  ensureRows_(sh, startRow + toAppend.length - 1);
+  sh.getRange(startRow, 1, toAppend.length, DECISION_TELEMETRY_COLS)
+    .setValues(toAppend);
+  return toAppend.length;
 }
 
 function applyAnalysisUpdates_(ss, updates) {
@@ -1169,6 +1366,15 @@ function doPost(e) {
       counts.ANALYSIS_UPDATES = applyAnalysisUpdates_(ss, payload.analysisUpdates);
     }
 
+    // Research-only append. The canonical ANALYSES row must already exist.
+    // Telemetry can never create or alter an operational decision.
+    if (Array.isArray(payload.decisionTelemetryRows)) {
+      counts.XRP_DECISION_TELEMETRY = appendDecisionTelemetry_(
+        ss,
+        payload.decisionTelemetryRows
+      );
+    }
+
     if (Array.isArray(payload.alertEvents)) {
       counts.ALERT_EVENTS = appendAlertEvents_(ss, payload.alertEvents);
     }
@@ -1192,7 +1398,12 @@ function doPost(e) {
     let archiveCounts = {};
     let archiveError = '';
     try {
-      archiveCounts = archiveResearch_(incomingSheets, payload.oi1m);
+      archiveCounts = archiveResearch_(
+        incomingSheets,
+        payload.oi1m,
+        payload.executionMarketRows,
+        payload.generatedAtUtc
+      );
     } catch (archiveErr) {
       archiveError = String(
         archiveErr && archiveErr.message ? archiveErr.message : archiveErr
@@ -1223,6 +1434,7 @@ function doPost(e) {
       xrpV34ReceptorVersion: XRP_V3_4_RECEPTOR_VERSION,
       xrpV34RuleVersion: XRP_V3_4_RULE_VERSION,
       xrpV34SchemaVersion: XRP_V3_4_SCHEMA_VERSION,
+      researchTelemetryReceptorVersion: RESEARCH_TELEMETRY_RECEPTOR_VERSION,
       forwardV3Recovery: recovery
     });
 

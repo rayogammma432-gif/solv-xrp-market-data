@@ -7,6 +7,9 @@ Generated from the 2026-10-04 audit and subsequent normative migrations. This fi
 | XRP CURRENT | ACTIVE_NORMATIVE | XRP_V3.6 | Descriptor entrypoint + immutable V3.5 base + V3.6 Mark-aware anti-chase override; SIGNALS A:AQ; ANALYSES A:DY |
 | XRP runtime receptor/schema | COMPATIBLE_REUSE | XRP_RECEPTOR_V3_4_V1 / XRP_V3_4_SCHEMA_DY_AQ_V1 | V3.6 is a rule-only normative upgrade; no Sheet schema migration required |
 | XRP analysis tracker | RUNTIME_COMPATIBLE | expiry-aware tracker | Tracker logic is unchanged by V3.6; thesis expiry continues to derive from canonical Thesis ID |
+| XRP decision telemetry | ACTIVE_SHADOW | XRP_DECISION_TELEMETRY_V1 | Append-only post-decision evidence; never participates in V3.6 gates or state |
+| XRP archive health | ACTIVE_SHADOW | XRP_ARCHIVE_HEALTH_V1 | Explicit 1m gap ledger; ambiguous counterfactual coverage resolves to UNKNOWN |
+| XRP execution-market archive | DEPLOYMENT_READY | XRP_EXECUTION_MARKET_V1 | Best-effort mark/index/funding/OI + bid/ask/spread/depth; research only |
 | XRP V3.6 regression guard | CI_GUARDED | termux/test_xrp_v36_normative.py via xrp-v3-4-preactivation.yml | Deterministic blob checks and Mark-aware LONG/SHORT truth table run automatically on V3.6 normative changes |
 | V3.5 | HISTORICAL | agents/XRP_V3_5_MASTER.txt | Never relabel prior rows or signals as V3.6; also serves as immutable base of the V3.6 composite authority |
 | V3.4 | HISTORICAL | agents/XRP_V3_4_MASTER.txt | Never relabel prior rows or signals |
@@ -121,3 +124,26 @@ The bootstrap resolves the manifest and status directly from GitHub. For V3.6 th
 The versioned regression guard is `termux/test_xrp_v36_normative.py`. It verifies descriptor/base/override pinned blobs and the Mark-aware LONG/SHORT truth table. It is attached to the existing `.github/workflows/xrp-v3-4-preactivation.yml`, whose path filters now include all V3.6 normative authority files, so normative changes trigger this guard automatically.
 
 The BASE remains intentionally larger than 8,000 characters and must never be compacted merely to fit Project instructions. The override is a narrow prospective delta, not a replacement summary of the base.
+
+## CURRENT research telemetry boundary
+
+XRP_V3.6 remains the complete normative authority. The following instrumentation is research/shadow only and must never alter a canonical decision, threshold, Entry/Stop/TP, thesis expiry, risk, state, blocker, or signal.
+
+For every normal CURRENT `ANALIZA`, after the canonical `ANALYSES` row has been persisted, append exactly one row to `XRP_DECISION_TELEMETRY_V1` under `research/XRP_DECISION_TELEMETRY_V1.md`.
+
+Required behavior:
+1. Telemetry ID is `DT1|<Analysis ID>`; duplicate IDs are not rewritten.
+2. Persist D1..D6 and E1..E5 individually with evidence, not only aggregate scores.
+3. Persist V3.6 anti-chase inputs/thresholds: `entryAnchorDist`, `markEntryExtension`, `RR_real`, and first obstacle.
+4. Persist exact setup/swing/invalidation/trigger evidence used at decision time when available.
+5. Persist structured BTC and 5m/1m execution context.
+6. Persist factual Model ID, Run Mode, and exact descriptor/base/override/tracker provenance. If the execution environment cannot identify a provenance field reliably, use `UNAVAILABLE`; never guess.
+7. Copy only contemporaneous market-execution evidence. Snapshots older than 90 seconds are stale and must not be represented as decision-time microstructure.
+8. Historical data not collected is `NOT_COLLECTED`/blank, never numeric zero.
+9. Telemetry write failure is research degradation only. It must not cause a different V3.6 decision or a retry under modified rules.
+
+The CURRENT receptor exposes a dedicated validated `decisionTelemetryRows` research payload. It requires the referenced `Analysis ID` to already exist in `ANALYSES`, validates the 103-column schema, and deduplicates by Telemetry ID. Generic `payload.sheets` remains forbidden from addressing this tab.
+
+`XRP_ARCHIVE_HEALTH` and `research/XRP_ARCHIVE_HEALTH_V1.md` govern replay coverage. When an OPEN/INVALIDATED 1m gap can change fill, barrier ordering, expiry, or the requested counterfactual metric, the scientific result is `UNKNOWN` rather than an inferred outcome.
+
+`XRP_EXECUTION_MARKET_V1` and `research/XRP_EXECUTION_MARKET_V1.md` archive best-effort execution context. Failure of book/depth collection never blocks the operational XRP feed.
