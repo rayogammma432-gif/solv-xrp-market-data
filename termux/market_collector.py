@@ -47,6 +47,7 @@ logger = logging.getLogger("market_collector")
 logger.setLevel(logging.INFO)
 if not logger.handlers:
     fmt = logging.Formatter("%(asctime)sZ %(levelname)s %(message)s", "%Y-%m-%dT%H:%M:%S")
+    fmt.converter = time.gmtime
     fh = RotatingFileHandler(LOG_DIR / "collector.log", maxBytes=2_000_000, backupCount=5, encoding="utf-8")
     fh.setFormatter(fmt)
     logger.addHandler(fh)
@@ -972,7 +973,8 @@ class Collector:
                 logger.info("%s %s: %d velas.", symbol, tf, len(self.caches[symbol][tf]))
 
         failures = []
-        for key in ("solv", "xrp"):
+        # XRP se publica primero para que un fallo/retry de SOLV no bloquee XRP CURRENT.
+        for key in ("xrp", "solv"):
             symbol, prefix = self._asset_spec(key)
             try:
                 market = get_market(self.session, symbol)
@@ -1038,9 +1040,10 @@ class Collector:
             for symbol in self.caches
         }
 
-        # 1m: siempre se consulta; solo se envían velas nuevas.
+        # 1m: siempre se consulta; una ventana de 30m permite catch-up tras ciclos lentos
+        # sin perder velas cuando un receptor externo bloquea/reintenta.
         for symbol in self.caches:
-            recent = get_recent_closed(self.session, symbol, "1m", limit=8)
+            recent = get_recent_closed(self.session, symbol, "1m", limit=30)
             new_by_symbol[symbol]["1m"] = update_cache(self.caches[symbol]["1m"], recent)
             changed["1m"] = changed["1m"] or bool(new_by_symbol[symbol]["1m"])
 
@@ -1054,8 +1057,28 @@ class Collector:
                     new_by_symbol[symbol][tf] = update_cache(self.caches[symbol][tf], recent)
                     changed[tf] = changed[tf] or bool(new_by_symbol[symbol][tf])
 
+        # Barrera final de sync: el fetch inicial puede cruzar un cierre de vela mientras
+        # procesa red/indicadores. Antes de construir LIVE_STATE, vuelve a alcanzar todo
+        # cierre que ya deba existir según UTC. Se hace una sola vez para mantener el
+        # mismo delta BTC destinado a XRP y SOLV.
+        barrier_now = utc_now()
+        for symbol in ("SOLVUSDT", "XRPUSDT", "BTCUSDT"):
+            for tf in SOLV_TFS:
+                if not cache_is_behind(self.caches[symbol][tf], tf, now=barrier_now):
+                    continue
+                limit = 30 if tf == "1m" else 12
+                recent = get_recent_closed(self.session, symbol, tf, limit=limit)
+                extra = update_cache(self.caches[symbol][tf], recent)
+                if not extra:
+                    continue
+                existing = new_by_symbol[symbol][tf]
+                seen = {str(r[0]) for r in existing}
+                existing.extend(r for r in extra if str(r[0]) not in seen)
+                changed[tf] = True
+
         failures = []
-        for key in ("solv", "xrp"):
+        # XRP primero: un POST lento/fallido de SOLV no debe convertir XRP en LAGGING.
+        for key in ("xrp", "solv"):
             symbol, prefix = self._asset_spec(key)
             try:
                 market = get_market(self.session, symbol)
