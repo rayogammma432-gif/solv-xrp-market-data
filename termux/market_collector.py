@@ -29,6 +29,15 @@ PAIRED_BENCHMARK_FORMAL_BATCH = "XRP_PAIR_FORMAL_V1"
 PAIRED_BENCHMARK_FORMAL_START_UTC = None
 PAIRED_SNAPSHOT_BARS = 250
 PAIRED_SNAPSHOT_CHUNK_BARS = 180
+EXECUTION_MARKET_SCHEMA_VERSION = "XRP_EXECUTION_MARKET_V1"
+EXECUTION_MARKET_DEPTH_LEVELS = 20
+
+def _runtime_git_blob_sha(path):
+    data = Path(path).read_bytes()
+    header = f"blob {len(data)}\0".encode("utf-8")
+    return hashlib.sha1(header + data).hexdigest()
+
+COLLECTOR_GIT_BLOB_SHA = _runtime_git_blob_sha(Path(__file__).resolve())
 LOG_DIR = HERE / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
@@ -179,6 +188,105 @@ def get_market(session, symbol):
         "nextFundingTimeUtc": utc_iso_ms(premium["nextFundingTime"]),
         "openInterest": float(oi["openInterest"]),
     }
+
+def enrich_execution_market(session, symbol, market):
+    """Best-effort research microstructure. Never fail the operational market feed."""
+    out = dict(market or {})
+    mark = float(out["markPrice"])
+    index = float(out["indexPrice"])
+    out["basis"] = mark - index
+    out["basisBps"] = ((mark / index) - 1.0) * 10_000.0 if index else None
+
+    for key in (
+        "bestBid", "bestAsk", "spread", "spreadBps",
+        "bestBidQty", "bestAskQty",
+        "bidDepthTop5Usdt", "askDepthTop5Usdt",
+        "bidDepthTop20Usdt", "askDepthTop20Usdt",
+        "depthLevels",
+    ):
+        out[key] = None
+
+    try:
+        book = get_json(session, f"/fapi/v1/ticker/bookTicker?symbol={symbol}", tries=1)
+        bid = float(book["bidPrice"])
+        ask = float(book["askPrice"])
+        out["bestBid"] = bid
+        out["bestAsk"] = ask
+        out["bestBidQty"] = float(book["bidQty"])
+        out["bestAskQty"] = float(book["askQty"])
+        out["spread"] = max(0.0, ask - bid)
+        mid = (ask + bid) / 2.0
+        out["spreadBps"] = (out["spread"] / mid) * 10_000.0 if mid else None
+    except Exception as exc:
+        logger.warning("%s microstructure bookTicker unavailable: %s", symbol, exc)
+
+    try:
+        depth = get_json(
+            session,
+            f"/fapi/v1/depth?symbol={symbol}&limit={EXECUTION_MARKET_DEPTH_LEVELS}",
+            tries=1,
+        )
+        bids = depth.get("bids") or []
+        asks = depth.get("asks") or []
+
+        def notional(levels, n):
+            return sum(float(px) * float(qty) for px, qty in levels[:n])
+
+        out["bidDepthTop5Usdt"] = notional(bids, 5)
+        out["askDepthTop5Usdt"] = notional(asks, 5)
+        out["bidDepthTop20Usdt"] = notional(bids, EXECUTION_MARKET_DEPTH_LEVELS)
+        out["askDepthTop20Usdt"] = notional(asks, EXECUTION_MARKET_DEPTH_LEVELS)
+        out["depthLevels"] = min(
+            len(bids), len(asks), EXECUTION_MARKET_DEPTH_LEVELS
+        )
+
+        if out["bestBid"] is None and bids:
+            out["bestBid"] = float(bids[0][0])
+            out["bestBidQty"] = float(bids[0][1])
+        if out["bestAsk"] is None and asks:
+            out["bestAsk"] = float(asks[0][0])
+            out["bestAskQty"] = float(asks[0][1])
+        if out["bestBid"] is not None and out["bestAsk"] is not None:
+            out["spread"] = max(0.0, out["bestAsk"] - out["bestBid"])
+            mid = (out["bestAsk"] + out["bestBid"]) / 2.0
+            out["spreadBps"] = (out["spread"] / mid) * 10_000.0 if mid else None
+    except Exception as exc:
+        logger.warning("%s microstructure depth unavailable: %s", symbol, exc)
+
+    return out
+
+
+def execution_market_row(market, generated_utc):
+    def v(key):
+        value = market.get(key)
+        return "" if value is None else value
+
+    return [
+        generated_utc,
+        EXECUTION_MARKET_SCHEMA_VERSION,
+        "XRPUSDT",
+        v("markPrice"),
+        v("indexPrice"),
+        v("basis"),
+        v("basisBps"),
+        v("fundingRate"),
+        v("nextFundingTimeUtc"),
+        v("openInterest"),
+        v("bestBid"),
+        v("bestAsk"),
+        v("spread"),
+        v("spreadBps"),
+        v("bestBidQty"),
+        v("bestAskQty"),
+        v("bidDepthTop5Usdt"),
+        v("askDepthTop5Usdt"),
+        v("bidDepthTop20Usdt"),
+        v("askDepthTop20Usdt"),
+        v("depthLevels"),
+        "BINANCE_FUTURES_REST",
+        COLLECTOR_GIT_BLOB_SHA,
+    ]
+
 
 def get_oi_history(session, symbol):
     data = get_json(
@@ -907,6 +1015,26 @@ class Collector:
         add("market.funding_rate", market["fundingRate"], "MARKET")
         add("market.next_funding_utc", market["nextFundingTimeUtc"], "MARKET")
         add("market.open_interest", market["openInterest"], "MARKET")
+        if key == "xrp":
+            optional_market_fields = (
+                ("market.basis", "basis"),
+                ("market.basis_bps", "basisBps"),
+                ("market.best_bid", "bestBid"),
+                ("market.best_ask", "bestAsk"),
+                ("market.spread", "spread"),
+                ("market.spread_bps", "spreadBps"),
+                ("market.best_bid_qty", "bestBidQty"),
+                ("market.best_ask_qty", "bestAskQty"),
+                ("market.bid_depth_top5_usdt", "bidDepthTop5Usdt"),
+                ("market.ask_depth_top5_usdt", "askDepthTop5Usdt"),
+                ("market.bid_depth_top20_usdt", "bidDepthTop20Usdt"),
+                ("market.ask_depth_top20_usdt", "askDepthTop20Usdt"),
+                ("market.depth_levels", "depthLevels"),
+            )
+            for live_name, market_key in optional_market_fields:
+                if market.get(market_key) is not None:
+                    add(live_name, market[market_key], "MARKET")
+            add("system.collector_git_blob_sha", COLLECTOR_GIT_BLOB_SHA, "SYSTEM")
 
         active_tfs = SOLV_TFS
 
@@ -993,6 +1121,8 @@ class Collector:
             symbol, prefix = self._asset_spec(key)
             try:
                 market = get_market(self.session, symbol)
+                if key == "xrp":
+                    market = enrich_execution_market(self.session, symbol, market)
                 sample, oi_row = make_oi_sample(market, self.oi_samples[key])
                 self.oi_samples[key].append(sample)
                 self.oi_samples[key] = self.oi_samples[key][-OI_SAMPLE_LIMIT:]
@@ -1039,6 +1169,10 @@ class Collector:
                         "liveState": self._build_live_state(key, market, changed, generated),
                         "sheets": {},
                     }
+                if key == "xrp":
+                    payload["executionMarketRows"] = [
+                        execution_market_row(market, generated)
+                    ]
                 if dry_run:
                     logger.info("%s BOOTSTRAP DRY-RUN OK.", symbol)
                 else:
@@ -1133,6 +1267,8 @@ class Collector:
             symbol, prefix = self._asset_spec(key)
             try:
                 market = get_market(self.session, symbol)
+                if key == "xrp":
+                    market = enrich_execution_market(self.session, symbol, market)
                 sample, oi_row = make_oi_sample(market, self.oi_samples[key])
                 self.oi_samples[key].append(sample)
                 self.oi_samples[key] = self.oi_samples[key][-OI_SAMPLE_LIMIT:]
@@ -1219,6 +1355,10 @@ class Collector:
                     "liveState": live_state,
                     "sheets": sheets,
                 }
+                if key == "xrp":
+                    payload["executionMarketRows"] = [
+                        execution_market_row(market, generated)
+                    ]
                 if bool(new_by_symbol[symbol]["15m"]):
                     payload["oiHistory"] = get_oi_history(self.session, symbol)
                 if signal_updates:
