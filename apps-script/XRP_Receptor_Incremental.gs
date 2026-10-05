@@ -31,6 +31,9 @@ const PAIRED_OUTCOME_VERSION = 'XRP_PAIRED_OUTCOME_V1';
 const MAX_RESEARCH_ROWS = 3000;
 const EXECUTION_MARKET_COLS = 23;
 const ARCHIVE_HEALTH_COLS = 17;
+const DECISION_TELEMETRY_COLS = 103;
+const DECISION_TELEMETRY_SCHEMA_VERSION = 'XRP_DECISION_TELEMETRY_V1';
+const RESEARCH_TELEMETRY_RECEPTOR_VERSION = 'XRP_RESEARCH_TELEMETRY_V1';
 const EXECUTION_MARKET_SCHEMA_VERSION = 'XRP_EXECUTION_MARKET_V1';
 const ARCHIVE_HEALTH_SCHEMA_VERSION = 'XRP_ARCHIVE_HEALTH_V1';
 
@@ -565,6 +568,64 @@ function getPendingAnalyses_(ss) {
   });
 
   return out.slice(-500);
+}
+
+function appendDecisionTelemetry_(ss, rows) {
+  rows = validateResearchRows_(
+    Array.isArray(rows) ? rows : [],
+    DECISION_TELEMETRY_COLS,
+    'DECISION_TELEMETRY'
+  );
+  if (!rows.length) return 0;
+
+  const analyses = sheet_(ss, 'ANALYSES');
+  const analysisIds = {};
+  if (analyses.getLastRow() >= 2) {
+    analyses.getRange(2, 1, analyses.getLastRow() - 1, 1)
+      .getValues()
+      .forEach(function(r) {
+        const id = String(r[0] || '');
+        if (id) analysisIds[id] = true;
+      });
+  }
+
+  const sh = sheet_(ss, 'XRP_DECISION_TELEMETRY_V1');
+  const existing = {};
+  if (sh.getLastRow() >= 2) {
+    sh.getRange(2, 1, sh.getLastRow() - 1, 1)
+      .getValues()
+      .forEach(function(r) {
+        const id = String(r[0] || '');
+        if (id) existing[id] = true;
+      });
+  }
+
+  const toAppend = [];
+  rows.forEach(function(row, idx) {
+    const telemetryId = String(row[0] || '');
+    const schema = String(row[1] || '');
+    const analysisId = String(row[2] || '');
+
+    if (schema !== DECISION_TELEMETRY_SCHEMA_VERSION) {
+      throw new Error('DECISION_TELEMETRY_SCHEMA_INVALID row=' + idx);
+    }
+    if (!analysisId || !analysisIds[analysisId]) {
+      throw new Error('DECISION_TELEMETRY_ANALYSIS_ID_INVALID row=' + idx);
+    }
+    if (telemetryId !== 'DT1|' + analysisId) {
+      throw new Error('DECISION_TELEMETRY_ID_INVALID row=' + idx);
+    }
+    if (existing[telemetryId]) return;
+    existing[telemetryId] = true;
+    toAppend.push(row);
+  });
+
+  if (!toAppend.length) return 0;
+  const startRow = sh.getLastRow() + 1;
+  ensureRows_(sh, startRow + toAppend.length - 1);
+  sh.getRange(startRow, 1, toAppend.length, DECISION_TELEMETRY_COLS)
+    .setValues(toAppend);
+  return toAppend.length;
 }
 
 function applyAnalysisUpdates_(ss, updates) {
@@ -1305,6 +1366,15 @@ function doPost(e) {
       counts.ANALYSIS_UPDATES = applyAnalysisUpdates_(ss, payload.analysisUpdates);
     }
 
+    // Research-only append. The canonical ANALYSES row must already exist.
+    // Telemetry can never create or alter an operational decision.
+    if (Array.isArray(payload.decisionTelemetryRows)) {
+      counts.XRP_DECISION_TELEMETRY = appendDecisionTelemetry_(
+        ss,
+        payload.decisionTelemetryRows
+      );
+    }
+
     if (Array.isArray(payload.alertEvents)) {
       counts.ALERT_EVENTS = appendAlertEvents_(ss, payload.alertEvents);
     }
@@ -1364,6 +1434,7 @@ function doPost(e) {
       xrpV34ReceptorVersion: XRP_V3_4_RECEPTOR_VERSION,
       xrpV34RuleVersion: XRP_V3_4_RULE_VERSION,
       xrpV34SchemaVersion: XRP_V3_4_SCHEMA_VERSION,
+      researchTelemetryReceptorVersion: RESEARCH_TELEMETRY_RECEPTOR_VERSION,
       forwardV3Recovery: recovery
     });
 
