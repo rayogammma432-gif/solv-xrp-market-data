@@ -8,7 +8,7 @@ Generated from the 2026-10-04 SOLV audit. This file records operational state; f
 | SOLV receptor hardening | DEPLOYED_VERIFIED | SOLV_RECEPTOR_V3_4_V2 | GET health and forbidden-sheet negative probe verified 2026-10-04T21:31Z |
 | V3.3 | HISTORICAL | SOLV_V3.3 | Historical/rollback reference only |
 | Backfill | ACTIVE_RESEARCH_ONLY | RESEARCH_BACKFILL_AGENT_V2 + BACKFILL_FILTER_R1 | Never counts as prospective R1 evidence and never creates retrospective trades |
-| SOLV Forward V3.4 R1 | PRELAUNCH_READY | SOLV_FORWARD_V3_4_R1 | Normative-lock revalidation passed before cutoff; formal start remains 2026-10-05T06:00:00Z |
+| SOLV Forward V3.4 R1 | ACTIVE_R1 | SOLV_FORWARD_V3_4_R1 | Formal start 2026-10-05T06:00:00Z passed after readiness revalidation; confirmatory collection is active |
 | Prelaunch V3.4 smoke | EXCLUDED_CONFIRMATORY | SOLV-20261003T231611Z-AN | Useful operational smoke only; not part of R1 sample |
 
 ## R1 launch boundary
@@ -135,3 +135,42 @@ The loader resolves:
 The manifest freezes the expected Git blob of the full master. CI fails if the declared blob differs from `git hash-object` of the master, if required paths are missing, or if the bootstrap exceeds 8,000 characters.
 
 This loader architecture does not change R1 trading rules, source identities or the formal prospective start. It only changes how Project instructions obtain the authoritative rules.
+
+
+## R1 ACTIVE state and mandatory ANALIZA persistence handshake — 2026-10-05
+
+Formal start `2026-10-05T06:00:00Z` has passed with pre-start readiness already verified. Operational phase is therefore `ACTIVE_R1` for `SOLV_FORWARD_V3_4_R1`. This status transition changes no trading threshold, direction rule, risk rule, target, thesis rule, or scientific hypothesis.
+
+### Persistence incident
+
+A post-start SOLV analysis was produced in chat around `2026-10-05T16:35Z` but no corresponding row was persisted to `ANALYSES`, and no `SIGNALS` row was persisted despite the chat decision reporting `ACTIVE_SHORT`.
+
+Under the preregistered integrity rule, that missing prospective evidence is not reconstructed after the fact and is excluded from the confirmatory R1 sample. It remains an operational persistence incident only.
+
+Root cause: the Apps Script receptor's `analysisUpdates` and `signalUpdates` handlers update rows that already exist; they do not create the base ANALYSES/SIGNALS rows. Creation of the base decision row is therefore an agent-side responsibility.
+
+### Mandatory transaction for every future ANALIZA SOLV
+
+Every `ANALIZA SOLV` is incomplete until the following transaction succeeds:
+
+1. Load and validate the manifest/status/master/forward protocol required by the Project bootstrap.
+2. Read live `MARKET` + `LIVE_STATE` and required SOLV/BTC timeframes under the frozen V3.4 source/sync rules.
+3. Compute the decision under the frozen `SOLV_V3.4` master. No rule change is introduced here.
+4. Persist exactly one base row to `ANALYSES` for the decision, including at minimum the required provenance/state fields: Analysis ID, Analysis UTC, Origin, overall state, Rule Version `SOLV_V3.4`, Live Mode, Execution Gate, Plan Direction, Geometry Valid, Thesis ID/expiry/lifecycle when applicable, Execution Blocker, and Shadow TP1 1R when geometry exists. Preserve tracker-owned telemetry cells.
+5. If and only if the decision is operational `ACTIVE_SHORT` with Execution Gate `PASS`, valid nonexpired/nonduplicate thesis, valid geometry, and open daily risk gate, persist the corresponding `SIGNALS` row with `SHORT_EXPERIMENTAL` and the frozen R1 risk. LONG never creates a SIGNAL.
+6. Immediately read back the newly written ANALYSES row by exact Analysis ID and verify the critical fields. If a SIGNAL was required, read it back by exact Signal ID and verify Rule Version, Live Mode, Execution Gate, Thesis ID, expiry, levels and risk.
+7. Only after successful read-back may the assistant state that the analysis is recorded in R1. A chat-only result is not a recorded sample.
+
+If the ANALYSES write or verification fails:
+- return `PERSISTENCE_FAILED`;
+- do not claim the observation entered R1;
+- do not create a retrospective replacement later;
+- preserve the live decision in the conversation only as operational incident evidence.
+
+If an ACTIVE_SHORT requires SIGNAL persistence and that write/read-back fails:
+- return `SIGNAL_PERSISTENCE_FAILED`;
+- do not claim an operational signal exists;
+- do not infer an order or position;
+- do not reconstruct the signal retrospectively for confirmatory counting.
+
+This handshake is an operational integrity control only. It does not modify the frozen master blob `4329831141517db8ff59918b228e74230ae8dd00` or the scientific rules of `SOLV_FORWARD_V3_4_R1`.
