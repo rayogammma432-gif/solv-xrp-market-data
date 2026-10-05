@@ -74,7 +74,7 @@ class TelegramNotifier:
                     "text": text,
                     "disable_web_page_preview": True,
                 },
-                timeout=20,
+                timeout=5,
             )
             r.raise_for_status()
             data = r.json()
