@@ -92,14 +92,14 @@ Verified before cutoff on `2026-10-04T21:33:41Z`:
 - live MARKET/LIVE_STATE updated at `2026-10-04T21:33:11.781Z`;
 - last closed SOLV 1m candle and expected last close both equaled `2026-10-04T21:32:59.999Z`.
 
-R1 remains prelaunch until the formal prospective start. No pre-start observation becomes confirmatory evidence.
+At the time of this readiness verification, R1 remained prelaunch until the formal prospective start. That historical note is now superseded by the ACTIVE_R1 state declared below. No pre-start observation becomes confirmatory evidence.
 
 
 ## Normative audit amendment
 
 Before the formal R1 start, a master-instruction audit found three execution-specification defects: missing explicit BASE_PASS thresholds after V3.4 compaction, thesis expiry not enforced by the analysis tracker, and missing deterministic state precedence.
 
-A pre-start amendment fixes those defects without using post-start evidence or optimizing historical outcomes. The formal R1 start and cutoff remain unchanged. That revalidation has now passed. R1 is `PRELAUNCH_READY` and remains prelaunch until the formal start.
+A pre-start amendment fixed those defects without using post-start evidence or optimizing historical outcomes. The formal R1 start and cutoff remained unchanged. That revalidation passed before cutoff. This paragraph records the historical pre-start state; the current operational phase is `ACTIVE_R1` as declared below.
 
 
 ## Normative-lock readiness verification
