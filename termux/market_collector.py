@@ -116,11 +116,11 @@ def get_json(session, path, tries=3):
                 time.sleep(2 * attempt)
     raise RuntimeError(f"GET falló tras {tries} intentos: {url} :: {last}")
 
-def post_json(session, url, payload, tries=3):
+def post_json(session, url, payload, tries=3, timeout=90):
     last = None
     for attempt in range(1, tries + 1):
         try:
-            r = session.post(url, json=payload, timeout=90, allow_redirects=True)
+            r = session.post(url, json=payload, timeout=timeout, allow_redirects=True)
             r.raise_for_status()
             data = r.json()
             if not data.get("ok"):
@@ -963,7 +963,7 @@ class Collector:
         add("oi.change_4h_pct", latest_oi.get("d240"), "OI 4H", "Muestreo local del OI actual")
         return rows
 
-    def bootstrap(self, dry_run=False):
+    def bootstrap(self, dry_run=False, publish_full=True):
         logger.info("BOOTSTRAP: cargando %d velas cerradas por temporalidad.", CACHE_LIMIT)
         for symbol in self.caches:
             for tf in self.caches[symbol]:
@@ -984,53 +984,89 @@ class Collector:
                 generated = utc_iso_now()
                 active_tfs = SOLV_TFS
                 changed = {tf: True for tf in active_tfs}
-                payload = {
-                    "secret": self.cfg[key]["shared_secret"],
-                    "mode": "bootstrap",
-                    "generatedAtUtc": generated,
-                    "market": market,
-                    "oiHistory": get_oi_history(self.session, symbol),
-                    "oi1m": [[
-                        x["timestamp"], x["oi"], x["oi_value"],
-                        x.get("d1"), x.get("d5"), x.get("d15"), x.get("d60"), x.get("d240"),
-                        "MUESTREO_LOCAL_OI_ACTUAL"
-                    ] for x in self.oi_samples[key]],
-                    "liveState": self._build_live_state(key, market, changed, generated),
-                    "sheets": {
-                        f"{prefix}_1M": self.caches[symbol]["1m"],
-                        f"{prefix}_5M": self.caches[symbol]["5m"],
-                        f"{prefix}_15M": self.caches[symbol]["15m"],
-                        f"{prefix}_1H": self.caches[symbol]["1h"],
-                        f"{prefix}_4H": self.caches[symbol]["4h"],
-                        f"{prefix}_1D": self.caches[symbol]["1d"],
-                        "BTC_1M": self.caches["BTCUSDT"]["1m"],
-                        "BTC_5M": self.caches["BTCUSDT"]["5m"],
-                        "BTC_15M": self.caches["BTCUSDT"]["15m"],
-                        "BTC_1H": self.caches["BTCUSDT"]["1h"],
-                        "BTC_4H": self.caches["BTCUSDT"]["4h"],
-                        "BTC_1D": self.caches["BTCUSDT"]["1d"],
-                    },
-                }
+                if publish_full:
+                    payload = {
+                        "secret": self.cfg[key]["shared_secret"],
+                        "mode": "bootstrap",
+                        "generatedAtUtc": generated,
+                        "market": market,
+                        "oiHistory": get_oi_history(self.session, symbol),
+                        "oi1m": [[
+                            x["timestamp"], x["oi"], x["oi_value"],
+                            x.get("d1"), x.get("d5"), x.get("d15"), x.get("d60"), x.get("d240"),
+                            "MUESTREO_LOCAL_OI_ACTUAL"
+                        ] for x in self.oi_samples[key]],
+                        "liveState": self._build_live_state(key, market, changed, generated),
+                        "sheets": {
+                            f"{prefix}_1M": self.caches[symbol]["1m"],
+                            f"{prefix}_5M": self.caches[symbol]["5m"],
+                            f"{prefix}_15M": self.caches[symbol]["15m"],
+                            f"{prefix}_1H": self.caches[symbol]["1h"],
+                            f"{prefix}_4H": self.caches[symbol]["4h"],
+                            f"{prefix}_1D": self.caches[symbol]["1d"],
+                            "BTC_1M": self.caches["BTCUSDT"]["1m"],
+                            "BTC_5M": self.caches["BTCUSDT"]["5m"],
+                            "BTC_15M": self.caches["BTCUSDT"]["15m"],
+                            "BTC_1H": self.caches["BTCUSDT"]["1h"],
+                            "BTC_4H": self.caches["BTCUSDT"]["4h"],
+                            "BTC_1D": self.caches["BTCUSDT"]["1d"],
+                        },
+                    }
+                else:
+                    # Arranque operativo ligero: carga caches desde Binance pero no
+                    # reescribe 500 velas por tab. Solo sincroniza estado/receptor.
+                    payload = {
+                        "secret": self.cfg[key]["shared_secret"],
+                        "mode": "incremental",
+                        "generatedAtUtc": generated,
+                        "market": market,
+                        "oi1m": [oi_row],
+                        "liveState": self._build_live_state(key, market, changed, generated),
+                        "sheets": {},
+                    }
                 if dry_run:
                     logger.info("%s BOOTSTRAP DRY-RUN OK.", symbol)
                 else:
-                    response = post_json(self.session, self.cfg[key]["web_app_url"], payload)
+                    if publish_full:
+                        response = post_json(self.session, self.cfg[key]["web_app_url"], payload)
+                    else:
+                        response = post_json(
+                            self.session,
+                            self.cfg[key]["web_app_url"],
+                            payload,
+                            tries=1,
+                            timeout=15,
+                        )
                     self.open_signals[key] = list(response.get("openSignals", []))
                     self.pending_analyses[key] = list(response.get("pendingAnalyses", []))
-                    logger.info("%s BOOTSTRAP OK: %s", symbol, response)
+                    logger.info(
+                        "%s BOOTSTRAP %s OK: %s",
+                        symbol,
+                        "FULL" if publish_full else "LIGHT",
+                        response,
+                    )
             except Exception as exc:
                 failures.append((symbol, str(exc)))
                 logger.exception("%s BOOTSTRAP FALLÓ: %s", symbol, exc)
 
         save_oi_samples(self.oi_samples)
-        if failures:
+        if failures and publish_full:
             raise RuntimeError(f"Bootstrap con fallos: {failures}")
+        if failures:
+            logger.error(
+                "BOOTSTRAP LIGHT con fallos no bloqueantes: %s. "
+                "Se reintentará por ciclos incrementales.",
+                failures,
+            )
         self.bootstrapped = True
-        logger.info("BOOTSTRAP completo SOLV + XRP.")
+        logger.info(
+            "BOOTSTRAP %s completo SOLV + XRP.",
+            "FULL" if publish_full else "LIGHT",
+        )
 
     def incremental_cycle(self, dry_run=False):
         if not self.bootstrapped:
-            self.bootstrap(dry_run=dry_run)
+            self.bootstrap(dry_run=dry_run, publish_full=False)
             return
 
         now = utc_now()
