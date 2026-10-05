@@ -37,6 +37,13 @@ El preregistro/protocolo vigente fija las restricciones científicas del experim
 SOLV_V3_4_MASTER.txt define la lógica operativa completa.
 Si dos documentos autoritativos parecen incompatibles, fallar cerrado en vez de elegir uno arbitrariamente.
 
+
+CIERRE TRANSACCIONAL DE ANALIZA
+El estado operativo cargado desde status_path puede definir controles de persistencia de R1. Son obligatorios.
+Un `ANALIZA SOLV` no está completo por haber producido una respuesta en chat: debe persistir la fila base de `ANALYSES` y verificarla mediante read-back según el status vigente.
+Si la decisión requiere `SIGNALS`, esa escritura también debe verificarse antes de afirmar que existe una señal.
+Si falla escritura o read-back, informar `PERSISTENCE_FAILED` o `SIGNAL_PERSISTENCE_FAILED` según corresponda y nunca reconstruir retrospectivamente la observación como evidencia confirmatoria.
+
 DATOS DE MERCADO
 GitHub contiene reglas, versiones y estado; NO sustituye los datos live.
 La fuente de mercado obligatoria y sus reglas de frescura/sync son exclusivamente las definidas por el master cargado.
