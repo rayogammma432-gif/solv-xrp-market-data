@@ -116,6 +116,21 @@ def get_json(session, path, tries=3):
                 time.sleep(2 * attempt)
     raise RuntimeError(f"GET falló tras {tries} intentos: {url} :: {last}")
 
+def response_summary(response):
+    response = response or {}
+    return {
+        "ok": response.get("ok"),
+        "status": response.get("status"),
+        "mode": response.get("mode"),
+        "updatedAtUtc": response.get("updatedAtUtc"),
+        "rows": response.get("rows"),
+        "archiveRows": response.get("archiveRows"),
+        "archiveError": response.get("archiveError"),
+        "openSignals": len(response.get("openSignals") or []),
+        "pendingAnalyses": len(response.get("pendingAnalyses") or []),
+    }
+
+
 def post_json(session, url, payload, tries=3, timeout=90):
     last = None
     for attempt in range(1, tries + 1):
@@ -1043,7 +1058,7 @@ class Collector:
                         "%s BOOTSTRAP %s OK: %s",
                         symbol,
                         "FULL" if publish_full else "LIGHT",
-                        response,
+                        response_summary(response),
                     )
             except Exception as exc:
                 failures.append((symbol, str(exc)))
@@ -1241,7 +1256,9 @@ class Collector:
                         save_alert_research_state(self.alert_research_state)
                     logger.info(
                         "%s DELTA OK: sheets=%s response=%s",
-                        symbol, {k: len(v) for k, v in sheets.items()}, response
+                        symbol,
+                        {k: len(v) for k, v in sheets.items()},
+                        response_summary(response),
                     )
                     try:
                         asset_flags = {
