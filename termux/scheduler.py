@@ -18,7 +18,7 @@ def main():
         try:
             if not collector.bootstrapped:
                 logger.info("Scheduler 1m iniciado: ejecutando bootstrap completo.")
-                collector.bootstrap(dry_run=False)
+                collector.bootstrap(dry_run=False, publish_full=False)
             else:
                 collector.incremental_cycle(dry_run=False)
         except Exception as exc:
