@@ -1,0 +1,53 @@
+{
+  "manifest_version": "XRP_MULTIAGENT_LAB_MANIFEST_V1",
+  "status": "SETUP_ONLY_SHADOW",
+  "repository": "rayogammma432-gif/solv-xrp-market-data",
+  "ref": "lab/xrp-multiagent-v1",
+  "source": {
+    "spreadsheet_id": "1ag0yaE0hcDoG8uED4qejfHGlD2OuXZxvUPYZRUzjqG0",
+    "allowed_read_ranges": [
+      "LIVE_STATE!A1:E214"
+    ],
+    "read_only": true
+  },
+  "production_manifest_untouched": "agents/XRP_MASTER_MANIFEST.json",
+  "current_rule_version_reference": "XRP_V3.6",
+  "protocol_path": "research/XRP_MULTIAGENT_ISOLATION_V1.md",
+  "protocol_git_blob_sha": "bbec664e7326e159039de922e1f2354458b6172d",
+  "agents": {
+    "A": {
+      "agent_id": "XRP_AGENT_A_V1",
+      "master_path": "agents/XRP_AGENT_A_MASTER_V1.md",
+      "master_git_blob_sha": "d1f528e7971abd7aecd5721596599eaedfda01e1",
+      "destination_sheet_id": "1e9NLM4TZLl5eZgrMdQ6eg4TRNfuKXXcqEv8gJO86lcs",
+      "write_tabs": [
+        "RUNS",
+        "DECISIONS",
+        "AUDIT"
+      ],
+      "trading_enabled": false
+    },
+    "B": {
+      "agent_id": "XRP_AGENT_B_V1",
+      "master_path": "agents/XRP_AGENT_B_MASTER_V1.md",
+      "master_git_blob_sha": "4c00fbe63731e0fe737e43f79d32965d7ceec155",
+      "destination_sheet_id": "15egzvPYgLwdGtEMYfsiLDRZRWsRSbw-KTNQf3KUnUPU",
+      "write_tabs": [
+        "RUNS",
+        "DECISIONS",
+        "AUDIT"
+      ],
+      "trading_enabled": false
+    }
+  },
+  "comparison": {
+    "spreadsheet_id": "1VJDdlItLry7EWKndsWLvzuwhD362In3g0KBcOJbDKrg",
+    "post_decision_only": true
+  },
+  "activation": {
+    "isolated_credentials_verified": false,
+    "negative_permission_tests_passed": false,
+    "same_snapshot_dry_run_passed": false,
+    "automation_enabled": false
+  }
+}
