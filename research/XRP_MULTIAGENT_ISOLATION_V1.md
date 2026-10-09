@@ -35,7 +35,7 @@ Capture provenance: UTC, source spreadsheet id, observed clock, collector id, sh
 ## Run and output contract
 No order API, no Telegram production channel, no SIGNAL, no ACTIVE, no user trade modification.
 Allowed decision: SHADOW_LONG, SHADOW_SHORT, NO_TRADE, DATA_INSUFFICIENT.
-Allowed RUN status: STARTED, COMPLETE, DATA_INSUFFICIENT, PERSISTENCE_FAILED. RUNS and DECISIONS are append-only; do not rewrite history. run_id is deterministic agent_id/master blob SHA/snapshot SHA/model ID/run mode. Every decision_id references a single run_id.
+Allowed RUN status: STARTED, COMPLETE, DATA_INSUFFICIENT, PERSISTENCE_FAILED. RUNS is append-only except that the status of a freshly appended STARTED row may transition once to COMPLETE or DATA_INSUFFICIENT after successful read-back verification of RUNS, DECISIONS and AUDIT. Existing terminal rows are immutable; partial STARTED rows require manual reconciliation. DECISIONS remains immutable and append-only. run_id is deterministic agent_id/master blob SHA/snapshot SHA/model ID/run mode. Every decision_id references a single run_id.
 Every run must persist RUNS + DECISIONS + AUDIT with read-back verification before reporting COMPLETE. If a partial write occurred, do not generate a new run_id; audit and reconcile idempotently. No concurrency without an external single-writer lock per agent; Sheets is not a transactional database and append is not atomic across tabs.
 Do not infer model ID; record exact or UNAVAILABLE. Run mode is MANUAL_SHADOW / AUTOMATED_SHADOW and must be factual.
 Do not treat results as PnL. OUTCOMES only after horizon maturity and under separately preregistered fees, fill/slippage, risk model and same capture cohorts.
