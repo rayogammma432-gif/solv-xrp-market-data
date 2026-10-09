@@ -1,0 +1,20 @@
+name: XRP Multiagent Lab V1 isolated checks
+on:
+  push:
+    branches:
+      - lab/xrp-multiagent-v1
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-lab-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Syntax and offline invariants (no credentials)
+        run: |
+          python -m py_compile lab/xrp_multiagent_v1.py
+          python -m unittest discover -s lab -p "test_xrp_multiagent_v1.py" -v
