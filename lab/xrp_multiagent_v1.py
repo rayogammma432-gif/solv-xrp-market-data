@@ -161,8 +161,11 @@ def append_checked(svc, book, spec, decision, args):
     existing = svc.values().get(spreadsheetId=book, range="RUNS!A1:N2000").execute().get("values",[])
     if not existing or existing[0][0]!="run_id": raise RuntimeError("Schema mismatch")
     run_id = args["run_id"]
-    if any(row and row[0]==run_id for row in existing[1:]):
-        print("DUPLICATE_RUN", run_id); return
+    for row in existing[1:]:
+        if row and row[0]==run_id:
+            if len(row)>11 and row[11] in ("COMPLETE","DATA_INSUFFICIENT"):
+                print("DUPLICATE_RUN", run_id); return
+            raise RuntimeError("PERSISTENCE_FAILED_RECONCILE: existing incomplete RUNS row")
     for tab, col in [("DECISIONS","A"),("AUDIT","A")]:
         val = svc.values().get(spreadsheetId=book,range=f"{tab}!{col}1:{col}2000").execute()
         if not val.get("values") or not val["values"][0] : raise RuntimeError(f"Schema mismatch {tab}")
@@ -174,7 +177,7 @@ def append_checked(svc, book, spec, decision, args):
     utc=args["when"]
     run_row=[run_id,spec["agent_id"],args["snapshot_id"],args["snapshot_utc"],utc,
              args["model_id"],args["run_mode"],"LAB_V1",spec["master_git_blob_sha"],
-             args["snapshot_sha"],"OK","COMPLETE" if decision[1]!="DATA_INSUFFICIENT" else "DATA_INSUFFICIENT",
+             args["snapshot_sha"],"OK","STARTED",
              args["decision_id"],"MANUAL_DEPLOYMENT_ONLY"]
     decision_row=[args["decision_id"],run_id,spec["agent_id"],args["snapshot_id"],
       "XRPUSDT",args["snapshot_utc"],decision[0],
@@ -196,7 +199,14 @@ def append_checked(svc, book, spec, decision, args):
         got=svc.values().get(spreadsheetId=book,range=f"{tab}!A{row}").execute().get("values",[])
         if not got or not got[0] or got[0][0]!=key:
             raise RuntimeError("PERSISTENCE_FAILED read-back "+tab)
-    print("COMPLETE", spec["agent_id"],run_id,decision[1])
+    final_status = "DATA_INSUFFICIENT" if decision[1]=="DATA_INSUFFICIENT" else "COMPLETE"
+    svc.values().update(
+        spreadsheetId=book,range=f"RUNS!L{idx(existing)}",valueInputOption="RAW",
+        body={"values":[[final_status]]}).execute()
+    status=svc.values().get(spreadsheetId=book,range=f"RUNS!L{idx(existing)}").execute().get("values",[])
+    if not status or status[0][0]!=final_status:
+        raise RuntimeError("PERSISTENCE_FAILED: completion status readback")
+    print(final_status, spec["agent_id"],run_id,decision[1])
 
 
 def run(agent, snap_path):
