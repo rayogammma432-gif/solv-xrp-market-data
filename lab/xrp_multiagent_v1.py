@@ -37,8 +37,12 @@ def blob_sha(data):
 
 def load_manifest():
     m = json.loads(MANIFEST.read_text(encoding="utf-8"))
-    assert m["status"] == "SETUP_ONLY_SHADOW"
-    assert m["production_manifest_untouched"] == "agents/XRP_MASTER_MANIFEST.json"
+    if m.get("status") != "SETUP_ONLY_SHADOW":
+        raise RuntimeError("LAB_MODE_INVALID")
+    if m.get("production_manifest_untouched") != "agents/XRP_MASTER_MANIFEST.json":
+        raise RuntimeError("PRODUCTION_BOUNDARY_MISMATCH")
+    if blob_sha(Path(__file__).read_bytes()) != m.get("runner_git_blob_sha"):
+        raise RuntimeError("RUNNER_MISMATCH")
     for spec in [dict(master_path=m["protocol_path"], master_git_blob_sha=m["protocol_git_blob_sha"]),
                  *m["agents"].values()]:
         p = ROOT / spec["master_path"]
