@@ -32,7 +32,7 @@ def sha256(obj):
 
 
 def blob_sha(data):
-    return hashlib.sha1(b"blob " + str(len(data)).encode() + b"\\0" + data).hexdigest()
+    return hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
 
 
 def load_manifest():
@@ -113,7 +113,7 @@ def capture(output):
     obj["snapshot_id"] = "XLAB1|" + obj["snapshot_sha256"][:24]
     path = Path(output)
     if path.exists(): raise RuntimeError("Refuse overwrite of frozen capture")
-    path.write_bytes(canonical(obj) + b"\\n")
+    path.write_bytes(canonical(obj) + b"\n")
     print("CAPTURED", obj["snapshot_id"], obj["snapshot_sha256"])
 
 
