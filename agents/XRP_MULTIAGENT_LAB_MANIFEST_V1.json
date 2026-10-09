@@ -13,7 +13,7 @@
   "production_manifest_untouched": "agents/XRP_MASTER_MANIFEST.json",
   "current_rule_version_reference": "XRP_V3.6",
   "protocol_path": "research/XRP_MULTIAGENT_ISOLATION_V1.md",
-  "protocol_git_blob_sha": "bbec664e7326e159039de922e1f2354458b6172d",
+  "protocol_git_blob_sha": "a8c37b8b3ef049c348eb01edf3aa2a8c262e4afb",
   "agents": {
     "A": {
       "agent_id": "XRP_AGENT_A_V1",
@@ -49,5 +49,7 @@
     "negative_permission_tests_passed": false,
     "same_snapshot_dry_run_passed": false,
     "automation_enabled": false
-  }
+  },
+  "runner_path": "lab/xrp_multiagent_v1.py",
+  "runner_git_blob_sha": "b282180317ebb26396be25c4f2f4bf731401b490"
 }
