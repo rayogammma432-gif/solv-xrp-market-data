@@ -222,6 +222,9 @@ def run(agent, snap_path):
     if body["source_sheet_id"]!=m["source"]["spreadsheet_id"]:
         raise RuntimeError("Unauthorized input sheet")
     validate(body["state"],body["snapshot_utc"],body["captured_at_utc"])
+    lag=(dt.datetime.now(UTC)-timestamp(body["captured_at_utc"])).total_seconds()
+    if lag < -15 or lag > 300:
+        raise RuntimeError(f"STALE_CAPTURE_FOR_LIVE_RUN lag={lag}")
     decision=assess(agent,body["state"])
     model="PY_RULE_ENGINE_V1"
     mode="AUTOMATED_SHADOW"
