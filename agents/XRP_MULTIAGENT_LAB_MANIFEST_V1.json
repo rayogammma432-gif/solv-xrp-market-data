@@ -51,5 +51,5 @@
     "automation_enabled": false
   },
   "runner_path": "lab/xrp_multiagent_v1.py",
-  "runner_git_blob_sha": "b282180317ebb26396be25c4f2f4bf731401b490"
+  "runner_git_blob_sha": "9a98d9400afbaa841f5c374d3e9f2744000d8d8e"
 }
